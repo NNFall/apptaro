@@ -1,0 +1,16 @@
+services:
+  appslides_backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: appslides_backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    volumes:
+      - ./data:/data
+      - ./templates:/app/runtime/templates
+      - ./temp:/app/runtime/temp
+      - ./logs:/app/logs
