@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_scope.dart';
@@ -32,6 +33,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _composerController = TextEditingController();
+  final FocusNode _composerFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = <_ChatMessage>[];
   final Set<String> _savingAttachmentIds = <String>{};
@@ -56,8 +58,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _lastConverterError;
   String? _lastConverterStatusKey;
   String? _lastConverterResultKey;
-  String? _lastBillingError;
   String? _lastBillingPaymentStatusKey;
+  String? _outlineProgressMessageId;
+  String? _renderPreparationMessageId;
+  String? _presentationStatusMessageId;
+  String? _billingProgressMessageId;
   PresentationTemplate? _pendingTemplateAfterPayment;
   bool _resumingPresentationAfterPayment = false;
 
@@ -118,6 +123,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _historyRepository?.removeListener(_handleExternalStateChanged);
     _savedFilesRepository?.removeListener(_handleExternalStateChanged);
     _composerController.dispose();
+    _composerFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -176,6 +182,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                         _ComposerBar(
                           controller: _composerController,
+                          focusNode: _composerFocusNode,
                           mode: _composerMode,
                           onMenuPressed: () => unawaited(_runAction(
                             _ChatAction(
@@ -276,6 +283,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
+    FocusScope.of(context).unfocus();
+    _composerFocusNode.unfocus();
     _composerController.clear();
     _appendUserMessage(raw);
 
@@ -333,7 +342,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() {});
     }
     _appendBotMessage(
-      'Главное меню 📌',
+      '**Главное меню** 📌',
       keyboard: _mainMenuKeyboard(),
     );
   }
@@ -341,12 +350,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _showHelp() {
     final supportUsername = _currentSupportUsername();
     _appendBotMessage(
-      '❓ Помощь\n'
-      '1. Нажми «Создать презентацию» или просто отправь тему.\n'
+      '**❓ Помощь**\n'
+      '1. Нажми **«Создать презентацию»** или просто отправь тему.\n'
       '2. Выбери число слайдов.\n'
       '3. Утверди план и дизайн.\n'
-      '4. Получи PPTX и PDF.\n\n'
-      'Для конвертации используй отдельные кнопки PDF/DOCX/PPTX.\n\n'
+      '4. Получи **PPTX** и **PDF**.\n\n'
+      'Для конвертации используй отдельные кнопки **PDF / DOCX / PPTX**.\n\n'
       'Команда `/files` показывает локально сохранённые файлы.\n\n'
       'Если что-то не работает, напиши в поддержку:\n'
       '$supportUsername',
@@ -388,7 +397,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     _appendBotMessage(
       _buildBalanceText(summary),
-      linkPreview: _offerPreview(summary.offerUrl),
       keyboard: _buildBalanceKeyboard(summary),
     );
   }
@@ -523,6 +531,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     controller.resetDraft();
     _pendingTemplateAfterPayment = null;
     _resumingPresentationAfterPayment = false;
+    _clearOutlineProgressMessage();
+    _clearRenderProgressMessages();
+    _clearBillingProgressMessage();
     _lastPresentationOutlineKey = null;
     _lastPresentationError = null;
     _lastPresentationStatusKey = null;
@@ -565,7 +576,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() {});
     }
 
-    _appendBotMessage('🧠 Генерирую план презентации...');
+    _clearOutlineProgressMessage();
+    _outlineProgressMessageId =
+        _appendBotMessage('_Генерирую план презентации..._');
     await controller.generateOutline();
   }
 
@@ -631,7 +644,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() {});
     }
 
-    _appendBotMessage('🔄 Пересобираю план по твоему комментарию...');
+    _clearOutlineProgressMessage();
+    _outlineProgressMessageId =
+        _appendBotMessage('_Обновляю план по твоему комментарию..._');
     await controller.reviseOutline(comment);
   }
 
@@ -654,18 +669,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
       if (summary.remainingGenerations <= 0) {
         _pendingTemplateAfterPayment = template;
-        _appendBotMessage(
-          '❌ Лимит генераций исчерпан. Сначала оформи подписку через YooKassa.',
-        );
-        await _showBalance();
+        await _showPendingPresentationPaywall(summary);
         return;
       }
     }
 
     controller.selectDesign(template.id);
-    _appendBotMessage(
-      'Пишу тексты... ✍️',
-    );
+    _clearRenderProgressMessages();
+    _renderPreparationMessageId = _appendBotMessage('_Пишу тексты..._');
     unawaited(_startRender(generatePdf: true));
   }
 
@@ -678,9 +689,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     controller.setGeneratePdf(generatePdf);
-    _appendBotMessage(
-      generatePdf ? '🛠 Собираю PPTX и PDF...' : '🛠 Собираю PPTX...',
-    );
     await controller.startPresentationJob();
   }
 
@@ -729,6 +737,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _lastPresentationError = null;
     } else if (error != _lastPresentationError) {
       _lastPresentationError = error;
+      if (controller.job == null) {
+        _clearOutlineProgressMessage();
+        _removeMessageById(_renderPreparationMessageId);
+        _renderPreparationMessageId = null;
+      }
       _appendBotMessage('❌ $error');
     }
 
@@ -736,6 +749,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final key = '${controller.title}|${controller.outline.join('||')}';
       if (key != _lastPresentationOutlineKey) {
         _lastPresentationOutlineKey = key;
+        _clearOutlineProgressMessage();
         _appendBotMessage(_buildOutlineText(controller));
         _appendBotMessage(
           'Принять или изменить?\nМожно написать комментарий к плану, и я его обновлю.',
@@ -745,7 +759,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _action('✍️ Редактировать', _requestOutlineRevision),
             ],
             [
-              _action('↩️ Отмена', _showMainMenu, echoAsUser: false),
+              _action('↩ Отмена', _showMainMenu, echoAsUser: false),
             ],
           ],
         );
@@ -759,20 +773,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _lastPresentationStatusKey = statusKey;
         switch (job.status) {
           case RemoteJobStatus.queued:
-            _appendBotMessage('⌛ Задача поставлена в очередь: ${job.jobId}');
+            _removeMessageById(_renderPreparationMessageId);
+            _renderPreparationMessageId = null;
+            if (_presentationStatusMessageId == null) {
+              _presentationStatusMessageId = _appendBotMessage(
+                '⌛ Задача поставлена в очередь.\nID задачи: `${job.jobId}`',
+              );
+            } else {
+              _updateMessageById(
+                _presentationStatusMessageId!,
+                text: '⌛ Задача поставлена в очередь.\nID задачи: `${job.jobId}`',
+              );
+            }
             break;
           case RemoteJobStatus.running:
-            _appendBotMessage(
-                '⚙️ Генерация идёт. Обычно это занимает меньше минуты.');
+            _removeMessageById(_renderPreparationMessageId);
+            _renderPreparationMessageId = null;
+            if (_presentationStatusMessageId == null) {
+              _presentationStatusMessageId = _appendBotMessage(
+                '⚙️ Генерация идёт.\nID задачи: `${job.jobId}`',
+              );
+            } else {
+              _updateMessageById(
+                _presentationStatusMessageId!,
+                text: '⚙️ Генерация идёт.\nID задачи: `${job.jobId}`',
+              );
+            }
             break;
           case RemoteJobStatus.failed:
+            _removeMessageById(_renderPreparationMessageId);
+            _renderPreparationMessageId = null;
             _appendBotMessage(
               '❌ Не удалось собрать презентацию.\n${job.error ?? 'Попробуй ещё раз.'}',
-              keyboard: [
-                [
-                  _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
-                ],
-              ],
+              keyboard: _mainMenuOnlyKeyboard(),
             );
             break;
           case RemoteJobStatus.succeeded:
@@ -786,20 +819,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             '${job.jobId}:${job.artifacts.map((item) => item.artifactId).join(',')}';
         if (resultKey != _lastPresentationResultKey) {
           _lastPresentationResultKey = resultKey;
+          _clearRenderProgressMessages();
+          final attachments = job.artifacts
+              .map((artifact) => _buildPresentationAttachment(job.jobId, artifact))
+              .toList(growable: false);
           _appendBotMessage(
-            '✅ Презентация готова\n'
-            'Тема: ${controller.title}\n'
+            '**✅ Презентация готова**\n'
+            'Тема: **${controller.title}**\n'
             'Файлы уже доступны ниже.',
-            attachments: job.artifacts
-                .map((artifact) =>
-                    _buildPresentationAttachment(job.jobId, artifact))
-                .toList(),
-            keyboard: [
-              [
-                _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
-              ],
-            ],
+            attachments: attachments,
+            keyboard: _mainMenuOnlyKeyboard(),
           );
+          unawaited(_prefetchAttachmentsInBackground(attachments));
         }
       }
     }
@@ -882,14 +913,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
-    final error = controller.error?.trim();
-    if (error == null || error.isEmpty) {
-      _lastBillingError = null;
-    } else if (error != _lastBillingError) {
-      _lastBillingError = error;
-      _appendBotMessage('❌ $error');
-    }
-
     final payment = controller.payment;
     if (payment != null) {
       final statusKey = '${payment.paymentId}:${payment.status}';
@@ -898,9 +921,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         switch (payment.status) {
           case 'pending':
           case 'waiting_for_capture':
+            _clearBillingProgressMessage();
             _appendBotMessage(
-              '💳 Счёт создан.\n'
-              'Открой YooKassa, оплати тариф и затем нажми «Проверить оплату».',
+              '💳 **Счёт создан**\nОткрой YooKassa, оплати тариф и затем нажми **«Проверить оплату»**.',
               keyboard: _buildPendingPaymentKeyboard(payment),
             );
             if (payment.confirmationUrl case final confirmationUrl?) {
@@ -908,14 +931,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             }
             break;
           case 'paid':
+            _clearBillingProgressMessage();
             _appendBotMessage(
-              '✅ Оплата подтверждена.\n\n${_buildBalanceText(payment.summary)}',
-              linkPreview: _offerPreview(payment.summary.offerUrl),
-              keyboard: _buildBalanceKeyboard(payment.summary),
+              _buildPaymentSuccessText(payment.summary),
+              keyboard: _mainMenuOnlyKeyboard(),
             );
             unawaited(_resumePendingPresentationAfterPayment());
             break;
           case 'canceled':
+            _clearBillingProgressMessage();
             _appendBotMessage(
               '❌ Оплата отменена.',
               keyboard: [
@@ -929,6 +953,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             );
             break;
           case 'failed':
+            _clearBillingProgressMessage();
             _appendBotMessage(
               '❌ Платёж завершился ошибкой. Попробуй выбрать тариф ещё раз.',
               keyboard: [
@@ -959,17 +984,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     if (active != null && active.isActive) {
       final plan = _findBillingPlan(summary, active.planKey);
-      buffer.writeln('✅ Подписка активна');
+      buffer.writeln('**✅ Подписка активна**');
       if (plan != null) {
-        buffer.writeln('Тариф: ${_planTariffLine(plan)}');
+        buffer.writeln('**Тариф:** ${_planTariffLine(plan)}');
       }
-      buffer.writeln('Остаток генераций: ${active.remaining}');
-      buffer.writeln('Обновление генераций: ${_shortDate(active.endsAt)}');
+      buffer.writeln('**Остаток генераций:** ${active.remaining}');
+      buffer.writeln('**Действует до:** ${_shortDate(active.endsAt)}');
       if (active.provider == 'yookassa') {
         buffer.writeln(
           active.autoRenew
-              ? 'Автопродление: включено через YooKassa.'
-              : 'Автопродление: отключено.',
+              ? 'Автопродление через YooKassa включено.'
+              : 'Автопродление через YooKassa отключено.',
         );
       }
       return buffer.toString().trim();
@@ -977,43 +1002,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     final remaining = latest?.remaining ?? 0;
     if (latest != null && latest.isCanceled) {
-      buffer.writeln('❌ Подписка отключена');
-      buffer.writeln('🎞 Генерации: $remaining');
-      buffer.writeln(
-        'Генерации доступны до ${_shortDate(latest.endsAt)}.',
-      );
+      buffer.writeln('**❌ Подписка отключена**');
+      buffer.writeln('**Генерации:** $remaining');
+      buffer.writeln('Генерации доступны до ${_shortDate(latest.endsAt)}.');
     } else {
-      buffer.writeln('❌ Подписка не активна');
-      buffer.writeln('🎞 Генерации: $remaining');
+      buffer.writeln('**❌ Подписка неактивна**');
+      buffer.writeln('**Генерации:** $remaining');
     }
 
-    final recurringPlans = summary.plans.where((plan) => plan.recurring).toList();
-    final oneTimePlans = summary.plans.where((plan) => !plan.recurring).toList();
-
+    final recurringPlans = _visibleBillingPlans(summary);
     if (recurringPlans.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('Подписка с автосписанием');
+      buffer.writeln('**Подписка с автосписанием**');
       for (final plan in recurringPlans) {
-        buffer.writeln(_planOptionLabel(plan));
+        buffer.writeln('- ${_planOptionLabel(plan)}');
       }
     }
 
-    if (oneTimePlans.isNotEmpty) {
-      buffer.writeln();
-      for (final plan in oneTimePlans) {
-        buffer.writeln(_planOptionLabel(plan));
-      }
-    }
-
-    buffer.writeln();
-    buffer.writeln('Отключить можно в любой момент в /balance.');
     if (summary.testMode) {
       buffer.writeln();
-      buffer.writeln('Тестовый режим YooKassa включён.');
+      buffer.writeln('_Тестовый режим YooKassa включён._');
     }
+
     buffer.writeln();
-    buffer.writeln('Переходя к оплате, вы соглашаетесь с офертой.');
-    buffer.write(summary.offerUrl);
+    buffer.writeln(
+      'Переходя к оплате, вы соглашаетесь с [офертой](${summary.offerUrl}).',
+    );
     return buffer.toString().trim();
   }
 
@@ -1021,24 +1035,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final rows = <List<_ChatAction>>[];
     final active = summary.activeSubscription;
 
-    if (active != null && active.isActive) {
-      if (active.provider == 'yookassa') {
-        rows.add([
-          _action(
-            '🔄 Обновить подписку сейчас',
-            () async => _showPlanOptions(renew: true),
-          ),
-        ]);
-      }
-      if (active.autoRenew) {
-        rows.add([
-          _action(
-            '❌ Отключить подписку',
-            _cancelBillingSubscription,
-          ),
-        ]);
-      }
-    } else {
+    if (active != null && active.isActive && active.autoRenew) {
+      rows.add([
+        _action(
+          '❌ Отключить подписку',
+          _cancelBillingSubscription,
+        ),
+      ]);
+    } else if (active == null || !active.isActive) {
       rows.add([
         _action('✅ Выбрать подписку', _showPlanOptions),
       ]);
@@ -1072,6 +1076,106 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return rows;
   }
 
+  Future<void> _showPendingPresentationPaywall(BillingSummary summary) async {
+    final rows = <List<_ChatAction>>[
+      for (final plan in _visibleBillingPlans(summary))
+        [
+          _action(
+            _planOptionLabel(plan),
+            () async => _startBillingPayment(plan.key),
+          ),
+        ],
+      [
+        _action('⬅️ Назад', _showMainMenu, echoAsUser: false),
+      ],
+    ];
+
+    _appendBotMessage(
+      '**Презентация почти готова!** ✅\n'
+      'Выбери подписку, чтобы завершить финальный шаг и получить готовую презентацию.',
+      keyboard: rows,
+    );
+  }
+
+  List<BillingPlan> _visibleBillingPlans(BillingSummary summary) {
+    return summary.plans
+        .where((plan) => plan.recurring)
+        .toList(growable: false);
+  }
+
+  String _buildPaymentSuccessText(BillingSummary summary) {
+    final active = summary.activeSubscription;
+    final plan = active == null ? null : _findBillingPlan(summary, active.planKey);
+    final buffer = StringBuffer('**Оплата прошла успешно.** ✅\n\n');
+    if (plan != null) {
+      buffer.writeln('**Тариф:** ${_planTariffLine(plan)}');
+    }
+    if (active != null) {
+      buffer.writeln('**Остаток генераций:** ${active.remaining}');
+      buffer.writeln('**Действует до:** ${_shortDate(active.endsAt)}');
+    }
+    return buffer.toString().trim();
+  }
+
+  List<List<_ChatAction>> _mainMenuOnlyKeyboard() {
+    return [
+      [
+        _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+      ],
+    ];
+  }
+
+  Future<void> _prefetchAttachmentsInBackground(
+    List<_ChatAttachment> attachments,
+  ) async {
+    if (kIsWeb) {
+      return;
+    }
+    for (final attachment in attachments) {
+      await _saveAttachmentSilently(attachment);
+    }
+  }
+
+  Future<void> _saveAttachmentSilently(_ChatAttachment attachment) async {
+    final savedFiles = _savedFilesRepository;
+    final history = _historyRepository;
+    if (savedFiles == null || history == null) {
+      return;
+    }
+    if (savedFiles.findByArtifactId(attachment.artifactId) != null) {
+      return;
+    }
+
+    try {
+      final savedEntry = await savedFiles.downloadAndStore(
+        sourceType: attachment.sourceType,
+        jobId: attachment.jobId,
+        artifactId: attachment.artifactId,
+        kind: attachment.kind,
+        filename: attachment.filename,
+        mediaType: attachment.mediaType,
+        remoteUri: attachment.remoteUri,
+      );
+      switch (attachment.sourceType) {
+        case SavedFileSourceType.presentationArtifact:
+          history.attachPresentationLocalFile(
+            jobId: attachment.jobId,
+            localPath: savedEntry.localPath,
+          );
+          break;
+        case SavedFileSourceType.conversionArtifact:
+          history.attachConversionLocalFile(
+            jobId: attachment.jobId,
+            localPath: savedEntry.localPath,
+          );
+          break;
+      }
+    } catch (_) {
+      // Silent by design: this path is only a convenience preload.
+    }
+  }
+
+
   Future<void> _showPlanOptions({bool renew = false}) async {
     final controller = _billingController;
     if (controller == null) {
@@ -1087,8 +1191,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
+    final plans = _visibleBillingPlans(summary);
     final rows = <List<_ChatAction>>[
-      for (final plan in summary.plans)
+      for (final plan in plans)
         [
           _action(
             _planOptionLabel(plan),
@@ -1105,8 +1210,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     _appendBotMessage(
       renew
-          ? '🔄 Обновить подписку\nВыберите тариф для продления:'
-          : 'Выбери подписку 👇',
+          ? '**Продлить подписку**\nВыбери тариф для продления:'
+          : '**Выбери подписку** 👇',
       keyboard: rows,
     );
   }
@@ -1119,8 +1224,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     _lastBillingPaymentStatusKey = null;
     controller.clearPayment();
-    _appendBotMessage('Создаю счёт на оплату... 💳');
+    _clearBillingProgressMessage();
+    _billingProgressMessageId = _appendBotMessage('_Создаю счёт на оплату..._');
     await controller.startCheckout(planKey: planKey, renew: renew);
+    if (controller.payment == null && controller.error != null) {
+      _clearBillingProgressMessage();
+      _appendBotMessage('❌ ${controller.error!}');
+    }
   }
 
   Future<void> _checkBillingPayment(String paymentId) async {
@@ -1128,7 +1238,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (controller == null) {
       return;
     }
-    _appendBotMessage('Проверяю оплату...');
     await controller.pollPayment(paymentId);
   }
 
@@ -1177,9 +1286,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     try {
       controller.selectDesign(template.id);
-      _appendBotMessage(
-        '🚀 Лимит пополнен. Продолжаю создание презентации в дизайне «${template.name}»...',
-      );
+      _clearRenderProgressMessages();
+      _renderPreparationMessageId =
+          _appendBotMessage('_Оплата подтверждена. Продолжаю создание презентации..._');
       await _startRender(generatePdf: true);
     } finally {
       _resumingPresentationAfterPayment = false;
@@ -1201,26 +1310,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
-    final launched = await launchUrl(uri);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched) {
       _appendBotMessage(
         'Не удалось открыть ссылку автоматически.\nОткрой её вручную:\n$url',
       );
     }
-  }
-
-  _MessageLinkPreview? _offerPreview(String offerUrl) {
-    final uri = Uri.tryParse(offerUrl);
-    if (uri == null || uri.host.isEmpty) {
-      return null;
-    }
-    return _MessageLinkPreview(
-      domain: uri.host,
-      title: 'Пользовательское соглашение — AppSlides',
-      description:
-          'Публичная оферта и условия оплаты сервиса AppSlides через YooKassa.',
-      url: offerUrl,
-    );
   }
 
   BillingPlan? _findBillingPlan(BillingSummary summary, String planKey) {
@@ -1236,8 +1331,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return switch (plan.key) {
       'week' => '🔥 ${_planTariffLine(plan)}',
       'month' => '⭐ ${_planTariffLine(plan)}',
-      'one10' => '⭐ ${_planTariffLine(plan)} (разово)',
-      'one40' => '⭐ ${_planTariffLine(plan)} (разово)',
+      'one10' => '⭐ ${_planTariffLine(plan)}',
+      'one40' => '⭐ ${_planTariffLine(plan)}',
       _ => '${plan.priceRub} ₽ — ${plan.limit} генераций',
     };
   }
@@ -1288,8 +1383,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     if (kIsWeb) {
       _appendBotMessage(
-        'На web локальное сохранение пока отключено.\n'
-        'Используй download URL из карточки файла.',
+        'На web локальное сохранение пока отключено.\nИспользуй download URL из карточки файла.',
       );
       return;
     }
@@ -1328,9 +1422,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           break;
       }
 
-      _appendBotMessage(
-        '💾 Файл сохранён локально:\n${savedEntry.localPath}',
-      );
+      final openError = await savedFiles.openEntry(savedEntry);
+      if (openError != null) {
+        _appendBotMessage('❌ $openError');
+      }
     } catch (error) {
       _appendBotMessage('❌ Не удалось сохранить файл.\n$error');
     } finally {
@@ -1400,8 +1495,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               setState(() {});
             }
             _appendBotMessage(
-              '✍️ Напиши тему презентации и пожелания.\n'
-              'Например: «Удивительные факты о космосе для школьников».',
+              '✍️ Напиши тему презентации и пожелания.\nНапример: «Удивительные факты о космосе для школьников».',
             );
           },
         ),
@@ -1628,7 +1722,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   String _buildOutlineText(PresentationController controller) {
     final buffer = StringBuffer();
-    buffer.writeln('План презентации «${controller.title}» 📋');
+    buffer.writeln('**План презентации «${controller.title}»** 📋');
     buffer.writeln();
     for (var index = 0; index < controller.outline.length; index++) {
       buffer.writeln('${index + 1}. ${controller.outline[index]}');
@@ -1636,7 +1730,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return buffer.toString().trim();
   }
 
-  void _appendBotMessage(
+  String _appendBotMessage(
     String text, {
     List<List<_ChatAction>> keyboard = const <List<_ChatAction>>[],
     List<_ChatAttachment> attachments = const <_ChatAttachment>[],
@@ -1644,10 +1738,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         const <PresentationTemplate>[],
     _MessageLinkPreview? linkPreview,
   }) {
+    final id = 'msg-${_messageCounter++}';
     setState(() {
       _messages.add(
         _ChatMessage(
-          id: 'msg-${_messageCounter++}',
+          id: id,
           sender: _MessageSender.bot,
           text: text,
           sentAt: DateTime.now(),
@@ -1660,13 +1755,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     unawaited(_persistTranscript());
     _scrollToBottom();
+    return id;
   }
 
-  void _appendUserMessage(String text) {
+  String _appendUserMessage(String text) {
+    final id = 'msg-${_messageCounter++}';
     setState(() {
       _messages.add(
         _ChatMessage(
-          id: 'msg-${_messageCounter++}',
+          id: id,
           sender: _MessageSender.user,
           text: text,
           sentAt: DateTime.now(),
@@ -1675,6 +1772,66 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     unawaited(_persistTranscript());
     _scrollToBottom();
+    return id;
+  }
+
+  void _updateMessageById(
+    String id, {
+    String? text,
+    List<List<_ChatAction>>? keyboard,
+    List<_ChatAttachment>? attachments,
+    List<PresentationTemplate>? templatePreviewTemplates,
+    _MessageLinkPreview? linkPreview,
+  }) {
+    final index = _messages.indexWhere((message) => message.id == id);
+    if (index < 0) {
+      return;
+    }
+
+    setState(() {
+      _messages[index] = _messages[index].copyWith(
+        text: text,
+        keyboard: keyboard,
+        attachments: attachments,
+        templatePreviewTemplates: templatePreviewTemplates,
+        linkPreview: linkPreview,
+      );
+    });
+    unawaited(_persistTranscript());
+    _scrollToBottom();
+  }
+
+  void _removeMessageById(String? id) {
+    if (id == null) {
+      return;
+    }
+
+    final index = _messages.indexWhere((message) => message.id == id);
+    if (index < 0) {
+      return;
+    }
+
+    setState(() {
+      _messages.removeAt(index);
+    });
+    unawaited(_persistTranscript());
+  }
+
+  void _clearOutlineProgressMessage() {
+    _removeMessageById(_outlineProgressMessageId);
+    _outlineProgressMessageId = null;
+  }
+
+  void _clearRenderProgressMessages() {
+    _removeMessageById(_renderPreparationMessageId);
+    _renderPreparationMessageId = null;
+    _removeMessageById(_presentationStatusMessageId);
+    _presentationStatusMessageId = null;
+  }
+
+  void _clearBillingProgressMessage() {
+    _removeMessageById(_billingProgressMessageId);
+    _billingProgressMessageId = null;
   }
 
   IconData _iconForKind(String kind) {
@@ -1736,6 +1893,26 @@ class _ChatMessage {
   final List<_ChatAttachment> attachments;
   final List<PresentationTemplate> templatePreviewTemplates;
   final _MessageLinkPreview? linkPreview;
+
+  _ChatMessage copyWith({
+    String? text,
+    List<List<_ChatAction>>? keyboard,
+    List<_ChatAttachment>? attachments,
+    List<PresentationTemplate>? templatePreviewTemplates,
+    _MessageLinkPreview? linkPreview,
+  }) {
+    return _ChatMessage(
+      id: id,
+      sender: sender,
+      text: text ?? this.text,
+      sentAt: sentAt,
+      keyboard: keyboard ?? this.keyboard,
+      attachments: attachments ?? this.attachments,
+      templatePreviewTemplates:
+          templatePreviewTemplates ?? this.templatePreviewTemplates,
+      linkPreview: linkPreview,
+    );
+  }
 }
 
 class _ChatAction {
@@ -1788,15 +1965,82 @@ class _MessageLinkPreview {
   final String url;
 }
 
+class _MessageMarkdown extends StatelessWidget {
+  const _MessageMarkdown({
+    required this.data,
+    required this.textColor,
+  });
+
+  final String data;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      p: TextStyle(
+        fontSize: 15.8,
+        height: 1.28,
+        color: textColor,
+      ),
+      strong: TextStyle(
+        fontSize: 15.8,
+        height: 1.28,
+        color: textColor,
+        fontWeight: FontWeight.w700,
+      ),
+      em: TextStyle(
+        fontSize: 15.8,
+        height: 1.28,
+        color: textColor,
+        fontStyle: FontStyle.italic,
+      ),
+      a: const TextStyle(
+        fontSize: 15.8,
+        height: 1.28,
+        color: Color(0xFF2697E8),
+        decoration: TextDecoration.none,
+      ),
+      blockquote: TextStyle(
+        fontSize: 15.8,
+        height: 1.28,
+        color: textColor,
+      ),
+      listBullet: TextStyle(
+        fontSize: 15.8,
+        height: 1.28,
+        color: textColor,
+      ),
+    );
+
+    return MarkdownBody(
+      data: data,
+      selectable: true,
+      shrinkWrap: true,
+      softLineBreak: true,
+      styleSheet: style,
+      onTapLink: (_, href, __) async {
+        if (href == null || href.isEmpty) {
+          return;
+        }
+        final uri = Uri.tryParse(href);
+        if (uri == null) {
+          return;
+        }
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
+    );
+  }
+}
+
 class _ChatHeader extends StatelessWidget {
   const _ChatHeader();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 60,
+      height: 58,
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 7, 12, 7),
+      padding: const EdgeInsets.fromLTRB(14, 7, 14, 7),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -1805,42 +2049,26 @@ class _ChatHeader extends StatelessWidget {
           ),
         ),
       ),
-      child: Row(
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Слайд ИИ - Создать презентацию | Создание ...',
-                  style: TextStyle(
-                    fontSize: 13.8,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'бот',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF9AA0A6),
-                  ),
-                ),
-              ],
+          Text(
+            'Слайд ИИ - Создать презентацию | Создание ...',
+            style: TextStyle(
+              fontSize: 13.8,
+              fontWeight: FontWeight.w600,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const Icon(Icons.search_rounded, size: 22, color: Color(0xFF8E959C)),
-          const SizedBox(width: 10),
-          const Icon(Icons.crop_square_rounded,
-              size: 22, color: Color(0xFF8E959C)),
-          const SizedBox(width: 10),
-          const Icon(
-            Icons.more_vert_rounded,
-            size: 22,
-            color: Color(0xFF8E959C),
+          SizedBox(height: 2),
+          Text(
+            'бот',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF9AA0A6),
+            ),
           ),
         ],
       ),
@@ -1851,12 +2079,14 @@ class _ChatHeader extends StatelessWidget {
 class _ComposerBar extends StatelessWidget {
   const _ComposerBar({
     required this.controller,
+    required this.focusNode,
     required this.mode,
     required this.onMenuPressed,
     required this.onSubmit,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final _ComposerMode mode;
   final VoidCallback onMenuPressed;
   final Future<void> Function() onSubmit;
@@ -1864,7 +2094,7 @@ class _ComposerBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(6, 7, 6, 7),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -1873,39 +2103,34 @@ class _ComposerBar extends StatelessWidget {
           ),
         ),
       ),
-      child: Container(
-        height: 54,
-        padding: const EdgeInsets.fromLTRB(4, 4, 6, 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFFDADFE4)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            FilledButton(
-              onPressed: onMenuPressed,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(0, 38),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                backgroundColor: const Color(0xFF58A9E9),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FilledButton(
+            onPressed: onMenuPressed,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 42),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              backgroundColor: const Color(0xFF4BA7E8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
               ),
-              child: const Text('Меню'),
             ),
-            const SizedBox(width: 10),
-            const Icon(
-              Icons.attach_file_rounded,
-              color: Color(0xFF98A2B3),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
+            child: const Text('Меню'),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F6F8),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              alignment: Alignment.center,
               child: TextField(
                 controller: controller,
+                focusNode: focusNode,
                 minLines: 1,
                 maxLines: 1,
                 textInputAction: TextInputAction.send,
@@ -1915,43 +2140,28 @@ class _ComposerBar extends StatelessWidget {
                   border: InputBorder.none,
                   hintText: switch (mode) {
                     _ComposerMode.presentationTopic =>
-                      'Тема презентации и пожелания...',
+                      'Тема презентации и пожелания',
                     _ComposerMode.presentationSlides => 'Например, 7',
                     _ComposerMode.outlineRevision => 'Что изменить в плане?',
-                    _ComposerMode.idle => 'Сообщение...',
+                    _ComposerMode.idle => null,
                   },
                 ),
               ),
             ),
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                final hasText = value.text.trim().isNotEmpty;
-                if (hasText) {
-                  return IconButton(
-                    onPressed: onSubmit,
-                    icon: const Icon(Icons.send_rounded),
-                    color: const Color(0xFF58A9E9),
-                  );
-                }
-                return const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.sentiment_satisfied_alt_rounded,
-                      color: Color(0xFF98A2B3),
-                    ),
-                    SizedBox(width: 10),
-                    Icon(
-                      Icons.mic_none_rounded,
-                      color: Color(0xFF98A2B3),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              final hasText = value.text.trim().isNotEmpty;
+              return IconButton(
+                onPressed: hasText ? onSubmit : null,
+                icon: const Icon(Icons.send_rounded),
+                color: hasText ? const Color(0xFF4BA7E8) : const Color(0xFFAEB6BF),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -2025,12 +2235,11 @@ class _ChatMessageCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (message.text.trim().isNotEmpty)
-                          SelectableText(
-                            message.text,
-                            style: const TextStyle(
-                              fontSize: 15.8,
-                              height: 1.28,
-                            ),
+                          _MessageMarkdown(
+                            data: message.text,
+                            textColor: isUser
+                                ? const Color(0xFF273226)
+                                : const Color(0xFF202124),
                           ),
                         if (message.attachments.isNotEmpty) ...[
                           if (message.text.trim().isNotEmpty)
@@ -2120,125 +2329,132 @@ class _AttachmentTile extends StatelessWidget {
     final savedEntry =
         savedFilesRepository.findByArtifactId(attachment.artifactId);
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: busy ? null : onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDDE5D8)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: const Color(0xFF4EA3E5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.insert_drive_file_rounded,
-              color: Colors.white,
-            ),
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFDDE5D8)),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  attachment.filename,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4EA3E5),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _prettyAttachmentMeta(attachment),
-                  style: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 13,
-                  ),
+                child: const Icon(
+                  Icons.insert_drive_file_rounded,
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 8),
-                Row(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      attachment.icon,
-                      size: 17,
-                      color: const Color(0xFF5C8F54),
+                    Text(
+                      attachment.filename,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        attachment.caption,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.25,
+                    const SizedBox(height: 4),
+                    Text(
+                      _prettyAttachmentMeta(attachment),
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          attachment.icon,
+                          size: 17,
+                          color: const Color(0xFF5C8F54),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            attachment.caption,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  InkWell(
+                    onTap: busy ? null : onTap,
+                    borderRadius: BorderRadius.circular(999),
+                    child: Ink(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF7FB36D),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: busy
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.arrow_forward_rounded,
+                                color: Colors.white,
+                              ),
+                      ),
+                    ),
+                  ),
+                  if (savedEntry != null && !kIsWeb) ...[
+                    const SizedBox(height: 10),
+                    InkWell(
+                      onTap: busy ? null : onDelete,
+                      borderRadius: BorderRadius.circular(999),
+                      child: Ink(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5E3DE),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 16,
+                          color: Color(0xFF9F5B4D),
                         ),
                       ),
                     ),
                   ],
-                ),
-              ],
-            ),
-          ),
-          Column(
-            children: [
-              InkWell(
-                onTap: busy ? null : onTap,
-                borderRadius: BorderRadius.circular(999),
-                child: Ink(
-                  width: 38,
-                  height: 38,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF7FB36D),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: busy
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.arrow_forward_rounded,
-                            color: Colors.white,
-                          ),
-                  ),
-                ),
+                ],
               ),
-              if (savedEntry != null && !kIsWeb) ...[
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: busy ? null : onDelete,
-                  borderRadius: BorderRadius.circular(999),
-                  child: Ink(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5E3DE),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Icon(
-                      Icons.delete_outline_rounded,
-                      size: 16,
-                      color: Color(0xFF9F5B4D),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
-        ],
+        ),
       ),
     );
   }

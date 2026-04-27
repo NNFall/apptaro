@@ -39,6 +39,56 @@
   - backend changes should be redeployed to the remote server right after validation
   - the canonical commands live in `OPERATIONS.md`
 
+## UX Fix Pack — 2026-04-28
+
+- Source of truth for the next pass is the latest phone QA from the user.
+- This pass is not about new features first; it is about closing the current Telegram-style UX gap end-to-end before moving further.
+- Mandatory fixes in this batch:
+  - composer cleanup:
+    - remove the idle placeholder text `Сообщение`;
+    - remove the fake Telegram controls that do nothing;
+    - simplify the header and composer so there are no dead icons;
+    - make the input area visually closer to Telegram and easier to scan;
+    - collapse the mobile keyboard automatically right after sending text;
+  - process message lifecycle:
+    - plan generation temporary message must disappear once the outline arrives;
+    - payment creation temporary message must disappear once the invoice is created;
+    - presentation render temporary messages must be reduced and cleaned up on success;
+    - job id/status message must remain only when generation fails, for debugging;
+  - paywall rewrite:
+    - template-step paywall message must say the presentation is almost ready and ask the user to finish the final step through subscription;
+    - one-time package options must be removed from the client flow;
+    - success-after-payment message must be cleaner and should not show management buttons except `Главное меню`;
+    - noisy transient billing transport errors must not leak into the chat feed when the flow can continue safely;
+  - text rendering:
+    - support richer formatting for bot messages;
+    - make the offer link inline and clickable inside the message text;
+    - remove the redundant offer preview block from payment success;
+  - file behavior on phone:
+    - presentation result files must behave like real files from the chat;
+    - tapping a file card must open the file flow instead of doing nothing;
+    - generated files should be downloaded locally automatically or transparently on first tap without extra friction;
+  - visual polish:
+    - keep moving sizes, spacing and card styling closer to the Telegram references while removing decorative but non-functional controls.
+
+- Completed in the current pass:
+  - [x] idle composer placeholder removed;
+  - [x] fake Telegram icons removed from header and bottom bar;
+  - [x] keyboard now collapses right after sending text;
+  - [x] outline progress message is deleted when the outline arrives;
+  - [x] payment creation progress message is deleted when the invoice arrives;
+  - [x] render progress is reduced to meaningful messages only;
+  - [x] job id/status message is cleaned up on success and intentionally preserved on failure;
+  - [x] template-step paywall now uses the “presentation is almost ready” wording;
+  - [x] one-time billing package buttons removed from the client paywall flow;
+  - [x] markdown-style rich text enabled for bot messages;
+  - [x] offer link is now inline and clickable;
+  - [x] redundant offer preview block removed from the success flow;
+  - [x] transient billing transport noise is suppressed from the chat feed;
+  - [x] success-after-payment message now only keeps `Главное меню`;
+  - [x] presentation file cards now download/open as real files on mobile;
+  - [x] local auto-prefetch of generated result files is enabled for non-web platforms.
+
 
 ## Статус
 

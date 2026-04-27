@@ -15,6 +15,15 @@
   - `/help`, `/balance`, `/settings`, `/history`, `/files` command-style flows;
   - local file cards with `Открыть` / `Удалить` actions directly inside the chat;
   - preserved backend-driven presentation/converter flows inside the same conversation.
+- Latest phone-QA UX pass is already applied:
+  - idle composer placeholder is removed;
+  - fake Telegram icons are removed from header and bottom bar;
+  - keyboard collapses automatically after sending text;
+  - temporary plan/payment/render messages are cleaned up as the real result arrives;
+  - the template-step paywall now uses the “presentation is almost ready” wording;
+  - one-time billing package buttons are hidden from the mobile client flow;
+  - offer text is rendered as an inline clickable link;
+  - generated result files auto-prefetch locally on non-web platforms and open as real files from chat cards.
 - The previous dashboard-style design is archived in `../old_design/flutter_ui_v1/`.
 - Visual/product notes for this redesign are stored in `../instructions/design_refs/telegram_bot_ui_brief.md`.
 
