@@ -89,6 +89,13 @@
   - [x] presentation file cards now download/open as real files on mobile;
   - [x] local auto-prefetch of generated result files is enabled for non-web platforms.
 
+- Billing parity improvements after the QA pass:
+  - [x] automatic YooKassa polling in the app is now closer to the Telegram bot logic;
+  - [x] the app polls payment status every `10 seconds`;
+  - [x] automatic polling now stops after `15 minutes` instead of running indefinitely;
+  - [x] temporary transport errors during polling no longer terminate the whole payment-wait flow;
+  - [x] when polling reaches the timeout window, the chat shows a clean follow-up message with the same payment actions.
+
 
 ## Статус
 

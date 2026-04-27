@@ -59,6 +59,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _lastConverterStatusKey;
   String? _lastConverterResultKey;
   String? _lastBillingPaymentStatusKey;
+  String? _lastBillingTimeoutPaymentId;
   String? _outlineProgressMessageId;
   String? _renderPreparationMessageId;
   String? _presentationStatusMessageId;
@@ -914,6 +915,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     final payment = controller.payment;
+    if (payment != null &&
+        controller.paymentPollingTimedOut &&
+        !payment.isFinished &&
+        payment.paymentId != _lastBillingTimeoutPaymentId) {
+      _lastBillingTimeoutPaymentId = payment.paymentId;
+      _appendBotMessage(
+        '⌛ **Оплата ещё не подтверждена**\n'
+        'Я автоматически проверял статус 15 минут. Если ты уже оплатил, нажми **«Проверить оплату»** или открой счёт снова.',
+        keyboard: _buildPendingPaymentKeyboard(payment),
+      );
+    }
+
     if (payment != null) {
       final statusKey = '${payment.paymentId}:${payment.status}';
       if (statusKey != _lastBillingPaymentStatusKey) {
@@ -931,6 +944,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             }
             break;
           case 'paid':
+            _lastBillingTimeoutPaymentId = null;
             _clearBillingProgressMessage();
             _appendBotMessage(
               _buildPaymentSuccessText(payment.summary),
@@ -939,6 +953,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             unawaited(_resumePendingPresentationAfterPayment());
             break;
           case 'canceled':
+            _lastBillingTimeoutPaymentId = null;
             _clearBillingProgressMessage();
             _appendBotMessage(
               '❌ Оплата отменена.',
@@ -953,6 +968,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             );
             break;
           case 'failed':
+            _lastBillingTimeoutPaymentId = null;
             _clearBillingProgressMessage();
             _appendBotMessage(
               '❌ Платёж завершился ошибкой. Попробуй выбрать тариф ещё раз.',
@@ -1223,6 +1239,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     _lastBillingPaymentStatusKey = null;
+    _lastBillingTimeoutPaymentId = null;
     controller.clearPayment();
     _clearBillingProgressMessage();
     _billingProgressMessageId = _appendBotMessage('_Создаю счёт на оплату..._');

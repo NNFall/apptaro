@@ -12,6 +12,9 @@ class BillingController extends ChangeNotifier {
     required AppSlidesRepository repository,
   }) : _repository = repository;
 
+  static const Duration _paymentPollInterval = Duration(seconds: 10);
+  static const Duration _paymentPollTimeout = Duration(minutes: 15);
+
   final AppSlidesRepository _repository;
 
   BillingSummary? _summary;
@@ -21,6 +24,9 @@ class BillingController extends ChangeNotifier {
   bool _canceling = false;
   String? _error;
   Timer? _pollTimer;
+  DateTime? _pollingStartedAt;
+  bool _pollingInFlight = false;
+  bool _paymentPollingTimedOut = false;
 
   BillingSummary? get summary => _summary;
   BillingPayment? get payment => _payment;
@@ -28,6 +34,7 @@ class BillingController extends ChangeNotifier {
   bool get creatingPayment => _creatingPayment;
   bool get canceling => _canceling;
   String? get error => _error;
+  bool get paymentPollingTimedOut => _paymentPollingTimedOut;
 
   Future<void> initialize() async {
     if (_summary != null || _loadingSummary) {
@@ -78,18 +85,26 @@ class BillingController extends ChangeNotifier {
   }
 
   Future<void> pollPayment(String paymentId) async {
+    if (_pollingInFlight) {
+      return;
+    }
+
+    _pollingInFlight = true;
     try {
       final payment = await _repository.getBillingPayment(paymentId);
       _payment = payment;
       _summary = payment.summary;
       if (payment.isFinished) {
-        _pollTimer?.cancel();
+        _stopPolling();
+      } else if (_pollingStartedAt != null) {
+        _paymentPollingTimedOut = false;
       }
       notifyListeners();
     } catch (error) {
       _error = _describeError(error);
-      _pollTimer?.cancel();
       notifyListeners();
+    } finally {
+      _pollingInFlight = false;
     }
   }
 
@@ -109,23 +124,42 @@ class BillingController extends ChangeNotifier {
   }
 
   void clearPayment() {
-    _pollTimer?.cancel();
+    _stopPolling();
     _payment = null;
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _stopPolling();
     super.dispose();
   }
 
   void _startPolling(String paymentId) {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
+    _stopPolling();
+    _pollingStartedAt = DateTime.now();
+    _paymentPollingTimedOut = false;
+    _pollTimer = Timer.periodic(_paymentPollInterval, (_) async {
+      if (_pollingStartedAt == null ||
+          DateTime.now().difference(_pollingStartedAt!) >= _paymentPollTimeout) {
+        _paymentPollingTimedOut = true;
+        _stopPolling(resetTimeout: false);
+        notifyListeners();
+        return;
+      }
       await pollPayment(paymentId);
     });
     unawaited(pollPayment(paymentId));
+  }
+
+  void _stopPolling({bool resetTimeout = true}) {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _pollingStartedAt = null;
+    _pollingInFlight = false;
+    if (resetTimeout) {
+      _paymentPollingTimedOut = false;
+    }
   }
 
   String _describeError(Object error) {

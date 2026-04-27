@@ -35,9 +35,10 @@
 - The chat now drives billing from the same conversation:
   - `/balance` loads live subscription state from backend;
   - plan selection opens YooKassa checkout in test mode;
-  - payment status is polled back into the chat;
+  - payment status is polled back into the chat every `10 seconds` for up to `15 minutes`;
   - returning to the app from YooKassa triggers an immediate payment re-check;
   - if the user was blocked on the template step, successful payment resumes presentation creation automatically;
+  - temporary polling transport errors do not immediately break the wait flow;
   - generation is blocked when balance is exhausted.
 - The app sends a persistent `X-AppSlides-Client-Id` header on backend requests so billing and generation limits are tied to the installed client.
 - Operational workflow for `git -> push -> server deploy` is documented in `../OPERATIONS.md`.
