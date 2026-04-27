@@ -83,3 +83,4 @@ python -m compileall backend/src
 - The mobile/web client is hard-wired to `http://185.171.83.116:8010`.
 - Local backend URL switching inside the app is intentionally disabled.
 - YooKassa is currently integrated in backend test mode and driven through the chat `/balance` flow.
+- Successful payment should now be reflected both on app resume and on later summary/generation checks because the backend auto-syncs unfinished payments.

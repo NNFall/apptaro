@@ -15,6 +15,7 @@
   - `/root/appslides/data/appslides.db`
 - Fonts are not uploaded separately; the container uses system font fallbacks.
 - Billing target for the current MVP is `YooKassa` in test mode, wired through backend APIs and chat-style client flow.
+- Billing summary/generation checks now auto-sync unfinished YooKassa payments, so a paid subscription can become active without the user manually reopening a specific payment poll route.
 - Operational workflow for `git -> push -> deploy -> restart` is documented in `../OPERATIONS.md`.
 
 Здесь будет серверная часть `AppSlides`.

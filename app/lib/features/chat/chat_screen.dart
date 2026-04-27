@@ -30,7 +30,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _composerController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = <_ChatMessage>[];
@@ -58,6 +58,14 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _lastConverterResultKey;
   String? _lastBillingError;
   String? _lastBillingPaymentStatusKey;
+  PresentationTemplate? _pendingTemplateAfterPayment;
+  bool _resumingPresentationAfterPayment = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void didChangeDependencies() {
@@ -98,6 +106,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _presentationController?.removeListener(_handlePresentationUpdates);
     _presentationController?.dispose();
     _converterController?.removeListener(_handleConverterUpdates);
@@ -111,6 +120,14 @@ class _ChatScreenState extends State<ChatScreen> {
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      return;
+    }
+    unawaited(_refreshAfterAppResume());
   }
 
   @override
@@ -230,6 +247,29 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Future<void> _refreshAfterAppResume() async {
+    final billingController = _billingController;
+    if (billingController == null) {
+      return;
+    }
+
+    final payment = billingController.payment;
+    if (payment != null && !payment.isFinished) {
+      await billingController.pollPayment(payment.paymentId);
+      return;
+    }
+
+    if (_pendingTemplateAfterPayment == null) {
+      return;
+    }
+
+    await billingController.refreshSummary();
+    final summary = billingController.summary;
+    if (summary != null && summary.remainingGenerations > 0) {
+      await _resumePendingPresentationAfterPayment();
+    }
+  }
+
   Future<void> _submitComposer() async {
     final raw = _composerController.text.trim();
     if (raw.isEmpty) {
@@ -299,6 +339,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showHelp() {
+    final supportUsername = _currentSupportUsername();
     _appendBotMessage(
       '❓ Помощь\n'
       '1. Нажми «Создать презентацию» или просто отправь тему.\n'
@@ -308,7 +349,7 @@ class _ChatScreenState extends State<ChatScreen> {
       'Для конвертации используй отдельные кнопки PDF/DOCX/PPTX.\n\n'
       'Команда `/files` показывает локально сохранённые файлы.\n\n'
       'Если что-то не работает, напиши в поддержку:\n'
-      '@your_tracksupport',
+      '$supportUsername',
       keyboard: [
         [
           _action(
@@ -480,6 +521,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     controller.resetDraft();
+    _pendingTemplateAfterPayment = null;
+    _resumingPresentationAfterPayment = false;
     _lastPresentationOutlineKey = null;
     _lastPresentationError = null;
     _lastPresentationStatusKey = null;
@@ -610,6 +653,7 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
       if (summary.remainingGenerations <= 0) {
+        _pendingTemplateAfterPayment = template;
         _appendBotMessage(
           '❌ Лимит генераций исчерпан. Сначала оформи подписку через YooKassa.',
         );
@@ -865,10 +909,11 @@ class _ChatScreenState extends State<ChatScreen> {
             break;
           case 'paid':
             _appendBotMessage(
-              _buildBalanceText(payment.summary),
+              '✅ Оплата подтверждена.\n\n${_buildBalanceText(payment.summary)}',
               linkPreview: _offerPreview(payment.summary.offerUrl),
               keyboard: _buildBalanceKeyboard(payment.summary),
             );
+            unawaited(_resumePendingPresentationAfterPayment());
             break;
           case 'canceled':
             _appendBotMessage(
@@ -1114,6 +1159,39 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ],
     );
+  }
+
+  Future<void> _resumePendingPresentationAfterPayment() async {
+    if (_resumingPresentationAfterPayment) {
+      return;
+    }
+
+    final template = _pendingTemplateAfterPayment;
+    final controller = _presentationController;
+    if (template == null || controller == null || !controller.hasOutline) {
+      return;
+    }
+
+    _resumingPresentationAfterPayment = true;
+    _pendingTemplateAfterPayment = null;
+
+    try {
+      controller.selectDesign(template.id);
+      _appendBotMessage(
+        '🚀 Лимит пополнен. Продолжаю создание презентации в дизайне «${template.name}»...',
+      );
+      await _startRender(generatePdf: true);
+    } finally {
+      _resumingPresentationAfterPayment = false;
+    }
+  }
+
+  String _currentSupportUsername() {
+    final username = _billingController?.summary?.supportUsername.trim();
+    if (username != null && username.isNotEmpty) {
+      return username;
+    }
+    return '@your_tracksupport';
   }
 
   Future<void> _launchPaymentUrl(String url) async {

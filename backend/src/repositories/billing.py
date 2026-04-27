@@ -123,6 +123,23 @@ def get_payment(external_payment_id: str) -> StoredPayment | None:
     return _row_to_payment(row)
 
 
+def list_open_payments(client_id: str, limit: int = 5) -> list[StoredPayment]:
+    safe_limit = max(1, limit)
+    with _LOCK:
+        with closing(connect()) as conn:
+            rows = conn.execute(
+                '''
+                SELECT * FROM billing_payments
+                WHERE client_id = ?
+                  AND status IN ('pending', 'waiting_for_capture')
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ?
+                ''',
+                (client_id, safe_limit),
+            ).fetchall()
+    return [item for row in rows if (item := _row_to_payment(row)) is not None]
+
+
 def update_payment_status(
     external_payment_id: str,
     status: str,

@@ -55,6 +55,7 @@ class BillingService:
 
     async def get_summary(self, client_id: str) -> BillingSummary:
         billing_repo.touch_client(client_id)
+        await self._sync_open_payments(client_id)
         active = billing_repo.get_active_subscription(client_id)
         latest = active or billing_repo.get_latest_valid_subscription(client_id)
         return BillingSummary(
@@ -69,6 +70,7 @@ class BillingService:
 
     async def can_start_generation(self, client_id: str) -> bool:
         billing_repo.touch_client(client_id)
+        await self._sync_open_payments(client_id)
         return billing_repo.get_subscription_for_use(client_id) is not None
 
     async def consume_generation(self, client_id: str) -> bool:
@@ -241,6 +243,24 @@ class BillingService:
             processed += 1
 
         return processed
+
+    async def _sync_open_payments(self, client_id: str, limit: int = 3) -> None:
+        if not self.is_configured:
+            return
+
+        for payment in billing_repo.list_open_payments(client_id, limit=limit):
+            try:
+                remote = await asyncio.to_thread(
+                    self._gateway.get_payment,
+                    payment.external_payment_id,
+                )
+            except Exception:  # noqa: BLE001
+                continue
+
+            if remote is None:
+                continue
+
+            await self._apply_remote_payment(client_id, payment.plan_key, remote)
 
     async def _apply_remote_payment(
         self,

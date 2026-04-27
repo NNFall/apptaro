@@ -33,6 +33,7 @@
   - `YooKassa` test mode through backend billing APIs
   - `X-AppSlides-Client-Id` is the persistent client key for subscriptions, limits and payments
   - chat command `/balance` is the single entry point for plan selection, payment launch, polling and cancellation
+  - unfinished YooKassa payments must auto-sync on resume/summary checks so the paywall does not depend on a manual refresh
 - Operational discipline is now fixed:
   - every large/important change should be committed and pushed to GitHub
   - backend changes should be redeployed to the remote server right after validation
