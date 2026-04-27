@@ -18,6 +18,11 @@ backend/logs/
 backend/runtime/temp/
 backend/runtime/fonts/
 
+telegrambot/fonts/
+telegrambot/logs/
+telegrambot/database/*.db
+telegrambot/database/*.backup*
+
 app/.dart_tool/
 app/.packages
 app/.flutter-plugins
