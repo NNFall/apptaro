@@ -96,6 +96,12 @@
   - [x] temporary transport errors during polling no longer terminate the whole payment-wait flow;
   - [x] when polling reaches the timeout window, the chat shows a clean follow-up message with the same payment actions.
 
+- Local chat persistence hardening:
+  - [x] transcript restore now waits correctly for the async storage read instead of racing against app startup;
+  - [x] chat history restore now keeps bot/user messages, file cards, template preview blocks and inline keyboards;
+  - [x] the current conversation step and pending paywall template are now stored together with the transcript;
+  - [x] legacy transcript storage is migrated forward instead of being silently dropped on upgrade.
+
 
 ## Статус
 

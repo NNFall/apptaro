@@ -12,6 +12,8 @@
   - Telegram-like green wallpaper and compact header/composer layout.
 - The active chat client already has:
   - local persistent transcript restore after restart;
+  - full chat snapshot restore with messages, file cards, template previews and inline keyboards;
+  - restored conversation step and pending paywall context after relaunch;
   - `/help`, `/balance`, `/settings`, `/history`, `/files` command-style flows;
   - local file cards with `Открыть` / `Удалить` actions directly inside the chat;
   - preserved backend-driven presentation/converter flows inside the same conversation.

@@ -1,3 +1,4 @@
+import 'presentation_template.dart';
 import 'saved_file_entry.dart';
 
 enum ChatTranscriptSender {
@@ -11,7 +12,9 @@ class ChatTranscriptEntry {
     required this.sender,
     required this.text,
     required this.sentAt,
+    this.keyboard = const <List<ChatTranscriptAction>>[],
     this.attachments = const <ChatTranscriptAttachment>[],
+    this.templatePreviewTemplates = const <ChatTranscriptTemplatePreview>[],
     this.linkPreview,
   });
 
@@ -19,7 +22,9 @@ class ChatTranscriptEntry {
   final ChatTranscriptSender sender;
   final String text;
   final DateTime sentAt;
+  final List<List<ChatTranscriptAction>> keyboard;
   final List<ChatTranscriptAttachment> attachments;
+  final List<ChatTranscriptTemplatePreview> templatePreviewTemplates;
   final ChatTranscriptLinkPreview? linkPreview;
 
   Map<String, dynamic> toJson() {
@@ -28,7 +33,13 @@ class ChatTranscriptEntry {
       'sender': sender.name,
       'text': text,
       'sent_at': sentAt.toIso8601String(),
+      'keyboard': keyboard
+          .map((row) => row.map((item) => item.toJson()).toList(growable: false))
+          .toList(growable: false),
       'attachments': attachments.map((item) => item.toJson()).toList(),
+      'template_preview_templates': templatePreviewTemplates
+          .map((item) => item.toJson())
+          .toList(growable: false),
       'link_preview': linkPreview?.toJson(),
     };
   }
@@ -40,11 +51,30 @@ class ChatTranscriptEntry {
       text: json['text'] as String? ?? '',
       sentAt:
           DateTime.tryParse(json['sent_at'] as String? ?? '') ?? DateTime.now(),
+      keyboard: (json['keyboard'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<List>()
+          .map(
+            (row) => row
+                .whereType<Map>()
+                .map((item) => ChatTranscriptAction.fromJson(item.cast<String, dynamic>()))
+                .toList(growable: false),
+          )
+          .toList(growable: false),
       attachments: (json['attachments'] as List<dynamic>? ?? const <dynamic>[])
           .whereType<Map>()
           .map((item) =>
               ChatTranscriptAttachment.fromJson(item.cast<String, dynamic>()))
-          .toList(),
+          .toList(growable: false),
+      templatePreviewTemplates:
+          (json['template_preview_templates'] as List<dynamic>? ??
+                  const <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (item) => ChatTranscriptTemplatePreview.fromJson(
+                  item.cast<String, dynamic>(),
+                ),
+              )
+              .toList(growable: false),
       linkPreview: json['link_preview'] is Map<String, dynamic>
           ? ChatTranscriptLinkPreview.fromJson(
               json['link_preview'] as Map<String, dynamic>,
@@ -65,6 +95,106 @@ class ChatTranscriptEntry {
       default:
         return ChatTranscriptSender.bot;
     }
+  }
+}
+
+class ChatTranscriptAction {
+  const ChatTranscriptAction({
+    required this.label,
+    required this.actionKey,
+    required this.showAsUserMessage,
+    this.payload = const <String, dynamic>{},
+  });
+
+  final String label;
+  final String actionKey;
+  final bool showAsUserMessage;
+  final Map<String, dynamic> payload;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'label': label,
+      'action_key': actionKey,
+      'show_as_user_message': showAsUserMessage,
+      'payload': payload,
+    };
+  }
+
+  factory ChatTranscriptAction.fromJson(Map<String, dynamic> json) {
+    return ChatTranscriptAction(
+      label: json['label'] as String? ?? '',
+      actionKey: json['action_key'] as String? ?? '',
+      showAsUserMessage: json['show_as_user_message'] as bool? ?? true,
+      payload: json['payload'] is Map<String, dynamic>
+          ? json['payload'] as Map<String, dynamic>
+          : json['payload'] is Map
+              ? (json['payload'] as Map).cast<String, dynamic>()
+              : const <String, dynamic>{},
+    );
+  }
+}
+
+class ChatTranscriptTemplatePreview {
+  const ChatTranscriptTemplatePreview({
+    required this.id,
+    required this.name,
+    required this.templatePath,
+    required this.previewPath,
+    required this.templateAvailable,
+    required this.previewAvailable,
+  });
+
+  final int id;
+  final String name;
+  final String? templatePath;
+  final String? previewPath;
+  final bool templateAvailable;
+  final bool previewAvailable;
+
+  factory ChatTranscriptTemplatePreview.fromPresentationTemplate(
+    PresentationTemplate template,
+  ) {
+    return ChatTranscriptTemplatePreview(
+      id: template.id,
+      name: template.name,
+      templatePath: template.templatePath,
+      previewPath: template.previewPath,
+      templateAvailable: template.templateAvailable,
+      previewAvailable: template.previewAvailable,
+    );
+  }
+
+  PresentationTemplate toPresentationTemplate() {
+    return PresentationTemplate(
+      id: id,
+      name: name,
+      templatePath: templatePath,
+      previewPath: previewPath,
+      templateAvailable: templateAvailable,
+      previewAvailable: previewAvailable,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'name': name,
+      'template_path': templatePath,
+      'preview_path': previewPath,
+      'template_available': templateAvailable,
+      'preview_available': previewAvailable,
+    };
+  }
+
+  factory ChatTranscriptTemplatePreview.fromJson(Map<String, dynamic> json) {
+    return ChatTranscriptTemplatePreview(
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      templatePath: json['template_path'] as String?,
+      previewPath: json['preview_path'] as String?,
+      templateAvailable: json['template_available'] as bool? ?? false,
+      previewAvailable: json['preview_available'] as bool? ?? false,
+    );
   }
 }
 

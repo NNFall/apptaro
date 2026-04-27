@@ -190,6 +190,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               label: '🏠 Главное меню',
                               onTap: _showMainMenu,
                               showAsUserMessage: true,
+                              actionKey: 'show_main_menu',
                             ),
                             _showMainMenu,
                           )),
@@ -234,6 +235,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ..clear()
         ..addAll(transcript.entries.map(_messageFromTranscript));
       _messageCounter = _messages.length;
+      _composerMode = _composerModeFromStorageKey(transcript.composerModeKey);
+      _pendingTemplateAfterPayment =
+          transcript.pendingTemplate?.toPresentationTemplate();
     });
     _scrollToBottom();
   }
@@ -365,6 +369,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _action(
             '🏠 Главное меню',
             _showMainMenu,
+            actionKey: 'show_main_menu',
             echoAsUser: false,
           ),
         ],
@@ -386,10 +391,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : 'Не удалось загрузить данные по подписке.';
       _appendBotMessage(
         '❌ $message',
-        keyboard: [
-          [
-            _action('🔄 Повторить', _showBalance, echoAsUser: false),
-            _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+          keyboard: [
+            [
+            _action(
+              '🔄 Повторить',
+              _showBalance,
+              actionKey: 'show_balance',
+              echoAsUser: false,
+            ),
+            _action(
+              '🏠 Главное меню',
+              _showMainMenu,
+              actionKey: 'show_main_menu',
+              echoAsUser: false,
+            ),
           ],
         ],
       );
@@ -413,10 +428,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       '$currentUrl',
       keyboard: [
         [
-          _action('🔌 Проверить', _testConnection),
+          _action('🔌 Проверить', _testConnection, actionKey: 'test_connection'),
         ],
         [
-          _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+          _action(
+            '🏠 Главное меню',
+            _showMainMenu,
+            actionKey: 'show_main_menu',
+            echoAsUser: false,
+          ),
         ],
       ],
     );
@@ -455,8 +475,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           recentFiles.map(_buildSavedFileAttachment).toList(growable: false),
       keyboard: [
         [
-          _action('📁 Файлы', () async => _showFiles()),
-          _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+          _action('📁 Файлы', () async => _showFiles(), actionKey: 'show_files'),
+          _action(
+            '🏠 Главное меню',
+            _showMainMenu,
+            actionKey: 'show_main_menu',
+            echoAsUser: false,
+          ),
         ],
       ],
     );
@@ -475,7 +500,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'Сохрани результат генерации или конвертации, и он появится здесь.',
         keyboard: [
           [
-            _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+            _action(
+              '🏠 Главное меню',
+              _showMainMenu,
+              actionKey: 'show_main_menu',
+              echoAsUser: false,
+            ),
           ],
         ],
       );
@@ -489,8 +519,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           recentFiles.map(_buildSavedFileAttachment).toList(growable: false),
       keyboard: [
         [
-          _action('🗂 История', () async => _showHistory()),
-          _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+          _action('🗂 История', () async => _showHistory(), actionKey: 'show_history'),
+          _action(
+            '🏠 Главное меню',
+            _showMainMenu,
+            actionKey: 'show_main_menu',
+            echoAsUser: false,
+          ),
         ],
       ],
     );
@@ -506,7 +541,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             : '⚠️ Backend ответил, но статус не ok.',
         keyboard: [
           [
-            _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+            _action(
+              '🏠 Главное меню',
+              _showMainMenu,
+              actionKey: 'show_main_menu',
+              echoAsUser: false,
+            ),
           ],
         ],
       );
@@ -515,12 +555,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         '❌ Не удалось достучаться до backend.\n$error',
         keyboard: [
           [
-            _action('🔄 Повторить', _testConnection, echoAsUser: false),
-            _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+            _action(
+              '🔄 Повторить',
+              _testConnection,
+              actionKey: 'test_connection',
+              echoAsUser: false,
+            ),
+            _action(
+              '🏠 Главное меню',
+              _showMainMenu,
+              actionKey: 'show_main_menu',
+              echoAsUser: false,
+            ),
           ],
         ],
       );
     }
+  }
+
+  Future<void> _beginPresentationTopicInput() async {
+    _composerMode = _ComposerMode.presentationTopic;
+    if (mounted) {
+      setState(() {});
+    }
+    _appendBotMessage(
+      '✍️ Напиши тему презентации и пожелания.\nНапример: «Удивительные факты о космосе для школьников».',
+    );
   }
 
   Future<void> _startPresentationTopic(String topic) async {
@@ -559,7 +619,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _slideAction(10),
         ],
         [
-          _action('↩ Отмена', _showMainMenu, echoAsUser: false),
+          _action(
+            '↩ Отмена',
+            _showMainMenu,
+            actionKey: 'show_main_menu',
+            echoAsUser: false,
+          ),
         ],
       ],
     );
@@ -756,11 +821,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           'Принять или изменить?\nМожно написать комментарий к плану, и я его обновлю.',
           keyboard: [
             [
-              _action('✅ Принять план', () async => _approveOutline()),
-              _action('✍️ Редактировать', _requestOutlineRevision),
+              _action(
+                '✅ Принять план',
+                () async => _approveOutline(),
+                actionKey: 'approve_outline',
+              ),
+              _action(
+                '✍️ Редактировать',
+                _requestOutlineRevision,
+                actionKey: 'request_outline_revision',
+              ),
             ],
             [
-              _action('↩ Отмена', _showMainMenu, echoAsUser: false),
+              _action(
+                '↩ Отмена',
+                _showMainMenu,
+                actionKey: 'show_main_menu',
+                echoAsUser: false,
+              ),
             ],
           ],
         );
@@ -872,7 +950,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               '❌ Конвертация завершилась с ошибкой.\n${job.error ?? 'Попробуй ещё раз.'}',
               keyboard: [
                 [
-                  _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+                  _action(
+                    '🏠 Главное меню',
+                    _showMainMenu,
+                    actionKey: 'show_main_menu',
+                    echoAsUser: false,
+                  ),
                 ],
               ],
             );
@@ -895,7 +978,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ],
             keyboard: [
               [
-                _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+                _action(
+                  '🏠 Главное меню',
+                  _showMainMenu,
+                  actionKey: 'show_main_menu',
+                  echoAsUser: false,
+                ),
               ],
             ],
           );
@@ -959,10 +1047,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               '❌ Оплата отменена.',
               keyboard: [
                 [
-                  _action('✅ Выбрать подписку', _showPlanOptions),
+                  _action(
+                    '✅ Выбрать подписку',
+                    _showPlanOptions,
+                    actionKey: 'show_plan_options',
+                  ),
                 ],
                 [
-                  _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+                  _action(
+                    '🏠 Главное меню',
+                    _showMainMenu,
+                    actionKey: 'show_main_menu',
+                    echoAsUser: false,
+                  ),
                 ],
               ],
             );
@@ -974,10 +1071,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               '❌ Платёж завершился ошибкой. Попробуй выбрать тариф ещё раз.',
               keyboard: [
                 [
-                  _action('✅ Выбрать подписку', _showPlanOptions),
+                  _action(
+                    '✅ Выбрать подписку',
+                    _showPlanOptions,
+                    actionKey: 'show_plan_options',
+                  ),
                 ],
                 [
-                  _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+                  _action(
+                    '🏠 Главное меню',
+                    _showMainMenu,
+                    actionKey: 'show_main_menu',
+                    echoAsUser: false,
+                  ),
                 ],
               ],
             );
@@ -1056,16 +1162,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _action(
           '❌ Отключить подписку',
           _cancelBillingSubscription,
+          actionKey: 'cancel_billing_subscription',
         ),
       ]);
     } else if (active == null || !active.isActive) {
       rows.add([
-        _action('✅ Выбрать подписку', _showPlanOptions),
+        _action(
+          '✅ Выбрать подписку',
+          _showPlanOptions,
+          actionKey: 'show_plan_options',
+        ),
       ]);
     }
 
     rows.add([
-      _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+      _action(
+        '🏠 Главное меню',
+        _showMainMenu,
+        actionKey: 'show_main_menu',
+        echoAsUser: false,
+      ),
     ]);
     return rows;
   }
@@ -1077,6 +1193,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _action(
           '💳 Оплатить',
           () async => _launchPaymentUrl(payment.confirmationUrl!),
+          actionKey: 'launch_payment_url',
+          payload: <String, dynamic>{
+            'url': payment.confirmationUrl!,
+          },
         ),
       ]);
     }
@@ -1084,10 +1204,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _action(
         '🔄 Проверить оплату',
         () async => _checkBillingPayment(payment.paymentId),
+        actionKey: 'check_billing_payment',
+        payload: <String, dynamic>{
+          'payment_id': payment.paymentId,
+        },
       ),
     ]);
     rows.add([
-      _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+      _action(
+        '🏠 Главное меню',
+        _showMainMenu,
+        actionKey: 'show_main_menu',
+        echoAsUser: false,
+      ),
     ]);
     return rows;
   }
@@ -1099,10 +1228,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _action(
             _planOptionLabel(plan),
             () async => _startBillingPayment(plan.key),
+            actionKey: 'start_billing_payment',
+            payload: <String, dynamic>{
+              'plan_key': plan.key,
+              'renew': false,
+            },
           ),
         ],
       [
-        _action('⬅️ Назад', _showMainMenu, echoAsUser: false),
+        _action(
+          '⬅️ Назад',
+          _showMainMenu,
+          actionKey: 'show_main_menu',
+          echoAsUser: false,
+        ),
       ],
     ];
 
@@ -1136,7 +1275,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<List<_ChatAction>> _mainMenuOnlyKeyboard() {
     return [
       [
-        _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+        _action(
+          '🏠 Главное меню',
+          _showMainMenu,
+          actionKey: 'show_main_menu',
+          echoAsUser: false,
+        ),
       ],
     ];
   }
@@ -1217,10 +1361,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               plan.key,
               renew: renew && plan.recurring,
             ),
+            actionKey: 'start_billing_payment',
+            payload: <String, dynamic>{
+              'plan_key': plan.key,
+              'renew': renew && plan.recurring,
+            },
           ),
         ],
       [
-        _action('⬅️ Назад', _showBalance, echoAsUser: false),
+        _action(
+          '⬅️ Назад',
+          _showBalance,
+          actionKey: 'show_balance',
+          echoAsUser: false,
+        ),
       ],
     ];
 
@@ -1281,7 +1435,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : 'Подписка выключена. Генерации доступны до $untilDate.',
       keyboard: [
         [
-          _action('🏠 Главное меню', _showMainMenu, echoAsUser: false),
+          _action(
+            '🏠 Главное меню',
+            _showMainMenu,
+            actionKey: 'show_main_menu',
+            echoAsUser: false,
+          ),
         ],
       ],
     );
@@ -1506,15 +1665,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       [
         _action(
           '📊 Создать презентацию',
-          () async {
-            _composerMode = _ComposerMode.presentationTopic;
-            if (mounted) {
-              setState(() {});
-            }
-            _appendBotMessage(
-              '✍️ Напиши тему презентации и пожелания.\nНапример: «Удивительные факты о космосе для школьников».',
-            );
-          },
+          _beginPresentationTopicInput,
+          actionKey: 'begin_presentation_topic',
         ),
       ],
       [
@@ -1525,6 +1677,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             targetExtension: 'docx',
             label: '📄 PDF → DOCX',
           ),
+          actionKey: 'start_conversion',
+          payload: const <String, dynamic>{
+            'source': 'pdf',
+            'target': 'docx',
+          },
         ),
       ],
       [
@@ -1535,6 +1692,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             targetExtension: 'pdf',
             label: '📄 DOCX → PDF',
           ),
+          actionKey: 'start_conversion',
+          payload: const <String, dynamic>{
+            'source': 'docx',
+            'target': 'pdf',
+          },
         ),
       ],
       [
@@ -1545,16 +1707,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             targetExtension: 'pdf',
             label: '📊 PPTX → PDF',
           ),
+          actionKey: 'start_conversion',
+          payload: const <String, dynamic>{
+            'source': 'pptx',
+            'target': 'pdf',
+          },
         ),
       ],
       [
         _action(
           '💳 Баланс / Подписка',
           () async => _showBalance(),
+          actionKey: 'show_balance',
         ),
       ],
       [
-        _action('❓ Помощь', () async => _showHelp()),
+        _action('❓ Помощь', () async => _showHelp(), actionKey: 'show_help'),
       ],
     ];
   }
@@ -1572,6 +1740,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               (template) => _action(
                 template.name,
                 () async => _selectTemplate(template),
+                actionKey: 'select_template',
+                payload: _templatePayload(template),
               ),
             )
             .toList(),
@@ -1579,7 +1749,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     rows.add(
       <_ChatAction>[
-        _action('↩ Отмена', _showMainMenu, echoAsUser: false),
+        _action(
+          '↩ Отмена',
+          _showMainMenu,
+          actionKey: 'show_main_menu',
+          echoAsUser: false,
+        ),
       ],
     );
     return rows;
@@ -1589,18 +1764,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return _action(
       '$slides',
       () => _acceptSlides(slides),
+      actionKey: 'accept_slides',
+      payload: <String, dynamic>{
+        'slides': slides,
+      },
     );
   }
 
   _ChatAction _action(
     String label,
     Future<void> Function() onTap, {
+    required String actionKey,
+    Map<String, dynamic> payload = const <String, dynamic>{},
     bool echoAsUser = true,
   }) {
     return _ChatAction(
       label: label,
       onTap: onTap,
       showAsUserMessage: echoAsUser,
+      actionKey: actionKey,
+      payload: payload,
     );
   }
 
@@ -1668,6 +1851,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : _MessageSender.bot,
       text: entry.text,
       sentAt: entry.sentAt,
+      keyboard: entry.keyboard
+          .map(
+            (row) => row
+                .map(_actionFromTranscript)
+                .whereType<_ChatAction>()
+                .toList(growable: false),
+          )
+          .where((row) => row.isNotEmpty)
+          .toList(growable: false),
       linkPreview: entry.linkPreview == null
           ? null
           : _MessageLinkPreview(
@@ -1691,6 +1883,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           )
           .toList(growable: false),
+      templatePreviewTemplates: entry.templatePreviewTemplates
+          .map((item) => item.toPresentationTemplate())
+          .toList(growable: false),
     );
   }
 
@@ -1702,6 +1897,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : ChatTranscriptSender.bot,
       text: message.text,
       sentAt: message.sentAt,
+      keyboard: message.keyboard
+          .map(
+            (row) => row
+                .map(_actionToTranscript)
+                .whereType<ChatTranscriptAction>()
+                .toList(growable: false),
+          )
+          .where((row) => row.isNotEmpty)
+          .toList(growable: false),
       linkPreview: message.linkPreview == null
           ? null
           : ChatTranscriptLinkPreview(
@@ -1724,6 +1928,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           )
           .toList(growable: false),
+      templatePreviewTemplates: message.templatePreviewTemplates
+          .map(ChatTranscriptTemplatePreview.fromPresentationTemplate)
+          .toList(growable: false),
     );
   }
 
@@ -1732,9 +1939,161 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (transcript == null) {
       return;
     }
-    await transcript.replaceAll(
-      _messages.map(_messageToTranscript).toList(growable: false),
+    await transcript.saveSnapshot(
+      entries: _messages.map(_messageToTranscript).toList(growable: false),
+      composerModeKey: _composerMode.name,
+      pendingTemplate: _pendingTemplateAfterPayment == null
+          ? null
+          : ChatTranscriptTemplatePreview.fromPresentationTemplate(
+              _pendingTemplateAfterPayment!,
+          ),
     );
+  }
+
+  _ComposerMode _composerModeFromStorageKey(String value) {
+    return switch (value) {
+      'presentationTopic' => _ComposerMode.presentationTopic,
+      'presentationSlides' => _ComposerMode.presentationSlides,
+      'outlineRevision' => _ComposerMode.outlineRevision,
+      _ => _ComposerMode.idle,
+    };
+  }
+
+  ChatTranscriptAction? _actionToTranscript(_ChatAction action) {
+    if (action.actionKey.isEmpty) {
+      return null;
+    }
+    return ChatTranscriptAction(
+      label: action.label,
+      actionKey: action.actionKey,
+      showAsUserMessage: action.showAsUserMessage,
+      payload: action.payload,
+    );
+  }
+
+  _ChatAction? _actionFromTranscript(ChatTranscriptAction action) {
+    Future<void> Function()? callback;
+
+    switch (action.actionKey) {
+      case 'show_main_menu':
+        callback = _showMainMenu;
+        break;
+      case 'show_help':
+        callback = () async => _showHelp();
+        break;
+      case 'show_balance':
+        callback = _showBalance;
+        break;
+      case 'show_settings':
+        callback = _showSettings;
+        break;
+      case 'show_history':
+        callback = () async => _showHistory();
+        break;
+      case 'show_files':
+        callback = () async => _showFiles();
+        break;
+      case 'test_connection':
+        callback = _testConnection;
+        break;
+      case 'begin_presentation_topic':
+        callback = _beginPresentationTopicInput;
+        break;
+      case 'start_conversion':
+        callback = () => _startConversionFlow(
+              sourceExtension: (action.payload['source'] as String?) ?? 'pdf',
+              targetExtension: (action.payload['target'] as String?) ?? 'docx',
+              label: action.label,
+            );
+        break;
+      case 'accept_slides':
+        final slides = int.tryParse('${action.payload['slides'] ?? ''}');
+        if (slides == null) {
+          return null;
+        }
+        callback = () => _acceptSlides(slides);
+        break;
+      case 'approve_outline':
+        callback = () async => _approveOutline();
+        break;
+      case 'request_outline_revision':
+        callback = _requestOutlineRevision;
+        break;
+      case 'select_template':
+        final template = _templateFromPayload(action.payload);
+        if (template == null) {
+          return null;
+        }
+        callback = () => _selectTemplate(template);
+        break;
+      case 'show_plan_options':
+        final renew = action.payload['renew'] == true;
+        callback = () => _showPlanOptions(renew: renew);
+        break;
+      case 'start_billing_payment':
+        final planKey = action.payload['plan_key'] as String?;
+        if (planKey == null || planKey.isEmpty) {
+          return null;
+        }
+        final renew = action.payload['renew'] == true;
+        callback = () => _startBillingPayment(planKey, renew: renew);
+        break;
+      case 'cancel_billing_subscription':
+        callback = _cancelBillingSubscription;
+        break;
+      case 'launch_payment_url':
+        final url = action.payload['url'] as String?;
+        if (url == null || url.isEmpty) {
+          return null;
+        }
+        callback = () => _launchPaymentUrl(url);
+        break;
+      case 'check_billing_payment':
+        final paymentId = action.payload['payment_id'] as String?;
+        if (paymentId == null || paymentId.isEmpty) {
+          return null;
+        }
+        callback = () => _checkBillingPayment(paymentId);
+        break;
+      default:
+        return null;
+    }
+
+    return _ChatAction(
+      label: action.label,
+      onTap: callback,
+      showAsUserMessage: action.showAsUserMessage,
+      actionKey: action.actionKey,
+      payload: action.payload,
+    );
+  }
+
+  PresentationTemplate? _templateFromPayload(Map<String, dynamic> payload) {
+    final id = payload['id'];
+    final name = payload['name'];
+    if (id is! int || name is! String || name.isEmpty) {
+      return null;
+    }
+
+    return PresentationTemplate(
+      id: id,
+      name: name,
+      templatePath: payload['template_path'] as String?,
+      previewPath: payload['preview_path'] as String?,
+      templateAvailable: payload['template_available'] as bool? ?? true,
+      previewAvailable: payload['preview_available'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> _templatePayload(PresentationTemplate template) {
+    return <String, dynamic>{
+      'id': template.id,
+      'name': template.name,
+      'template_path': template.templatePath,
+      'preview_path': template.previewPath,
+      'template_available': template.templateAvailable,
+      'preview_available': template.previewAvailable,
+    };
   }
 
   String _buildOutlineText(PresentationController controller) {
@@ -1937,11 +2296,15 @@ class _ChatAction {
     required this.label,
     required this.onTap,
     required this.showAsUserMessage,
+    required this.actionKey,
+    this.payload = const <String, dynamic>{},
   });
 
   final String label;
   final Future<void> Function() onTap;
   final bool showAsUserMessage;
+  final String actionKey;
+  final Map<String, dynamic> payload;
 }
 
 class _ChatAttachment {
