@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/models/chat_transcript_entry.dart';
+import '../storage/chat_transcript_store.dart';
 
 class ChatTranscriptRepository extends ChangeNotifier {
   static const String _storageKey = 'appslides.chat.transcript.v2';
@@ -14,12 +14,16 @@ class ChatTranscriptRepository extends ChangeNotifier {
     r'СЂСџ|РІ[СљС™вЂ Р‚в„ў]|(?:Р .|РЎ.){2,}|[РѓР‰РЉРЋСџС›СњСћС—]',
   );
 
-  final SharedPreferencesAsync _storage = SharedPreferencesAsync();
+  final ChatTranscriptStore _store = createChatTranscriptStore(
+    storageKey: _storageKey,
+    legacyStorageKey: _legacyStorageKey,
+  );
   final List<ChatTranscriptEntry> _entries = <ChatTranscriptEntry>[];
 
   bool _isLoaded = false;
   bool _isRestoring = false;
   Future<void>? _restoreFuture;
+  Future<void> _persistQueue = Future<void>.value();
   String _composerModeKey = 'idle';
   ChatTranscriptTemplatePreview? _pendingTemplate;
 
@@ -47,12 +51,7 @@ class ChatTranscriptRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      var raw = await _storage.getString(_storageKey);
-      var usedLegacyKey = false;
-      if (raw == null || raw.isEmpty) {
-        raw = await _storage.getString(_legacyStorageKey);
-        usedLegacyKey = raw != null && raw.isNotEmpty;
-      }
+      final raw = await _store.read();
       if (raw == null || raw.isEmpty) {
         _entries.clear();
         _composerModeKey = 'idle';
@@ -93,11 +92,6 @@ class ChatTranscriptRepository extends ChangeNotifier {
           _composerModeKey = 'idle';
           _pendingTemplate = null;
         }
-
-        if (usedLegacyKey) {
-          await _persist();
-          await _storage.remove(_legacyStorageKey);
-        }
       }
     } catch (_) {
       _entries.clear();
@@ -129,7 +123,7 @@ class ChatTranscriptRepository extends ChangeNotifier {
     _entries.clear();
     _composerModeKey = 'idle';
     _pendingTemplate = null;
-    await _storage.remove(_storageKey);
+    await _store.remove();
     notifyListeners();
   }
 
@@ -139,13 +133,15 @@ class ChatTranscriptRepository extends ChangeNotifier {
       'composer_mode': _composerModeKey,
       'pending_template': _pendingTemplate?.toJson(),
     };
-    await _storage.setString(_storageKey, jsonEncode(payload));
+    final encoded = jsonEncode(payload);
+    _persistQueue = _persistQueue.then((_) => _store.write(encoded));
+    await _persistQueue;
   }
 
   void _applyDecodedEntries(List<ChatTranscriptEntry> parsedEntries) {
     if (parsedEntries.any(_containsMojibake)) {
       _entries.clear();
-      unawaited(_storage.remove(_storageKey));
+      unawaited(_store.remove());
       return;
     }
 
