@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -49,7 +50,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   _ComposerMode _composerMode = _ComposerMode.idle;
   bool _didSeedConversation = false;
   bool _didRestoreTranscript = false;
+  bool _didInitializeDeepLinks = false;
+  bool _billingReturnInFlight = false;
   int _messageCounter = 0;
+  StreamSubscription<Uri>? _deepLinkSubscription;
+  String? _lastHandledBillingReturnKey;
   String? _lastPresentationOutlineKey;
   String? _lastPresentationError;
   String? _lastPresentationStatusKey;
@@ -106,6 +111,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _historyRepository!.addListener(_handleExternalStateChanged);
     _savedFilesRepository!.addListener(_handleExternalStateChanged);
 
+    if (!_didInitializeDeepLinks) {
+      _didInitializeDeepLinks = true;
+      unawaited(_initializeIncomingLinks());
+    }
+
     unawaited(_restoreTranscript());
   }
 
@@ -122,6 +132,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chatTranscriptRepository?.removeListener(_handleExternalStateChanged);
     _historyRepository?.removeListener(_handleExternalStateChanged);
     _savedFilesRepository?.removeListener(_handleExternalStateChanged);
+    _deepLinkSubscription?.cancel();
     _composerController.dispose();
     _composerFocusNode.dispose();
     _scrollController.dispose();
@@ -286,6 +297,82 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final summary = billingController.summary;
     if (summary != null && summary.remainingGenerations > 0) {
       await _resumePendingPresentationAfterPayment();
+    }
+  }
+
+  Future<void> _initializeIncomingLinks() async {
+    if (kIsWeb) {
+      return;
+    }
+
+    final appLinks = AppLinks();
+    try {
+      final initialLink = await appLinks.getInitialLink();
+      if (initialLink != null) {
+        await _handleIncomingUri(initialLink);
+      }
+    } catch (_) {}
+
+    _deepLinkSubscription = appLinks.uriLinkStream.listen(
+      (uri) => unawaited(_handleIncomingUri(uri)),
+      onError: (_) {},
+    );
+  }
+
+  Future<void> _handleIncomingUri(Uri uri) async {
+    if (!_isBillingReturnUri(uri)) {
+      return;
+    }
+
+    final uriKey = uri.toString();
+    if (_billingReturnInFlight || _lastHandledBillingReturnKey == uriKey) {
+      return;
+    }
+
+    _billingReturnInFlight = true;
+    _lastHandledBillingReturnKey = uriKey;
+    try {
+      await _handleBillingReturn();
+    } finally {
+      _billingReturnInFlight = false;
+    }
+  }
+
+  bool _isBillingReturnUri(Uri uri) {
+    return uri.scheme == 'appslides' &&
+        uri.host == 'billing' &&
+        uri.path == '/return';
+  }
+
+  Future<void> _handleBillingReturn() async {
+    final billingController = _billingController;
+    if (billingController == null) {
+      return;
+    }
+
+    final payment = billingController.payment;
+    if (payment != null && !payment.isFinished) {
+      await billingController.pollPayment(payment.paymentId);
+      return;
+    }
+
+    await billingController.refreshSummary();
+    final summary = billingController.summary;
+    if (summary == null) {
+      return;
+    }
+
+    if (_pendingTemplateAfterPayment != null &&
+        summary.remainingGenerations > 0) {
+      await _resumePendingPresentationAfterPayment();
+      return;
+    }
+
+    if (summary.remainingGenerations > 0) {
+      _appendBotMessage(
+        '✅ **Возврат из YooKassa выполнен**\nСтатус подписки обновлён.',
+        keyboard: _mainMenuOnlyKeyboard(),
+      );
     }
   }
 
