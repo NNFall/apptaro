@@ -31,24 +31,26 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
 
   final String _storageKey;
   final String _legacyStorageKey;
-  final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
+  final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+  Future<File>? _fileFuture;
 
   @override
   Future<String?> read() async {
     final file = await _resolveFile();
-    if (await file.exists()) {
-      final raw = await file.readAsString();
+    if (file.existsSync()) {
+      final raw = file.readAsStringSync();
       if (raw.isNotEmpty) {
         return raw;
       }
     }
 
-    final raw = await _prefs.getString(_storageKey);
+    final prefs = await _prefs;
+    final raw = prefs.getString(_storageKey);
     if (raw != null && raw.isNotEmpty) {
       return raw;
     }
 
-    final legacy = await _prefs.getString(_legacyStorageKey);
+    final legacy = prefs.getString(_legacyStorageKey);
     if (legacy != null && legacy.isNotEmpty) {
       return legacy;
     }
@@ -58,27 +60,44 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
 
   @override
   Future<void> write(String value) async {
-    final file = await _resolveFile();
-    await file.parent.create(recursive: true);
-    await file.writeAsString(value, flush: true);
-    await _prefs.remove(_storageKey);
-    await _prefs.remove(_legacyStorageKey);
+    final prefs = await _prefs;
+    await prefs.remove(_legacyStorageKey);
+    await prefs.setString(_storageKey, value);
+
+    try {
+      final file = await _resolveFile();
+      file.parent.createSync(recursive: true);
+      file.writeAsStringSync(value, flush: true);
+    } catch (_) {}
   }
 
   @override
   Future<void> remove() async {
     final file = await _resolveFile();
-    if (await file.exists()) {
-      await file.delete();
+    if (file.existsSync()) {
+      file.deleteSync();
     }
-    await _prefs.remove(_storageKey);
-    await _prefs.remove(_legacyStorageKey);
+
+    final prefs = await _prefs;
+    await prefs.remove(_storageKey);
+    await prefs.remove(_legacyStorageKey);
   }
 
   Future<File> _resolveFile() async {
-    final documentsDir = await getApplicationDocumentsDirectory();
+    if (_fileFuture != null) {
+      return _fileFuture!;
+    }
+    _fileFuture = _resolveFileImpl();
+    return _fileFuture!;
+  }
+
+  Future<File> _resolveFileImpl() async {
+    final baseDir = Platform.isAndroid
+        ? await getExternalStorageDirectory() ??
+            await getApplicationDocumentsDirectory()
+        : await getApplicationDocumentsDirectory();
     final targetDir = Directory(
-      '${documentsDir.path}${Platform.pathSeparator}$_directoryName',
+      '${baseDir.path}${Platform.pathSeparator}$_directoryName',
     );
     return File('${targetDir.path}${Platform.pathSeparator}$_filename');
   }

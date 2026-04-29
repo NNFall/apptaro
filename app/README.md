@@ -15,6 +15,7 @@
   - full chat snapshot restore with messages, file cards, template previews and inline keyboards;
   - restored conversation step and pending paywall context after relaunch;
   - mobile transcript persistence backed by a flushed JSON file in app documents storage, with legacy prefs migration;
+  - verified Android release behavior: chat history survives full `force-stop` and relaunch on a real phone;
   - `/help`, `/balance`, `/settings`, `/history`, `/files` command-style flows;
   - local file cards with `Открыть` / `Удалить` actions directly inside the chat;
   - preserved backend-driven presentation/converter flows inside the same conversation.

@@ -25,16 +25,17 @@ class _SharedPrefsChatTranscriptStore implements ChatTranscriptStore {
 
   final String _storageKey;
   final String _legacyStorageKey;
-  final SharedPreferencesAsync _storage = SharedPreferencesAsync();
+  final Future<SharedPreferences> _storage = SharedPreferences.getInstance();
 
   @override
   Future<String?> read() async {
-    final raw = await _storage.getString(_storageKey);
+    final storage = await _storage;
+    final raw = storage.getString(_storageKey);
     if (raw != null && raw.isNotEmpty) {
       return raw;
     }
 
-    final legacy = await _storage.getString(_legacyStorageKey);
+    final legacy = storage.getString(_legacyStorageKey);
     if (legacy != null && legacy.isNotEmpty) {
       return legacy;
     }
@@ -44,13 +45,15 @@ class _SharedPrefsChatTranscriptStore implements ChatTranscriptStore {
 
   @override
   Future<void> write(String value) async {
-    await _storage.setString(_storageKey, value);
-    await _storage.remove(_legacyStorageKey);
+    final storage = await _storage;
+    await storage.setString(_storageKey, value);
+    await storage.remove(_legacyStorageKey);
   }
 
   @override
   Future<void> remove() async {
-    await _storage.remove(_storageKey);
-    await _storage.remove(_legacyStorageKey);
+    final storage = await _storage;
+    await storage.remove(_storageKey);
+    await storage.remove(_legacyStorageKey);
   }
 }

@@ -10,9 +10,6 @@ class ChatTranscriptRepository extends ChangeNotifier {
   static const String _storageKey = 'appslides.chat.transcript.v2';
   static const String _legacyStorageKey = 'appslides.chat.transcript.v1';
   static const int _maxEntries = 250;
-  static final RegExp _mojibakePattern = RegExp(
-    r'СЂСџ|РІ[СљС™вЂ Р‚в„ў]|(?:Р .|РЎ.){2,}|[РѓР‰РЉРЋСџС›СњСћС—]',
-  );
 
   final ChatTranscriptStore _store = createChatTranscriptStore(
     storageKey: _storageKey,
@@ -129,57 +126,26 @@ class ChatTranscriptRepository extends ChangeNotifier {
 
   Future<void> _persist() async {
     final payload = <String, dynamic>{
-      'entries': _entries.map((entry) => entry.toJson()).toList(growable: false),
+      'entries':
+          _entries.map((entry) => entry.toJson()).toList(growable: false),
       'composer_mode': _composerModeKey,
       'pending_template': _pendingTemplate?.toJson(),
     };
     final encoded = jsonEncode(payload);
-    _persistQueue = _persistQueue.then((_) => _store.write(encoded));
-    await _persistQueue;
+    _persistQueue = _persistQueue
+        .catchError((Object _) {})
+        .then((_) => _store.write(encoded));
+    try {
+      await _persistQueue;
+    } catch (_) {
+      _persistQueue = Future<void>.value();
+      rethrow;
+    }
   }
 
   void _applyDecodedEntries(List<ChatTranscriptEntry> parsedEntries) {
-    if (parsedEntries.any(_containsMojibake)) {
-      _entries.clear();
-      unawaited(_store.remove());
-      return;
-    }
-
     _entries
       ..clear()
       ..addAll(parsedEntries);
-  }
-
-  bool _containsMojibake(ChatTranscriptEntry entry) {
-    if (_looksMojibake(entry.text)) {
-      return true;
-    }
-
-    for (final row in entry.keyboard) {
-      for (final action in row) {
-        if (_looksMojibake(action.label)) {
-          return true;
-        }
-      }
-    }
-
-    for (final template in entry.templatePreviewTemplates) {
-      if (_looksMojibake(template.name)) {
-        return true;
-      }
-    }
-
-    return entry.attachments.any(
-      (attachment) =>
-          _looksMojibake(attachment.filename) ||
-          _looksMojibake(attachment.caption),
-    );
-  }
-
-  bool _looksMojibake(String value) {
-    if (value.isEmpty) {
-      return false;
-    }
-    return _mojibakePattern.hasMatch(value);
   }
 }

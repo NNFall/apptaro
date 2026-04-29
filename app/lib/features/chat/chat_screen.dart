@@ -50,7 +50,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _didSeedConversation = false;
   bool _didRestoreTranscript = false;
   int _messageCounter = 0;
-
   String? _lastPresentationOutlineKey;
   String? _lastPresentationError;
   String? _lastPresentationStatusKey;
@@ -300,22 +299,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _composerFocusNode.unfocus();
     _composerController.clear();
     _appendUserMessage(raw);
+    await _persistTranscript();
 
     final command = raw.toLowerCase();
     if (command.startsWith('/')) {
       await _handleCommand(command);
+      await _persistTranscript();
       return;
     }
 
     switch (_composerMode) {
       case _ComposerMode.idle:
-        return _startPresentationTopic(raw);
+        await _startPresentationTopic(raw);
+        await _persistTranscript();
+        return;
       case _ComposerMode.presentationTopic:
-        return _startPresentationTopic(raw);
+        await _startPresentationTopic(raw);
+        await _persistTranscript();
+        return;
       case _ComposerMode.presentationSlides:
-        return _acceptSlidesFromText(raw);
+        await _acceptSlidesFromText(raw);
+        await _persistTranscript();
+        return;
       case _ComposerMode.outlineRevision:
-        return _submitOutlineRevision(raw);
+        await _submitOutlineRevision(raw);
+        await _persistTranscript();
+        return;
     }
   }
 
@@ -399,8 +408,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : 'Не удалось загрузить данные по подписке.';
       _appendBotMessage(
         '❌ $message',
-          keyboard: [
-            [
+        keyboard: [
+          [
             _action(
               '🔄 Повторить',
               _showBalance,
@@ -436,7 +445,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       '$currentUrl',
       keyboard: [
         [
-          _action('🔌 Проверить', _testConnection, actionKey: 'test_connection'),
+          _action('🔌 Проверить', _testConnection,
+              actionKey: 'test_connection'),
         ],
         [
           _action(
@@ -483,7 +493,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           recentFiles.map(_buildSavedFileAttachment).toList(growable: false),
       keyboard: [
         [
-          _action('📁 Файлы', () async => _showFiles(), actionKey: 'show_files'),
+          _action('📁 Файлы', () async => _showFiles(),
+              actionKey: 'show_files'),
           _action(
             '🏠 Главное меню',
             _showMainMenu,
@@ -527,7 +538,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           recentFiles.map(_buildSavedFileAttachment).toList(growable: false),
       keyboard: [
         [
-          _action('🗂 История', () async => _showHistory(), actionKey: 'show_history'),
+          _action('🗂 История', () async => _showHistory(),
+              actionKey: 'show_history'),
           _action(
             '🏠 Главное меню',
             _showMainMenu,
@@ -869,7 +881,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             } else {
               _updateMessageById(
                 _presentationStatusMessageId!,
-                text: '⌛ Задача поставлена в очередь.\nID задачи: `${job.jobId}`',
+                text:
+                    '⌛ Задача поставлена в очередь.\nID задачи: `${job.jobId}`',
               );
             }
             break;
@@ -908,7 +921,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _lastPresentationResultKey = resultKey;
           _clearRenderProgressMessages();
           final attachments = job.artifacts
-              .map((artifact) => _buildPresentationAttachment(job.jobId, artifact))
+              .map((artifact) =>
+                  _buildPresentationAttachment(job.jobId, artifact))
               .toList(growable: false);
           _appendBotMessage(
             '**✅ Презентация готова**\n'
@@ -1268,7 +1282,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   String _buildPaymentSuccessText(BillingSummary summary) {
     final active = summary.activeSubscription;
-    final plan = active == null ? null : _findBillingPlan(summary, active.planKey);
+    final plan =
+        active == null ? null : _findBillingPlan(summary, active.planKey);
     final buffer = StringBuffer('**Оплата прошла успешно.** ✅\n\n');
     if (plan != null) {
       buffer.writeln('**Тариф:** ${_planTariffLine(plan)}');
@@ -1343,7 +1358,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-
   Future<void> _showPlanOptions({bool renew = false}) async {
     final controller = _billingController;
     if (controller == null) {
@@ -1394,7 +1408,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _startBillingPayment(String planKey, {bool renew = false}) async {
+  Future<void> _startBillingPayment(String planKey,
+      {bool renew = false}) async {
     final controller = _billingController;
     if (controller == null) {
       return;
@@ -1471,8 +1486,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     try {
       controller.selectDesign(template.id);
       _clearRenderProgressMessages();
-      _renderPreparationMessageId =
-          _appendBotMessage('_Оплата подтверждена. Продолжаю создание презентации..._');
+      _renderPreparationMessageId = _appendBotMessage(
+          '_Оплата подтверждена. Продолжаю создание презентации..._');
       await _startRender(generatePdf: true);
     } finally {
       _resumingPresentationAfterPayment = false;
@@ -1666,6 +1681,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _appendUserMessage(action.label);
     }
     await callback();
+    await _persistTranscript();
   }
 
   List<List<_ChatAction>> _mainMenuKeyboard() {
@@ -1954,7 +1970,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ? null
           : ChatTranscriptTemplatePreview.fromPresentationTemplate(
               _pendingTemplateAfterPayment!,
-          ),
+            ),
     );
   }
 
@@ -2437,11 +2453,11 @@ class _ChatHeader extends StatelessWidget {
           ),
         ),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
+          const Text(
             'Слайд ИИ - Создать презентацию | Создание ...',
             style: TextStyle(
               fontSize: 13.8,
@@ -2450,12 +2466,12 @@ class _ChatHeader extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          SizedBox(height: 2),
-          Text(
+          const SizedBox(height: 2),
+          const Text(
             'бот',
             style: TextStyle(
               fontSize: 11,
-              color: Color(0xFF9AA0A6),
+              color: Color(0xFF9AA1AA),
             ),
           ),
         ],
@@ -2545,7 +2561,8 @@ class _ComposerBar extends StatelessWidget {
               return IconButton(
                 onPressed: hasText ? onSubmit : null,
                 icon: const Icon(Icons.send_rounded),
-                color: hasText ? const Color(0xFF4BA7E8) : const Color(0xFFAEB6BF),
+                color:
+                    hasText ? const Color(0xFF4BA7E8) : const Color(0xFFAEB6BF),
               );
             },
           ),

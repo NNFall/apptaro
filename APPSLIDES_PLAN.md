@@ -103,6 +103,7 @@
   - [x] legacy transcript storage is migrated forward instead of being silently dropped on upgrade.
   - [x] transcript storage on mobile is moved from async prefs-only persistence to a dedicated flushed JSON file in app documents storage;
   - [x] chat snapshot now gets flushed again when the app goes to background or is being closed.
+  - [x] real-device Android release check passed: after `force-stop`, relaunch restores the same chat thread without debug-only helpers.
 
 
 ## Статус
