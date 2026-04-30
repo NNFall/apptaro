@@ -54,7 +54,7 @@ python scripts\deploy\deploy_backend_remote.py `
 
 The deploy script:
 
-- uploads `backend/`, `templates/`, `docker-compose.yml` and `.env`
+- uploads `backend/`, `telegram_admin_bot/`, `templates/`, `docker-compose.yml` and `.env`
 - keeps persistent data outside the container
 - rebuilds and restarts Docker Compose
 - expects the public port to remain `8010`
@@ -92,3 +92,4 @@ python -c "import telegram_admin_bot.main; print('admin bot import ok')"
 - YooKassa is currently integrated in backend test mode and driven through the chat `/balance` flow.
 - Successful payment should now be reflected both on app resume and on later summary/generation checks because the backend auto-syncs unfinished payments.
 - The separate `telegram_admin_bot/` works against the same SQLite database as the backend and uses `client_id` for subscription commands.
+- The production compose stack now includes both `appslides_backend` and `appslides_admin_bot`.

@@ -57,7 +57,9 @@
   - [x] template listing and upload-replacement flow restored;
   - [x] promo code creation restored on the new backend schema;
   - [x] ad-tag schema and tag-statistics support restored for the new backend database;
-  - [x] shared admin schema added into the main `appslides` SQLite storage.
+  - [x] shared admin schema added into the main `appslides` SQLite storage;
+  - [x] admin bot dockerized and added into the production compose stack;
+  - [x] admin bot deployed on `185.171.83.116` together with backend.
 - Next required study before implementation:
   - inspect each admin handler end-to-end against the current `appslides` backend schema;
   - map old Telegram `user_id` logic to current mobile `client_id` world where needed;

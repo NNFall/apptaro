@@ -31,8 +31,12 @@ async def _set_commands(bot: Bot, admin_ids: list[int]) -> None:
         BotCommand(command='templates', description='Показать шаблоны'),
         BotCommand(command='template_set', description='Заменить шаблон'),
     ]
+    await bot.set_my_commands(commands)
     for admin_id in admin_ids:
-        await bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=admin_id))
+        try:
+            await bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=admin_id))
+        except Exception:
+            continue
 
 
 async def main() -> None:
@@ -53,4 +57,3 @@ async def main() -> None:
 
 if __name__ == '__main__':
     asyncio.run(main())
-

@@ -17,6 +17,7 @@ except ImportError:  # pragma: no cover - fallback for minimal environments
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_DIR = REPO_ROOT / 'backend'
 TEMPLATES_DIR = REPO_ROOT / 'telegrambot' / 'media' / 'templates'
+ADMIN_BOT_DIR = REPO_ROOT / 'telegram_admin_bot'
 COMPOSE_FILE = REPO_ROOT / 'docker-compose.backend.yml'
 
 BACKEND_SKIP_PARTS = {
@@ -46,6 +47,7 @@ def load_local_env() -> dict[str, str]:
         REPO_ROOT / '.env',
         BACKEND_DIR / '.env',
         REPO_ROOT / 'telegrambot' / '.env',
+        ADMIN_BOT_DIR / '.env',
     ):
         if not path.exists():
             continue
@@ -133,6 +135,11 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'SUPPORT_USERNAME',
         'OFFER_URL',
         'AUTO_RENEW_INTERVAL',
+        'ADMIN_BOT_TOKEN',
+        'ADMIN_BOT_USERNAME',
+        'ADMIN_IDS',
+        'APP_SHARE_URL',
+        'MAILER_TEMPLATE_INDEX',
     )
     for key in passthrough_keys:
         value = local_env.get(key)
@@ -208,7 +215,7 @@ def _skip_backend_path(relative: Path) -> bool:
 
 
 def ensure_required_paths() -> None:
-    for path in (BACKEND_DIR, TEMPLATES_DIR, COMPOSE_FILE):
+    for path in (BACKEND_DIR, ADMIN_BOT_DIR, TEMPLATES_DIR, COMPOSE_FILE):
         if not path.exists():
             raise FileNotFoundError(f'Missing required path: {path}')
 
@@ -231,15 +238,17 @@ def ensure_remote_docker(remote: RemoteHost) -> None:
 
 def deploy(remote: RemoteHost, remote_dir: str, remote_env: str) -> None:
     backend_remote = posixpath.join(remote_dir, 'backend')
+    admin_bot_remote = posixpath.join(remote_dir, 'telegram_admin_bot')
     templates_remote = posixpath.join(remote_dir, 'templates')
     remote.ensure_dir(remote_dir)
     for name in ('data', 'temp', 'logs'):
         remote.ensure_dir(posixpath.join(remote_dir, name))
 
-    for path in (backend_remote, templates_remote):
+    for path in (backend_remote, admin_bot_remote, templates_remote):
         remote.remove_tree(path)
 
     remote.upload_tree(BACKEND_DIR, backend_remote, skip_backend_filters=True)
+    remote.upload_tree(ADMIN_BOT_DIR, admin_bot_remote)
     remote.upload_tree(TEMPLATES_DIR, templates_remote)
     remote.upload_file(COMPOSE_FILE, posixpath.join(remote_dir, 'docker-compose.yml'))
     remote.upload_text(remote_env, posixpath.join(remote_dir, '.env'))
