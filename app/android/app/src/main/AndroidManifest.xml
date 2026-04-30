@@ -14,9 +14,10 @@
         android:name="android.permission.READ_MEDIA_VIDEO"
         tools:node="remove" />
     <application
-        android:label="Слайд ИИ Создать Презентацию"
+        android:label="Слайд ИИ"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"

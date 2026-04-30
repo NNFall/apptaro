@@ -10,7 +10,7 @@ class AppSlidesApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Слайд ИИ Создать Презентацию',
+      title: 'Слайд ИИ',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       home: const AppScope(

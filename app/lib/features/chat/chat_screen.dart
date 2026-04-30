@@ -2568,7 +2568,7 @@ class _ChatHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
-            'Слайд ИИ Создать Презентацию',
+            'Слайд ИИ',
             style: TextStyle(
               fontSize: 13.8,
               fontWeight: FontWeight.w600,
