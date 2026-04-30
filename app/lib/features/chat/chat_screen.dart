@@ -11,6 +11,7 @@ import '../../app/app_scope.dart';
 import '../../core/config/app_config.dart';
 import '../../data/repositories/backend_config_repository.dart';
 import '../../data/repositories/chat_transcript_repository.dart';
+import '../../data/repositories/client_session_repository.dart';
 import '../../data/repositories/local_history_repository.dart';
 import '../../data/repositories/saved_files_repository.dart';
 import '../../domain/models/billing_payment.dart';
@@ -44,6 +45,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   BillingController? _billingController;
   BackendConfigRepository? _backendConfigRepository;
   ChatTranscriptRepository? _chatTranscriptRepository;
+  ClientSessionRepository? _clientSessionRepository;
   LocalHistoryRepository? _historyRepository;
   SavedFilesRepository? _savedFilesRepository;
 
@@ -86,6 +88,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     _backendConfigRepository = AppScope.backendConfigOf(context);
     _chatTranscriptRepository = AppScope.transcriptOf(context);
+    _clientSessionRepository = AppScope.clientSessionOf(context);
     _historyRepository = AppScope.historyOf(context);
     _savedFilesRepository = AppScope.savedFilesOf(context);
 
@@ -267,7 +270,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _didSeedConversation = true;
     _appendBotMessage(
       '🎬 AI Презентации\n'
-      'Создавай презентации и конвертируй файлы в формате Telegram-бота.\n\n'
+      'Создавай презентации и конвертируй файлы за пару минут.\n\n'
       '🚀 Генерация по теме и пожеланиям\n'
       '🎨 4 дизайна на выбор\n'
       '🖼 Иллюстрации и PDF-рендер\n'
@@ -457,7 +460,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _showHelp() {
-    final supportUsername = _currentSupportUsername();
+    final supportLink = _currentSupportMarkdownLink();
+    final clientId = _currentClientId();
     _appendBotMessage(
       '**❓ Помощь**\n'
       '1. Нажми **«Создать презентацию»** или просто отправь тему.\n'
@@ -466,8 +470,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       '4. Получи **PPTX** и **PDF**.\n\n'
       'Для конвертации используй отдельные кнопки **PDF / DOCX / PPTX**.\n\n'
       'Команда `/files` показывает локально сохранённые файлы.\n\n'
+      '**ID устройства:** `$clientId`\n\n'
       'Если что-то не работает, напиши в поддержку:\n'
-      '$supportUsername',
+      '$supportLink',
       keyboard: [
         [
           _action(
@@ -1589,6 +1594,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return '@your_tracksupport';
   }
 
+  String _currentSupportMarkdownLink() {
+    final username = _currentSupportUsername();
+    final normalized =
+        username.startsWith('@') ? username.substring(1) : username;
+    if (normalized.isEmpty || normalized.contains(' ')) {
+      return username;
+    }
+    return '[@$normalized](https://t.me/$normalized)';
+  }
+
+  String _currentClientId() {
+    final clientId = _clientSessionRepository?.clientId?.trim();
+    if (clientId != null && clientId.isNotEmpty) {
+      return clientId;
+    }
+    return 'загружается...';
+  }
+
   Future<void> _launchPaymentUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) {
@@ -2545,7 +2568,7 @@ class _ChatHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
-            'Слайд ИИ - Создать презентацию | Создание ...',
+            'Слайд ИИ Создать Презентацию',
             style: TextStyle(
               fontSize: 13.8,
               fontWeight: FontWeight.w600,
