@@ -1,5 +1,117 @@
 # AppSlides Plan
 
+## Admin Telegram Bot Pivot - 2026-04-30
+
+- Product decision is fixed:
+  - admin access for `appslides` will not be built inside the Flutter app;
+  - admin access will be moved into a separate Telegram bot for admins;
+  - access control must stay ENV-based through Telegram user IDs;
+  - runtime admin whitelist must support both:
+    - static IDs from `.env`;
+    - dynamic extra admins stored in the database, matching the legacy bot behavior.
+- Source of truth for admin behavior is the legacy Telegram bot code, not a newly invented panel UX.
+- Legacy admin command set already identified from `telegrambot/main.py` and `telegrambot/handlers/admin.py`:
+  - `/botstats`
+  - `/adstats`
+  - `/adstats_all`
+  - `/adtag`
+  - `/tag`
+  - `/sub_on`
+  - `/sub_off`
+  - `/sub_check`
+  - `/sub_cancel`
+  - `/genpromo`
+  - `/admin_add`
+  - `/admin_del`
+  - `/admin_list`
+  - `/templates`
+  - `/template_set`
+- Migration requirement:
+  - preserve command names;
+  - preserve command semantics;
+  - preserve admin-only access checks;
+  - preserve message formatting where it is still useful;
+  - preserve template-management flow, including file upload state for `/template_set`;
+  - preserve promo/deeplink logic for ad tags and promo codes where applicable.
+- Expected admin bot scope:
+  - bot statistics;
+  - traffic-tag statistics;
+  - manual subscription/token operations;
+  - subscription inspection/cancelation;
+  - promo generation;
+  - admin list management;
+  - template download/replacement;
+  - optional future admin notifications from backend events.
+- Planned implementation shape:
+  - separate `telegram_admin_bot/` package;
+  - `aiogram`-based runtime;
+  - isolated config via `.env`;
+  - direct integration with the active `appslides` backend database/service layer;
+  - no coupling to the mobile UI.
+- Completed in the current pass:
+  - [x] separate `telegram_admin_bot/` package created;
+  - [x] ENV-based super-admin access retained through `ADMIN_IDS`;
+  - [x] dynamic DB-based extra-admin support restored through `admins` table;
+  - [x] legacy admin command names restored in the new bot;
+  - [x] `sub_on`, `sub_off`, `sub_check`, `sub_cancel` adapted to `client_id` instead of Telegram `user_id`;
+  - [x] template listing and upload-replacement flow restored;
+  - [x] promo code creation restored on the new backend schema;
+  - [x] ad-tag schema and tag-statistics support restored for the new backend database;
+  - [x] shared admin schema added into the main `appslides` SQLite storage.
+- Next required study before implementation:
+  - inspect each admin handler end-to-end against the current `appslides` backend schema;
+  - map old Telegram `user_id` logic to current mobile `client_id` world where needed;
+  - decide which admin commands must operate on `client_id`, which on payment/subscription records, and which need helper lookup commands first.
+
+## Concurrent Generation Note - 2026-04-30
+
+- Clarified requirement:
+  - the goal is not just "make one request async";
+  - the real goal is to let several users generate presentations in parallel without one user waiting for the full completion of another.
+- Current backend already has partial concurrency:
+  - `POST /v1/presentations/jobs` creates a background job instead of blocking the client;
+  - each presentation job is started in its own Python thread;
+  - slide image generation inside one presentation already runs with bounded parallelism through `asyncio.gather(...)` and `Semaphore(image_concurrency)`;
+  - outline generation already parallelizes `title + outline`;
+  - file conversion also runs as a background job.
+- Current limitation:
+  - provider calls are wrapped with `asyncio.to_thread(...)`, but the provider clients themselves are still blocking `requests + polling + sleep`;
+  - there is no real central worker pool/queue manager yet;
+  - there is no explicit global concurrency cap per provider or per heavy local stage;
+  - there is no webhook-based provider completion path yet, so provider waits still consume local worker capacity.
+- Important architectural conclusion:
+  - yes, `Replicate` supports async predictions by default and recommends polling or webhooks for long tasks:
+    - https://replicate.com/docs/topics/predictions/create-a-prediction
+    - https://replicate.com/docs/topics/predictions/lifecycle/
+  - yes, `Kie.ai` documents its generation tasks as asynchronous and explicitly exposes task creation plus later status lookup/callback usage:
+    - https://docs.kie.ai/index
+    - https://docs.kie.ai/market/common/get-task-detail
+- Therefore the correct target architecture is:
+  - create provider tasks quickly;
+  - release request threads quickly;
+  - persist external task IDs;
+  - poll or receive callbacks separately;
+  - continue local assembly only when upstream AI artifacts are ready;
+  - keep a bounded local worker pool for PPTX/PDF assembly and conversion.
+- Practical target for MVP hardening:
+  - support at least `~5` parallel end-to-end presentation generations with controlled degradation instead of full serialization;
+  - avoid a model where user #5 waits for users #1-#4 to fully finish before their own AI stage even starts.
+- Planned backend refactor for this:
+  - remove product dependence on sync `POST /v1/presentations/render` in the client flow;
+  - keep job-based API as the canonical path;
+  - split one render job into stages:
+    - outline/slide text creation
+    - image task fan-out
+    - provider status tracking
+    - local PPTX build
+    - local PDF conversion
+  - replace ad-hoc thread spawning with a bounded worker model;
+  - add explicit concurrency limits for:
+    - AI text requests
+    - AI image requests
+    - LibreOffice conversions
+  - optionally move provider completion from pure polling to callbacks/webhooks where stable.
+
 ## Design Pivot — 2026-04-26
 
 - Product direction changed: the mobile client must imitate a Telegram bot, not a classic app with tabs and separate feature screens.
@@ -109,9 +221,9 @@
 ## Статус
 
 - Проект: `appslides`
-- Последнее обновление: `2026-04-26`
-- Текущий этап: `Этап 1 backend MVP стабилизирован + Этап 3/7 Flutter MVP с Telegram-style UI polish`
-- Текущий фокус: `приближать chat UX к Telegram 1-в-1: размеры кнопок, пузыри, file cards, wallpaper и затем YooKassa paywall в чате`
+- Последнее обновление: `2026-04-30`
+- Текущий этап: `Backend/admin infrastructure expansion + separate Telegram admin bot MVP`
+- Текущий фокус: `довести отдельный admin Telegram bot до полной пригодности для prod-операций`
 
 ## Что уже сделано
 

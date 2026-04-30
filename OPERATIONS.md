@@ -68,6 +68,13 @@ python -m unittest discover -s backend/tests -v
 python -m compileall backend/src
 ```
 
+### Admin Telegram Bot
+
+```powershell
+python -m compileall telegram_admin_bot
+python -c "import telegram_admin_bot.main; print('admin bot import ok')"
+```
+
 ### Flutter App
 
 ```powershell
@@ -84,3 +91,4 @@ python -m compileall backend/src
 - Local backend URL switching inside the app is intentionally disabled.
 - YooKassa is currently integrated in backend test mode and driven through the chat `/balance` flow.
 - Successful payment should now be reflected both on app resume and on later summary/generation checks because the backend auto-syncs unfinished payments.
+- The separate `telegram_admin_bot/` works against the same SQLite database as the backend and uses `client_id` for subscription commands.

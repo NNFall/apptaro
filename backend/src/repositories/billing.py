@@ -296,6 +296,21 @@ def get_latest_valid_subscription(client_id: str) -> StoredSubscription | None:
     return None
 
 
+def get_latest_subscription(client_id: str) -> StoredSubscription | None:
+    with _LOCK:
+        with closing(connect()) as conn:
+            row = conn.execute(
+                '''
+                SELECT * FROM billing_subscriptions
+                WHERE client_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                ''',
+                (client_id,),
+            ).fetchone()
+    return _row_to_subscription(row)
+
+
 def get_subscription_for_use(client_id: str) -> StoredSubscription | None:
     with _LOCK:
         with closing(connect()) as conn:

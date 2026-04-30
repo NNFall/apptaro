@@ -111,6 +111,59 @@ def init_storage(path: str | Path | None = None) -> Path:
                 '''
             )
             conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS admins (
+                    user_id INTEGER PRIMARY KEY,
+                    created_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS ad_tags (
+                    tag TEXT PRIMARY KEY,
+                    source TEXT NOT NULL,
+                    campaign TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS client_tags (
+                    client_id TEXT NOT NULL,
+                    tag TEXT NOT NULL,
+                    raw TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(client_id, tag)
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS promo_codes (
+                    code TEXT PRIMARY KEY,
+                    tokens INTEGER NOT NULL,
+                    max_uses INTEGER NOT NULL,
+                    used INTEGER NOT NULL DEFAULT 0,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS promo_uses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT NOT NULL,
+                    client_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(code, client_id)
+                )
+                '''
+            )
+            conn.execute(
                 'CREATE INDEX IF NOT EXISTS idx_jobs_type_status ON jobs(job_type, status)'
             )
             conn.execute(
@@ -133,6 +186,12 @@ def init_storage(path: str | Path | None = None) -> Path:
                 CREATE INDEX IF NOT EXISTS idx_billing_payments_client_status
                 ON billing_payments(client_id, status)
                 '''
+            )
+            conn.execute(
+                'CREATE INDEX IF NOT EXISTS idx_client_tags_tag ON client_tags(tag)'
+            )
+            conn.execute(
+                'CREATE INDEX IF NOT EXISTS idx_promo_uses_code ON promo_uses(code)'
             )
             conn.commit()
 
