@@ -34,6 +34,8 @@ def get_generation_client() -> PresentationGenerationClient:
         replicate_poll_interval=settings.replicate_poll_interval,
         replicate_timeout_seconds=settings.replicate_timeout_seconds,
         replicate_text_default_input=settings.replicate_text_default_input,
+        image_generation_retries=settings.image_generation_retries,
+        image_generation_retry_delay_seconds=settings.image_generation_retry_delay_seconds,
     )
 
 

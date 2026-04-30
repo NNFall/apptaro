@@ -93,6 +93,8 @@ class Settings:
     replicate_timeout_seconds: int
     replicate_text_default_input: dict[str, Any]
     image_concurrency: int
+    image_generation_retries: int
+    image_generation_retry_delay_seconds: float
 
     libreoffice_path: str
     font_fallback: str
@@ -156,6 +158,8 @@ def load_settings() -> Settings:
         replicate_timeout_seconds=int(os.getenv('REPLICATE_TIMEOUT_SECONDS', '120')),
         replicate_text_default_input=_parse_json(os.getenv('REPLICATE_TEXT_DEFAULT_INPUT', '')),
         image_concurrency=int(os.getenv('IMAGE_CONCURRENCY', '5')),
+        image_generation_retries=int(os.getenv('IMAGE_GENERATION_RETRIES', '2')),
+        image_generation_retry_delay_seconds=float(os.getenv('IMAGE_GENERATION_RETRY_DELAY_SECONDS', '2.0')),
         libreoffice_path=os.getenv('LIBREOFFICE_PATH', 'soffice'),
         font_fallback=os.getenv('FONT_FALLBACK', 'Cambria'),
         font_whitelist=_split_strings(os.getenv('FONT_WHITELIST', 'Cambria,Calibri,Arial,Times New Roman')),

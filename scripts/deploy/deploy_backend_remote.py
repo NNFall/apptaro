@@ -97,6 +97,8 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'TEMP_DIR': '/app/runtime/temp',
         'TEMPLATES_DIR': '/app/runtime/templates',
         'IMAGE_CONCURRENCY': local_env.get('IMAGE_CONCURRENCY', '5'),
+        'IMAGE_GENERATION_RETRIES': local_env.get('IMAGE_GENERATION_RETRIES', '2'),
+        'IMAGE_GENERATION_RETRY_DELAY_SECONDS': local_env.get('IMAGE_GENERATION_RETRY_DELAY_SECONDS', '2.0'),
         'TZ': 'Europe/Samara',
     }
 

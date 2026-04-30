@@ -243,6 +243,8 @@ class PresentationGenerationClient:
         replicate_poll_interval: float = 1.5,
         replicate_timeout_seconds: int = 120,
         replicate_text_default_input: dict[str, Any] | None = None,
+        image_generation_retries: int = 2,
+        image_generation_retry_delay_seconds: float = 2.0,
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip('/')
@@ -278,6 +280,8 @@ class PresentationGenerationClient:
                 default_input=replicate_text_default_input,
             )
         self.logger = get_logger('appslides.backend.ai')
+        self.image_generation_retries = max(0, int(image_generation_retries))
+        self.image_generation_retry_delay_seconds = max(0.0, float(image_generation_retry_delay_seconds))
 
     def generate_title(self, topic: str) -> str:
         if not self.api_key or not self.text_endpoint:
@@ -366,16 +370,28 @@ class PresentationGenerationClient:
     def generate_image(self, prompt: str, out_path: str) -> str:
         output_path = Path(out_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        total_attempts = self.image_generation_retries + 1
 
         if self.replicate_client:
-            try:
-                image_url = self.replicate_client.generate_image(prompt)
-                _download_file(image_url, output_path)
-                return str(output_path)
-            except Exception:
-                self.logger.exception('Replicate image generation failed')
-                _placeholder_image(prompt, output_path)
-                return str(output_path)
+            for attempt in range(1, total_attempts + 1):
+                try:
+                    image_url = self.replicate_client.generate_image(prompt)
+                    _download_file(image_url, output_path)
+                    return str(output_path)
+                except Exception:
+                    if attempt < total_attempts:
+                        self.logger.warning(
+                            'Replicate image generation failed on attempt %s/%s, retrying',
+                            attempt,
+                            total_attempts,
+                            exc_info=True,
+                        )
+                        if self.image_generation_retry_delay_seconds > 0:
+                            time.sleep(self.image_generation_retry_delay_seconds)
+                        continue
+                    self.logger.exception('Replicate image generation failed after %s attempts', total_attempts)
+                    _placeholder_image(prompt, output_path)
+                    return str(output_path)
 
         if not self.api_key or not self.image_endpoint:
             _placeholder_image(prompt, output_path)
@@ -386,22 +402,44 @@ class PresentationGenerationClient:
             'prompt': prompt,
             'size': '1024x1024',
         }
-        try:
-            data = self._post(self.image_endpoint, payload)
-        except Exception:
-            self.logger.exception('Primary image generation failed')
-            _placeholder_image(prompt, output_path)
-            return str(output_path)
+        for attempt in range(1, total_attempts + 1):
+            try:
+                data = self._post(self.image_endpoint, payload)
 
-        image_url = _extract_image_url(data)
-        if image_url:
-            _download_file(image_url, output_path)
-            return str(output_path)
+                image_url = _extract_image_url(data)
+                if image_url:
+                    _download_file(image_url, output_path)
+                    return str(output_path)
 
-        image_b64 = _extract_image_b64(data)
-        if image_b64:
-            output_path.write_bytes(base64.b64decode(image_b64))
-            return str(output_path)
+                image_b64 = _extract_image_b64(data)
+                if image_b64:
+                    output_path.write_bytes(base64.b64decode(image_b64))
+                    return str(output_path)
+            except Exception:
+                if attempt < total_attempts:
+                    self.logger.warning(
+                        'Primary image generation failed on attempt %s/%s, retrying',
+                        attempt,
+                        total_attempts,
+                        exc_info=True,
+                    )
+                    if self.image_generation_retry_delay_seconds > 0:
+                        time.sleep(self.image_generation_retry_delay_seconds)
+                    continue
+                self.logger.exception('Primary image generation failed after %s attempts', total_attempts)
+                _placeholder_image(prompt, output_path)
+                return str(output_path)
+
+            if attempt < total_attempts:
+                self.logger.warning(
+                    'Primary image generation returned empty payload on attempt %s/%s, retrying',
+                    attempt,
+                    total_attempts,
+                )
+                if self.image_generation_retry_delay_seconds > 0:
+                    time.sleep(self.image_generation_retry_delay_seconds)
+                continue
+            break
 
         _placeholder_image(prompt, output_path)
         return str(output_path)
