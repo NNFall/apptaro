@@ -189,31 +189,6 @@ def get_bot_stats_full() -> dict[str, int | float]:
                 WHERE status = 'paid' AND currency = 'RUB'
                 ''',
             )
-            stars_payments = _first_int(
-                conn,
-                '''
-                SELECT COUNT(*) AS c
-                FROM billing_payments
-                WHERE status = 'paid' AND provider = 'stars'
-                ''',
-            )
-            stars_buyers = _first_int(
-                conn,
-                '''
-                SELECT COUNT(DISTINCT client_id) AS c
-                FROM billing_payments
-                WHERE status = 'paid' AND provider = 'stars'
-                ''',
-            )
-            stars_sum = _first_int(
-                conn,
-                '''
-                SELECT COALESCE(SUM(amount), 0) AS s
-                FROM billing_payments
-                WHERE status = 'paid' AND provider = 'stars'
-                ''',
-                key='s',
-            )
             revenue_rub = _first_int(
                 conn,
                 '''
@@ -260,9 +235,6 @@ def get_bot_stats_full() -> dict[str, int | float]:
         'active_subs': active_subs,
         'week_subs': week_subs,
         'month_subs': month_subs,
-        'stars_payments': stars_payments,
-        'stars_buyers': stars_buyers,
-        'stars_sum': stars_sum,
         'revenue_rub': revenue_rub,
     }
 

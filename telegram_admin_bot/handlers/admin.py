@@ -82,9 +82,6 @@ async def botstats(message: Message) -> None:
     active_subs = int(stats['active_subs'])
     week_subs = int(stats['week_subs'])
     month_subs = int(stats['month_subs'])
-    stars_payments = int(stats['stars_payments'])
-    stars_buyers = int(stats['stars_buyers'])
-    stars_sum = int(stats['stars_sum'])
     revenue = int(stats['revenue_rub'])
     generations = int(stats['generations'])
     success = int(stats['success'])
@@ -105,9 +102,6 @@ async def botstats(message: Message) -> None:
         f'🔥 Активных подписок: {active_subs}',
         f"🟢 Подписка {PLANS['week']['price_rub']}₽ (неделя): {week_subs}",
         f"🔵 Подписка {PLANS['month']['price_rub']}₽ (месяц): {month_subs}",
-        f'⭐ Оплаты Stars (XTR): {stars_payments}',
-        f'⭐ Покупателей Stars: {stars_buyers}',
-        f'⭐ Сумма Stars: {stars_sum} XTR',
         f'💰 Выручка: {revenue} ₽',
         '',
         f'📈 Конверсия в оплату: {conv:.2f}%',
@@ -424,4 +418,3 @@ async def template_set_file(message: Message, state: FSMContext) -> None:
 @router.message(AdminTemplateStates.waiting_template_file)
 async def template_set_file_invalid(message: Message) -> None:
     await message.answer('Пришлите файл шаблона.')
-
