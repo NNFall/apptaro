@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 
 from src.core.settings import get_settings
 from src.domain.billing_service import BillingService
 from src.domain.conversion_service import ConversionService
 from src.domain.presentation_outline_service import PresentationOutlineService
 from src.domain.presentation_render_service import PresentationRenderService
+from src.integrations.admin_notifier import AdminNotifier
 from src.integrations.yookassa_gateway import YooKassaGateway
 from src.integrations.text_generation import PresentationGenerationClient
+from src.repositories import billing as billing_repo
 
 
 @lru_cache(maxsize=1)
@@ -91,6 +93,16 @@ def get_billing_service() -> BillingService:
         support_username=settings.support_username,
         return_url=settings.yookassa_return_url or settings.offer_url,
         test_mode=settings.yookassa_test_mode,
+        notifier=get_admin_notifier(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_admin_notifier() -> AdminNotifier:
+    settings = get_settings()
+    return AdminNotifier(
+        bot_token=settings.admin_bot_token,
+        admin_ids=settings.admin_ids,
     )
 
 
@@ -103,4 +115,14 @@ def get_client_id(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Missing or invalid X-AppSlides-Client-Id header',
         )
+    return client_id
+
+
+async def get_known_client_id(
+    client_id: str = Depends(get_client_id),
+    notifier: AdminNotifier = Depends(get_admin_notifier),
+) -> str:
+    is_new = billing_repo.touch_client(client_id)
+    if is_new:
+        await notifier.notify_new_client(client_id)
     return client_id

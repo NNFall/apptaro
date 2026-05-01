@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import FileResponse
 
 from src.api.artifacts import build_artifact_response
-from src.core.dependencies import get_conversion_service
+from src.core.dependencies import get_admin_notifier, get_conversion_service, get_known_client_id
 from src.domain.conversion_service import ConversionService
+from src.integrations.admin_notifier import AdminNotifier
 from src.repositories.jobs import (
     attach_task,
     create_job,
@@ -29,6 +30,8 @@ async def create_conversion_job(
     file: UploadFile = File(...),
     target_format: str = Form(...),
     service: ConversionService = Depends(get_conversion_service),
+    client_id: str = Depends(get_known_client_id),
+    notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> JobResponse:
     filename = file.filename or 'file'
     job = create_job(
@@ -36,6 +39,7 @@ async def create_conversion_job(
         input_data={
             'filename': filename,
             'target_format': target_format.lower(),
+            'client_id': client_id,
         },
     )
 
@@ -54,6 +58,8 @@ async def create_conversion_job(
             'input_path': input_path,
             'original_filename': filename,
             'target_format': target_format,
+            'client_id': client_id,
+            'notifier': notifier,
         },
         daemon=True,
     )
@@ -83,8 +89,12 @@ async def _run_conversion_job(
     input_path: Path,
     original_filename: str,
     target_format: str,
+    client_id: str,
+    notifier: AdminNotifier,
 ) -> None:
     mark_job_running(job_id)
+    source_format = input_path.suffix.lower().lstrip('.').upper() or 'FILE'
+    target_label = target_format.lower().lstrip('.').upper() or 'FILE'
     try:
         result = await service.convert(
             input_path=input_path,
@@ -93,6 +103,7 @@ async def _run_conversion_job(
         )
     except Exception as exc:
         mark_job_failed(job_id, str(exc))
+        await notifier.notify_conversion_failed(client_id, source_format, target_label, str(exc))
         return
 
     mark_job_succeeded(
@@ -111,6 +122,7 @@ async def _run_conversion_job(
             },
         },
     )
+    await notifier.notify_conversion_success(client_id, source_format, target_label)
 
 
 def _run_conversion_job_sync(
@@ -119,6 +131,8 @@ def _run_conversion_job_sync(
     input_path: Path,
     original_filename: str,
     target_format: str,
+    client_id: str,
+    notifier: AdminNotifier,
 ) -> None:
     asyncio.run(
         _run_conversion_job(
@@ -127,6 +141,8 @@ def _run_conversion_job_sync(
             input_path=input_path,
             original_filename=original_filename,
             target_format=target_format,
+            client_id=client_id,
+            notifier=notifier,
         )
     )
 

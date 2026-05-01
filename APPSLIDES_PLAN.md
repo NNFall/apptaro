@@ -41,7 +41,7 @@
   - promo generation;
   - admin list management;
   - template download/replacement;
-  - optional future admin notifications from backend events.
+  - backend-driven admin notifications from product events.
 - Planned implementation shape:
   - separate `telegram_admin_bot/` package;
   - `aiogram`-based runtime;
@@ -60,6 +60,14 @@
   - [x] shared admin schema added into the main `appslides` SQLite storage;
   - [x] admin bot dockerized and added into the production compose stack;
   - [x] admin bot deployed on `185.171.83.116` together with backend.
+  - [x] backend event notifications restored into the admin Telegram bot for:
+    - new client first seen;
+    - outline created;
+    - outline updated by comment;
+    - YooKassa payment success;
+    - subscription cancel;
+    - presentation generation success/failure;
+    - file conversion success/failure.
 - Next required study before implementation:
   - inspect each admin handler end-to-end against the current `appslides` backend schema;
   - map old Telegram `user_id` logic to current mobile `client_id` world where needed;

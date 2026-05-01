@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from src.domain.billing_plans import BillingPlan, get_plan, list_plans
+from src.integrations.admin_notifier import AdminNotifier
 from src.integrations.yookassa_gateway import YooKassaGateway, YooKassaPaymentInfo
 from src.repositories import billing as billing_repo
 
@@ -42,12 +43,14 @@ class BillingService:
         support_username: str,
         return_url: str,
         test_mode: bool,
+        notifier: AdminNotifier,
     ) -> None:
         self._gateway = gateway
         self._offer_url = offer_url
         self._support_username = support_username
         self._return_url = return_url
         self._test_mode = test_mode
+        self._notifier = notifier
 
     @property
     def is_configured(self) -> bool:
@@ -111,6 +114,7 @@ class BillingService:
                 )
                 if payment.status == 'succeeded':
                     billing_repo.renew_subscription(active.id, plan.key, plan.limit, plan.days)
+                    await self._notifier.notify_payment_success(client_id, plan.title)
                 summary = await self.get_summary(client_id)
                 return BillingPaymentResult(
                     payment_id=payment.payment_id,
@@ -190,7 +194,9 @@ class BillingService:
         )
 
     async def cancel_subscription(self, client_id: str) -> BillingSummary:
-        billing_repo.cancel_subscription(client_id)
+        canceled = billing_repo.cancel_subscription(client_id)
+        if canceled:
+            await self._notifier.notify_subscription_canceled(client_id)
         return await self.get_summary(client_id)
 
     async def process_due_auto_renewals_once(self) -> int:
@@ -269,6 +275,8 @@ class BillingService:
         remote: YooKassaPaymentInfo,
     ) -> str:
         plan = get_plan(plan_key)
+        existing = billing_repo.get_payment(remote.payment_id)
+        previous_status = (existing.status if existing else '').strip().lower()
         if remote.status == 'succeeded':
             auto_renew = 1 if plan.recurring and remote.payment_method_id else 0
             billing_repo.create_subscription(
@@ -286,6 +294,8 @@ class BillingService:
                 payment_method_id=remote.payment_method_id,
                 confirmation_url=remote.confirmation_url,
             )
+            if previous_status != 'paid':
+                await self._notifier.notify_payment_success(client_id, plan.title)
             return 'paid'
         if remote.status == 'canceled':
             billing_repo.update_payment_status(

@@ -47,10 +47,14 @@ class StoredPayment:
     updated_at: str
 
 
-def touch_client(client_id: str) -> None:
+def touch_client(client_id: str) -> bool:
     now = _now()
     with _LOCK:
         with closing(connect()) as conn:
+            existing = conn.execute(
+                'SELECT 1 FROM billing_clients WHERE client_id = ? LIMIT 1',
+                (client_id,),
+            ).fetchone()
             conn.execute(
                 '''
                 INSERT INTO billing_clients (client_id, created_at, last_seen_at)
@@ -60,6 +64,7 @@ def touch_client(client_id: str) -> None:
                 (client_id, now, now),
             )
             conn.commit()
+    return existing is None
 
 
 def create_payment(

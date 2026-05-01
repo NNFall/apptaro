@@ -16,6 +16,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from src.core.dependencies import (  # noqa: E402
+    get_admin_notifier,
     get_billing_service,
     get_conversion_service,
     get_outline_service,
@@ -24,6 +25,7 @@ from src.core.dependencies import (  # noqa: E402
 from src.domain.conversion_service import ConversionService, ConvertedFile  # noqa: E402
 from src.domain.presentation_outline_service import PresentationOutlineService  # noqa: E402
 from src.domain.presentation_render_service import PresentationRenderService  # noqa: E402
+from src.integrations.admin_notifier import AdminNotifier  # noqa: E402
 from src.main import create_app  # noqa: E402
 from src.repositories.artifacts import register_artifact  # noqa: E402
 
@@ -127,6 +129,7 @@ class BackendApiSmokeTests(unittest.TestCase):
         )
         app.dependency_overrides[get_conversion_service] = lambda: StubConversionService(self.temp_dir)
         app.dependency_overrides[get_billing_service] = lambda: StubBillingService()
+        app.dependency_overrides[get_admin_notifier] = lambda: AdminNotifier(bot_token='', admin_ids=[])
 
         self.app = app
         self.client = TestClient(app)
@@ -154,6 +157,7 @@ class BackendApiSmokeTests(unittest.TestCase):
                 'topic': 'Тестовая тема',
                 'slides_total': 6,
             },
+            headers=self.client_headers,
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -204,6 +208,7 @@ class BackendApiSmokeTests(unittest.TestCase):
                     )
                 },
                 data={'target_format': 'pdf'},
+                headers=self.client_headers,
             )
 
         self.assertEqual(create_response.status_code, 202)

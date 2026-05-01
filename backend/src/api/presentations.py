@@ -7,10 +7,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 
 from src.api.artifacts import build_artifact_response
-from src.core.dependencies import get_billing_service, get_client_id, get_outline_service, get_render_service
+from src.core.dependencies import (
+    get_admin_notifier,
+    get_billing_service,
+    get_known_client_id,
+    get_outline_service,
+    get_render_service,
+)
 from src.domain.billing_service import BillingService
 from src.domain.presentation_outline_service import PresentationOutlineService
 from src.domain.presentation_render_service import PresentationRenderService
+from src.integrations.admin_notifier import AdminNotifier
 from src.integrations.text_generation import TextGenerationError
 from src.repositories.jobs import (
     attach_task,
@@ -38,14 +45,19 @@ router = APIRouter(prefix='/v1/presentations', tags=['presentations'])
 async def generate_outline(
     payload: OutlineGenerateRequest,
     service: PresentationOutlineService = Depends(get_outline_service),
+    client_id: str = Depends(get_known_client_id),
+    notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> OutlineResponse:
     try:
         result = await service.generate(payload.topic, payload.slides_total)
     except TextGenerationError as exc:
+        await notifier.notify_text_error(client_id, str(exc))
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+
+    await notifier.notify_outline_created(client_id, payload.topic, result.content_slides)
     return OutlineResponse(
         title=result.title,
         outline=result.outline,
@@ -58,6 +70,8 @@ async def generate_outline(
 async def revise_outline(
     payload: OutlineReviseRequest,
     service: PresentationOutlineService = Depends(get_outline_service),
+    client_id: str = Depends(get_known_client_id),
+    notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> OutlineResponse:
     try:
         result = await service.revise(
@@ -68,10 +82,13 @@ async def revise_outline(
             title=payload.title,
         )
     except TextGenerationError as exc:
+        await notifier.notify_text_error(client_id, str(exc))
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+
+    await notifier.notify_outline_updated(client_id, payload.topic, result.content_slides)
     return OutlineResponse(
         title=result.title,
         outline=result.outline,
@@ -85,13 +102,15 @@ async def render_presentation(
     payload: PresentationRenderRequest,
     service: PresentationRenderService = Depends(get_render_service),
     billing_service: BillingService = Depends(get_billing_service),
-    client_id: str = Depends(get_client_id),
+    client_id: str = Depends(get_known_client_id),
+    notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> PresentationRenderResponse:
     if not await billing_service.can_start_generation(client_id):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail='Лимит генераций исчерпан. Оформите подписку через YooKassa.',
         )
+
     try:
         result = await service.render(
             topic=payload.topic,
@@ -101,20 +120,27 @@ async def render_presentation(
             generate_pdf=payload.generate_pdf,
         )
     except FileNotFoundError as exc:
+        await notifier.notify_generation_failed(client_id, str(exc))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except TextGenerationError as exc:
+        await notifier.notify_generation_failed(client_id, str(exc))
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except Exception as exc:
+        await notifier.notify_generation_failed(client_id, str(exc))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'Failed to render presentation: {exc}',
         ) from exc
+
     if not await billing_service.consume_generation(client_id):
+        error_text = 'Не удалось списать генерацию после успешного рендера.'
+        await notifier.notify_generation_failed(client_id, error_text)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail='Не удалось списать генерацию после успешного рендера.',
+            detail=error_text,
         )
 
+    await notifier.notify_generation_success(client_id)
     artifacts = [
         ArtifactItem(
             artifact_id=artifact.artifact_id,
@@ -140,13 +166,15 @@ async def create_presentation_job(
     payload: PresentationRenderRequest,
     service: PresentationRenderService = Depends(get_render_service),
     billing_service: BillingService = Depends(get_billing_service),
-    client_id: str = Depends(get_client_id),
+    client_id: str = Depends(get_known_client_id),
+    notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> JobResponse:
     if not await billing_service.can_start_generation(client_id):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail='Лимит генераций исчерпан. Оформите подписку через YooKassa.',
         )
+
     job = create_job(
         'presentation_render',
         input_data={
@@ -166,6 +194,7 @@ async def create_presentation_job(
             'payload': payload,
             'billing_service': billing_service,
             'client_id': client_id,
+            'notifier': notifier,
         },
         daemon=True,
     )
@@ -201,6 +230,7 @@ async def _run_presentation_job(
     payload: PresentationRenderRequest,
     billing_service: BillingService,
     client_id: str,
+    notifier: AdminNotifier,
 ) -> None:
     mark_job_running(job_id)
     try:
@@ -213,9 +243,13 @@ async def _run_presentation_job(
         )
     except Exception as exc:
         mark_job_failed(job_id, str(exc))
+        await notifier.notify_generation_failed(client_id, str(exc))
         return
+
     if not await billing_service.consume_generation(client_id):
-        mark_job_failed(job_id, 'Не удалось списать генерацию после успешного рендера.')
+        error_text = 'Не удалось списать генерацию после успешного рендера.'
+        mark_job_failed(job_id, error_text)
+        await notifier.notify_generation_failed(client_id, error_text)
         return
 
     artifacts = [
@@ -239,6 +273,7 @@ async def _run_presentation_job(
             'artifacts': artifacts,
         },
     )
+    await notifier.notify_generation_success(client_id)
 
 
 def _run_presentation_job_sync(
@@ -247,6 +282,7 @@ def _run_presentation_job_sync(
     payload: PresentationRenderRequest,
     billing_service: BillingService,
     client_id: str,
+    notifier: AdminNotifier,
 ) -> None:
     asyncio.run(
         _run_presentation_job(
@@ -255,6 +291,7 @@ def _run_presentation_job_sync(
             payload=payload,
             billing_service=billing_service,
             client_id=client_id,
+            notifier=notifier,
         )
     )
 

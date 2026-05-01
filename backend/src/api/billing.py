@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
-
-from src.core.dependencies import get_billing_service
+from src.core.dependencies import get_billing_service, get_known_client_id
 from src.domain.billing_service import BillingService
 from src.schemas.billing import BillingPaymentResponse, BillingSummaryResponse, CreateBillingPaymentRequest
 
@@ -56,22 +54,9 @@ def _payment_response(result) -> BillingPaymentResponse:
         summary=_summary_response(result.summary),
     )
 
-
-def _client_id_from_header(
-    x_appslides_client_id: Annotated[str | None, Header(alias='X-AppSlides-Client-Id')] = None,
-) -> str:
-    client_id = (x_appslides_client_id or '').strip()
-    if len(client_id) < 8:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Missing or invalid X-AppSlides-Client-Id header',
-        )
-    return client_id
-
-
 @router.get('/summary', response_model=BillingSummaryResponse)
 async def get_billing_summary(
-    client_id: str = Depends(_client_id_from_header),
+    client_id: str = Depends(get_known_client_id),
     service: BillingService = Depends(get_billing_service),
 ) -> BillingSummaryResponse:
     summary = await service.get_summary(client_id)
@@ -81,7 +66,7 @@ async def get_billing_summary(
 @router.post('/payments', response_model=BillingPaymentResponse)
 async def create_billing_payment(
     payload: CreateBillingPaymentRequest,
-    client_id: str = Depends(_client_id_from_header),
+    client_id: str = Depends(get_known_client_id),
     service: BillingService = Depends(get_billing_service),
 ) -> BillingPaymentResponse:
     try:
@@ -100,7 +85,7 @@ async def create_billing_payment(
 @router.get('/payments/{payment_id}', response_model=BillingPaymentResponse)
 async def get_billing_payment(
     payment_id: str,
-    client_id: str = Depends(_client_id_from_header),
+    client_id: str = Depends(get_known_client_id),
     service: BillingService = Depends(get_billing_service),
 ) -> BillingPaymentResponse:
     try:
@@ -112,7 +97,7 @@ async def get_billing_payment(
 
 @router.post('/subscription/cancel', response_model=BillingSummaryResponse)
 async def cancel_billing_subscription(
-    client_id: str = Depends(_client_id_from_header),
+    client_id: str = Depends(get_known_client_id),
     service: BillingService = Depends(get_billing_service),
 ) -> BillingSummaryResponse:
     summary = await service.cancel_subscription(client_id)

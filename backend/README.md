@@ -16,6 +16,15 @@
 - Fonts are not uploaded separately; the container uses system font fallbacks.
 - Billing target for the current MVP is `YooKassa` in test mode, wired through backend APIs and chat-style client flow.
 - Billing summary/generation checks now auto-sync unfinished YooKassa payments, so a paid subscription can become active without the user manually reopening a specific payment poll route.
+- Backend now forwards legacy-style admin notifications into the separate Telegram admin bot using `ADMIN_BOT_TOKEN + ADMIN_IDS`.
+- Current notification events mirrored from the legacy Telegram bot:
+  - new client first seen;
+  - outline created;
+  - outline updated by comment;
+  - YooKassa payment success;
+  - subscription canceled;
+  - presentation generation success/failure;
+  - file conversion success/failure.
 - Operational workflow for `git -> push -> deploy -> restart` is documented in `../OPERATIONS.md`.
 
 Здесь будет серверная часть `AppSlides`.

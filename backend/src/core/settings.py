@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 TELEGRAMBOT_DIR = PROJECT_ROOT / 'telegrambot'
+ADMIN_BOT_DIR = PROJECT_ROOT / 'telegram_admin_bot'
 
 
 def _load_env_files() -> None:
@@ -20,6 +21,7 @@ def _load_env_files() -> None:
         BACKEND_DIR / '.env',
         PROJECT_ROOT / '.env',
         TELEGRAMBOT_DIR / '.env',
+        ADMIN_BOT_DIR / '.env',
     ):
         if path.exists():
             load_dotenv(path, override=False)
@@ -122,6 +124,8 @@ class Settings:
     yookassa_payment_mode: str
     yookassa_test_mode: bool
     auto_renew_interval: int
+    admin_bot_token: str
+    admin_ids: list[str]
 
 
 def load_settings() -> Settings:
@@ -184,6 +188,8 @@ def load_settings() -> Settings:
         yookassa_payment_mode=os.getenv('YOOKASSA_PAYMENT_MODE', 'full_prepayment') or 'full_prepayment',
         yookassa_test_mode=os.getenv('YOOKASSA_TEST_MODE', '1') == '1',
         auto_renew_interval=int(os.getenv('AUTO_RENEW_INTERVAL', '60')),
+        admin_bot_token=os.getenv('ADMIN_BOT_TOKEN', '').strip(),
+        admin_ids=_split_strings(os.getenv('ADMIN_IDS', '')),
     )
 
 
