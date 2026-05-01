@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Iterable
 
 import httpx
@@ -19,6 +20,23 @@ def _unique(ids: Iterable[str]) -> list[str]:
         seen.add(value)
         result.append(value)
     return result
+
+
+def _shorten_text(value: str, max_len: int = 120) -> str:
+    cleaned = ' '.join((value or '').split())
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[: max_len - 1].rstrip() + '…'
+
+
+def _dt_short(value: str | None) -> str:
+    raw = (value or '').strip()
+    if not raw:
+        return '-'
+    try:
+        return datetime.fromisoformat(raw).strftime('%Y-%m-%d %H:%M')
+    except Exception:  # noqa: BLE001
+        return raw
 
 
 class AdminNotifier:
@@ -95,9 +113,93 @@ class AdminNotifier:
             f'❌ Ошибка конвертации ({source_ext}→{target_ext}): {error} (client {client_id})'
         )
 
+    async def notify_renewal_success(
+        self,
+        *,
+        client_id: str,
+        plan_key: str,
+        plan_title: str,
+        tokens: int,
+        amount_rub: int,
+        status: str,
+        payment_id: str,
+    ) -> None:
+        await self.notify(
+            'Продление подписки - УСПЕХ\n'
+            f'User ID: {client_id}\n'
+            f'Тариф: {plan_key} ({plan_title} - {tokens} генераций)\n'
+            f'Сумма: {amount_rub}₽\n'
+            f'Status: {status}\n'
+            f'Payment ID: {payment_id or "-"}'
+        )
 
-def _shorten_text(value: str, max_len: int = 120) -> str:
-    cleaned = ' '.join((value or '').split())
-    if len(cleaned) <= max_len:
-        return cleaned
-    return cleaned[: max_len - 1].rstrip() + '…'
+    async def notify_renewal_error(
+        self,
+        *,
+        client_id: str,
+        plan_key: str,
+        plan_title: str,
+        tokens: int,
+        amount_rub: int,
+        status: str,
+        payment_id: str,
+        reason: str,
+    ) -> None:
+        await self.notify(
+            'Продление подписки - ОШИБКА\n'
+            f'User ID: {client_id}\n'
+            f'Тариф: {plan_key} ({plan_title} - {tokens} генераций)\n'
+            f'Сумма: {amount_rub}₽\n'
+            f'Status: {status}\n'
+            f'Payment ID: {payment_id or "-"}\n'
+            f'Причина: {reason}'
+        )
+
+    async def notify_auto_renew_success(
+        self,
+        *,
+        client_id: str,
+        plan_key: str,
+        plan_title: str,
+        tokens: int,
+        amount_rub: int,
+        status: str,
+        payment_id: str,
+    ) -> None:
+        await self.notify(
+            'Автосписание - УСПЕХ\n'
+            f'User ID: {client_id}\n'
+            f'Тариф: {plan_key} ({plan_title} - {tokens} генераций)\n'
+            f'Сумма: {amount_rub}₽\n'
+            f'Status: {status}\n'
+            f'Payment ID: {payment_id or "-"}'
+        )
+
+    async def notify_auto_renew_error(
+        self,
+        *,
+        client_id: str,
+        plan_key: str,
+        plan_title: str,
+        tokens: int,
+        amount_rub: int,
+        status: str,
+        payment_id: str,
+        reason: str,
+        next_try: str | None = None,
+        expires_subscription: bool = False,
+    ) -> None:
+        lines = [
+            'Автосписание - ОШИБКА',
+            f'User ID: {client_id}',
+            f'Тариф: {plan_key} ({plan_title} - {tokens} генераций)',
+            f'Сумма: {amount_rub}₽',
+            f'Status: {status}',
+            f'Payment ID: {payment_id or "-"}',
+            f'Причина: {reason}',
+        ]
+        if expires_subscription:
+            lines.append('Следующая попытка: не будет (подписка переведена в expired)')
+        elif next_try:
+            lines.append(f'Следующая попытка: {_dt_short(next_try)}')
+        await self.notify('\n'.join(lines))

@@ -95,12 +95,25 @@ class BillingService:
         if context == 'renew' and plan.recurring:
             active = billing_repo.get_active_subscription(client_id)
             if active and active.provider == 'yookassa' and active.payment_method_id:
-                payment = await asyncio.to_thread(
-                    self._gateway.create_recurring_payment,
-                    plan=plan,
-                    client_id=client_id,
-                    payment_method_id=active.payment_method_id,
-                )
+                try:
+                    payment = await asyncio.to_thread(
+                        self._gateway.create_recurring_payment,
+                        plan=plan,
+                        client_id=client_id,
+                        payment_method_id=active.payment_method_id,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    await self._notifier.notify_renewal_error(
+                        client_id=client_id,
+                        plan_key=plan.key,
+                        plan_title=plan.title,
+                        tokens=plan.limit,
+                        amount_rub=plan.price_rub,
+                        status='error',
+                        payment_id='-',
+                        reason=str(exc),
+                    )
+                    raise
                 billing_repo.create_payment(
                     client_id=client_id,
                     provider='yookassa',
@@ -114,7 +127,26 @@ class BillingService:
                 )
                 if payment.status == 'succeeded':
                     billing_repo.renew_subscription(active.id, plan.key, plan.limit, plan.days)
-                    await self._notifier.notify_payment_success(client_id, plan.title)
+                    await self._notifier.notify_renewal_success(
+                        client_id=client_id,
+                        plan_key=plan.key,
+                        plan_title=plan.title,
+                        tokens=plan.limit,
+                        amount_rub=plan.price_rub,
+                        status=payment.status,
+                        payment_id=payment.payment_id,
+                    )
+                else:
+                    await self._notifier.notify_renewal_error(
+                        client_id=client_id,
+                        plan_key=plan.key,
+                        plan_title=plan.title,
+                        tokens=plan.limit,
+                        amount_rub=plan.price_rub,
+                        status=payment.status or 'unknown',
+                        payment_id=payment.payment_id,
+                        reason=f'Платеж не прошел, status={payment.status or "unknown"}',
+                    )
                 summary = await self.get_summary(client_id)
                 return BillingPaymentResult(
                     payment_id=payment.payment_id,
@@ -209,6 +241,17 @@ class BillingService:
             payment_method_id = (subscription.payment_method_id or '').strip()
             if not payment_method_id:
                 billing_repo.expire_subscription(subscription.id)
+                await self._notifier.notify_auto_renew_error(
+                    client_id=subscription.client_id,
+                    plan_key=plan.key,
+                    plan_title=plan.title,
+                    tokens=plan.limit,
+                    amount_rub=plan.price_rub,
+                    status='error',
+                    payment_id='-',
+                    reason='payment_method_id отсутствует',
+                    expires_subscription=True,
+                )
                 processed += 1
                 continue
 
@@ -219,8 +262,19 @@ class BillingService:
                     client_id=subscription.client_id,
                     payment_method_id=payment_method_id,
                 )
-            except Exception:  # noqa: BLE001
-                billing_repo.postpone_autorenew_attempt(subscription.id, days=1)
+            except Exception as exc:  # noqa: BLE001
+                next_try = billing_repo.postpone_autorenew_attempt(subscription.id, days=1)
+                await self._notifier.notify_auto_renew_error(
+                    client_id=subscription.client_id,
+                    plan_key=plan.key,
+                    plan_title=plan.title,
+                    tokens=plan.limit,
+                    amount_rub=plan.price_rub,
+                    status='error',
+                    payment_id='-',
+                    reason=str(exc),
+                    next_try=next_try,
+                )
                 processed += 1
                 continue
 
@@ -242,10 +296,41 @@ class BillingService:
                     plan.limit,
                     plan.days,
                 )
+                await self._notifier.notify_auto_renew_success(
+                    client_id=subscription.client_id,
+                    plan_key=plan.key,
+                    plan_title=plan.title,
+                    tokens=plan.limit,
+                    amount_rub=plan.price_rub,
+                    status=remote.status,
+                    payment_id=remote.payment_id,
+                )
             elif remote.status == 'canceled':
-                billing_repo.postpone_autorenew_attempt(subscription.id, days=1)
+                next_try = billing_repo.postpone_autorenew_attempt(subscription.id, days=1)
+                await self._notifier.notify_auto_renew_error(
+                    client_id=subscription.client_id,
+                    plan_key=plan.key,
+                    plan_title=plan.title,
+                    tokens=plan.limit,
+                    amount_rub=plan.price_rub,
+                    status=remote.status,
+                    payment_id=remote.payment_id,
+                    reason=f'Платеж не прошел, status={remote.status}',
+                    next_try=next_try,
+                )
             else:
-                billing_repo.postpone_autorenew_attempt(subscription.id, days=1)
+                next_try = billing_repo.postpone_autorenew_attempt(subscription.id, days=1)
+                await self._notifier.notify_auto_renew_error(
+                    client_id=subscription.client_id,
+                    plan_key=plan.key,
+                    plan_title=plan.title,
+                    tokens=plan.limit,
+                    amount_rub=plan.price_rub,
+                    status=remote.status or 'unknown',
+                    payment_id=remote.payment_id,
+                    reason=f'Платеж не прошел, status={remote.status or "unknown"}',
+                    next_try=next_try,
+                )
             processed += 1
 
         return processed

@@ -22,6 +22,8 @@
   - outline created;
   - outline updated by comment;
   - YooKassa payment success;
+  - manual renewal success/failure;
+  - auto-renew success/failure with payment status and payment id;
   - subscription canceled;
   - presentation generation success/failure;
   - file conversion success/failure.
