@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import logging
 from datetime import datetime
 from typing import Iterable
@@ -23,20 +24,35 @@ def _unique(ids: Iterable[str]) -> list[str]:
 
 
 def _shorten_text(value: str, max_len: int = 120) -> str:
-    cleaned = ' '.join((value or '').split())
+    cleaned = " ".join((value or "").split())
     if len(cleaned) <= max_len:
         return cleaned
-    return cleaned[: max_len - 1].rstrip() + '…'
+    return cleaned[: max_len - 1].rstrip() + "…"
 
 
 def _dt_short(value: str | None) -> str:
-    raw = (value or '').strip()
+    raw = (value or "").strip()
     if not raw:
-        return '-'
+        return "-"
     try:
-        return datetime.fromisoformat(raw).strftime('%Y-%m-%d %H:%M')
+        return datetime.fromisoformat(raw).strftime("%Y-%m-%d %H:%M")
     except Exception:  # noqa: BLE001
         return raw
+
+
+def _display_client_id(client_id: str) -> str:
+    value = (client_id or "").strip()
+    if len(value) <= 22:
+        return value
+    return f"{value[:11]}…{value[-6:]}"
+
+
+def _code(value: str) -> str:
+    return f"<code>{html.escape(value)}</code>"
+
+
+def _bold(value: str) -> str:
+    return f"<b>{html.escape(value)}</b>"
 
 
 class AdminNotifier:
@@ -52,7 +68,7 @@ class AdminNotifier:
         if not self.enabled:
             return
 
-        api_url = f'https://api.telegram.org/bot{self._bot_token}/sendMessage'
+        api_url = f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
         timeout = httpx.Timeout(10.0, connect=5.0)
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
@@ -61,46 +77,79 @@ class AdminNotifier:
                         await client.post(
                             api_url,
                             json={
-                                'chat_id': admin_id,
-                                'text': text,
+                                "chat_id": admin_id,
+                                "text": text,
+                                "parse_mode": "HTML",
+                                "disable_web_page_preview": True,
                             },
                         )
                     except Exception:  # noqa: BLE001
-                        logger.exception('Failed to send admin notification to %s', admin_id)
+                        logger.exception("Failed to send admin notification to %s", admin_id)
         except Exception:  # noqa: BLE001
-            logger.exception('Admin notify failed')
+            logger.exception("Admin notify failed")
 
-    async def notify_new_client(self, client_id: str, tag: str = 'без метки') -> None:
-        await self.notify(f'👤 Новый пользователь: {client_id}, метка: {tag}')
+    async def notify_new_client(self, client_id: str, tag: str = "без метки") -> None:
+        await self.notify(
+            f"{_bold('👤 Новый пользователь')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Метка:')} {html.escape(tag)}"
+        )
 
     async def notify_outline_created(self, client_id: str, topic: str, slides: int) -> None:
         await self.notify(
-            f'🧠 План создан: пользователь {client_id} тема "{_shorten_text(topic)}", слайдов {slides}'
+            f"{_bold('🧠 План создан')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Тема:')} {html.escape(_shorten_text(topic))}\n"
+            f"{_bold('Слайдов:')} {slides}"
         )
 
     async def notify_outline_updated(self, client_id: str, topic: str, slides: int) -> None:
         await self.notify(
-            f'✍️ План обновлен по комментарию: пользователь {client_id} '
-            f'тема "{_shorten_text(topic)}", слайдов {slides}'
+            f"{_bold('✍️ План обновлен по комментарию')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Тема:')} {html.escape(_shorten_text(topic))}\n"
+            f"{_bold('Слайдов:')} {slides}"
         )
 
     async def notify_text_error(self, client_id: str, error: str) -> None:
-        await self.notify(f'❌ Ошибка Kie.ai: {error} (client {client_id})')
+        await self.notify(
+            f"{_bold('❌ Ошибка Kie.ai')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Причина:')} {html.escape(error)}"
+        )
 
     async def notify_payment_success(self, client_id: str, plan_title: str) -> None:
-        await self.notify(f'💰 Успешная покупка (ЮKassa). Пользователь {client_id}, тариф {plan_title}')
+        await self.notify(
+            f"{_bold('💰 Успешная покупка (YooKassa)')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Тариф:')} {html.escape(plan_title)}"
+        )
 
     async def notify_subscription_canceled(self, client_id: str) -> None:
-        await self.notify(f'❌ Отключил подписку. Пользователь {client_id}')
+        await self.notify(
+            f"{_bold('❌ Подписка отключена')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}"
+        )
 
     async def notify_generation_success(self, client_id: str) -> None:
-        await self.notify(f'✅ Успешная генерация (Презентация). Пользователь {client_id}')
+        await self.notify(
+            f"{_bold('✅ Успешная генерация (Презентация)')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}"
+        )
 
     async def notify_generation_failed(self, client_id: str, error: str) -> None:
-        await self.notify(f'❌ Ошибка генерации: {error} (client {client_id})')
+        await self.notify(
+            f"{_bold('❌ Ошибка генерации')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Причина:')} {html.escape(error)}"
+        )
 
     async def notify_conversion_success(self, client_id: str, source_ext: str, target_ext: str) -> None:
-        await self.notify(f'✅ Конвертация выполнена ({source_ext}→{target_ext}). Пользователь {client_id}')
+        await self.notify(
+            f"{_bold('✅ Конвертация выполнена')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Формат:')} {html.escape(source_ext)}→{html.escape(target_ext)}"
+        )
 
     async def notify_conversion_failed(
         self,
@@ -110,7 +159,10 @@ class AdminNotifier:
         error: str,
     ) -> None:
         await self.notify(
-            f'❌ Ошибка конвертации ({source_ext}→{target_ext}): {error} (client {client_id})'
+            f"{_bold('❌ Ошибка конвертации')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Формат:')} {html.escape(source_ext)}→{html.escape(target_ext)}\n"
+            f"{_bold('Причина:')} {html.escape(error)}"
         )
 
     async def notify_renewal_success(
@@ -125,12 +177,12 @@ class AdminNotifier:
         payment_id: str,
     ) -> None:
         await self.notify(
-            'Продление подписки - УСПЕХ\n'
-            f'User ID: {client_id}\n'
-            f'Тариф: {plan_key} ({plan_title} - {tokens} генераций)\n'
-            f'Сумма: {amount_rub}₽\n'
-            f'Status: {status}\n'
-            f'Payment ID: {payment_id or "-"}'
+            f"{_bold('Продление подписки - УСПЕХ')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} генераций)\n"
+            f"{_bold('Сумма:')} {amount_rub}₽\n"
+            f"{_bold('Status:')} {html.escape(status)}\n"
+            f"{_bold('Payment ID:')} {_code(payment_id or '-')}"
         )
 
     async def notify_renewal_error(
@@ -146,13 +198,13 @@ class AdminNotifier:
         reason: str,
     ) -> None:
         await self.notify(
-            'Продление подписки - ОШИБКА\n'
-            f'User ID: {client_id}\n'
-            f'Тариф: {plan_key} ({plan_title} - {tokens} генераций)\n'
-            f'Сумма: {amount_rub}₽\n'
-            f'Status: {status}\n'
-            f'Payment ID: {payment_id or "-"}\n'
-            f'Причина: {reason}'
+            f"{_bold('Продление подписки - ОШИБКА')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} генераций)\n"
+            f"{_bold('Сумма:')} {amount_rub}₽\n"
+            f"{_bold('Status:')} {html.escape(status)}\n"
+            f"{_bold('Payment ID:')} {_code(payment_id or '-')}\n"
+            f"{_bold('Причина:')} {html.escape(reason)}"
         )
 
     async def notify_auto_renew_success(
@@ -167,12 +219,12 @@ class AdminNotifier:
         payment_id: str,
     ) -> None:
         await self.notify(
-            'Автосписание - УСПЕХ\n'
-            f'User ID: {client_id}\n'
-            f'Тариф: {plan_key} ({plan_title} - {tokens} генераций)\n'
-            f'Сумма: {amount_rub}₽\n'
-            f'Status: {status}\n'
-            f'Payment ID: {payment_id or "-"}'
+            f"{_bold('Автосписание - УСПЕХ')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} генераций)\n"
+            f"{_bold('Сумма:')} {amount_rub}₽\n"
+            f"{_bold('Status:')} {html.escape(status)}\n"
+            f"{_bold('Payment ID:')} {_code(payment_id or '-')}"
         )
 
     async def notify_auto_renew_error(
@@ -190,16 +242,16 @@ class AdminNotifier:
         expires_subscription: bool = False,
     ) -> None:
         lines = [
-            'Автосписание - ОШИБКА',
-            f'User ID: {client_id}',
-            f'Тариф: {plan_key} ({plan_title} - {tokens} генераций)',
-            f'Сумма: {amount_rub}₽',
-            f'Status: {status}',
-            f'Payment ID: {payment_id or "-"}',
-            f'Причина: {reason}',
+            _bold("Автосписание - ОШИБКА"),
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}",
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} генераций)",
+            f"{_bold('Сумма:')} {amount_rub}₽",
+            f"{_bold('Status:')} {html.escape(status)}",
+            f"{_bold('Payment ID:')} {_code(payment_id or '-')}",
+            f"{_bold('Причина:')} {html.escape(reason)}",
         ]
         if expires_subscription:
-            lines.append('Следующая попытка: не будет (подписка переведена в expired)')
+            lines.append(f"{_bold('Следующая попытка:')} не будет (подписка переведена в expired)")
         elif next_try:
-            lines.append(f'Следующая попытка: {_dt_short(next_try)}')
-        await self.notify('\n'.join(lines))
+            lines.append(f"{_bold('Следующая попытка:')} {html.escape(_dt_short(next_try))}")
+        await self.notify("\n".join(lines))
