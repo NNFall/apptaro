@@ -16,7 +16,8 @@ except ImportError:  # pragma: no cover - fallback for minimal environments
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_DIR = REPO_ROOT / 'backend'
-TEMPLATES_DIR = REPO_ROOT / 'telegrambot' / 'media' / 'templates'
+TEMPLATES_DIR = BACKEND_DIR / 'runtime' / 'templates'
+TAROT_DIR = BACKEND_DIR / 'runtime' / 'tarot'
 ADMIN_BOT_DIR = REPO_ROOT / 'telegram_admin_bot'
 COMPOSE_FILE = REPO_ROOT / 'docker-compose.backend.yml'
 
@@ -46,7 +47,7 @@ def load_local_env() -> dict[str, str]:
     for path in (
         REPO_ROOT / '.env',
         BACKEND_DIR / '.env',
-        REPO_ROOT / 'telegrambot' / '.env',
+        REPO_ROOT / 'telegram_taro_bot' / '.env',
         ADMIN_BOT_DIR / '.env',
     ):
         if not path.exists():
@@ -80,7 +81,7 @@ def _strip_env_value(value: str) -> str:
 
 def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
     env: dict[str, str] = {
-        'APP_NAME': local_env.get('APP_NAME', 'AppSlides Backend'),
+        'APP_NAME': local_env.get('APP_NAME', 'apptaro Backend'),
         'APP_ENV': 'production',
         'APP_VERSION': local_env.get('APP_VERSION', '0.1.0'),
         'APP_HOST': '0.0.0.0',
@@ -96,6 +97,9 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'DATABASE_PATH': '/data/appslides.db',
         'TEMP_DIR': '/app/runtime/temp',
         'TEMPLATES_DIR': '/app/runtime/templates',
+        'TAROT_CARDS_DIR': '/app/runtime/tarot/cards',
+        'TAROT_BACKGROUND_PATH': '/app/runtime/tarot/backgrounds/main.png',
+        'TAROT_LAYOUT_PATH': '/app/runtime/tarot/layout.json',
         'IMAGE_CONCURRENCY': local_env.get('IMAGE_CONCURRENCY', '5'),
         'IMAGE_GENERATION_RETRIES': local_env.get('IMAGE_GENERATION_RETRIES', '2'),
         'IMAGE_GENERATION_RETRY_DELAY_SECONDS': local_env.get('IMAGE_GENERATION_RETRY_DELAY_SECONDS', '2.0'),
@@ -217,7 +221,7 @@ def _skip_backend_path(relative: Path) -> bool:
 
 
 def ensure_required_paths() -> None:
-    for path in (BACKEND_DIR, ADMIN_BOT_DIR, TEMPLATES_DIR, COMPOSE_FILE):
+    for path in (BACKEND_DIR, ADMIN_BOT_DIR, TEMPLATES_DIR, TAROT_DIR, COMPOSE_FILE):
         if not path.exists():
             raise FileNotFoundError(f'Missing required path: {path}')
 
@@ -242,20 +246,43 @@ def deploy(remote: RemoteHost, remote_dir: str, remote_env: str) -> None:
     backend_remote = posixpath.join(remote_dir, 'backend')
     admin_bot_remote = posixpath.join(remote_dir, 'telegram_admin_bot')
     templates_remote = posixpath.join(remote_dir, 'templates')
+    tarot_remote = posixpath.join(remote_dir, 'tarot')
     remote.ensure_dir(remote_dir)
-    for name in ('data', 'temp', 'logs'):
+    for name in ('data', 'temp', 'logs', 'templates', 'tarot'):
         remote.ensure_dir(posixpath.join(remote_dir, name))
 
-    for path in (backend_remote, admin_bot_remote, templates_remote):
+    for path in (backend_remote, admin_bot_remote, templates_remote, tarot_remote):
         remote.remove_tree(path)
 
     remote.upload_tree(BACKEND_DIR, backend_remote, skip_backend_filters=True)
     remote.upload_tree(ADMIN_BOT_DIR, admin_bot_remote)
+    remote.ensure_dir(templates_remote)
     remote.upload_tree(TEMPLATES_DIR, templates_remote)
+    remote.upload_tree(TAROT_DIR, tarot_remote)
     remote.upload_file(COMPOSE_FILE, posixpath.join(remote_dir, 'docker-compose.yml'))
     remote.upload_text(remote_env, posixpath.join(remote_dir, '.env'))
 
     remote.run(f"cd '{remote_dir}' && docker compose down --remove-orphans", check=False)
+    remote.run(
+        "docker ps --filter name=appslides_backend --format '{{.Names}} {{.Ports}}' "
+        "| grep ':8010->' >/dev/null 2>&1 && docker stop appslides_backend || true",
+        check=False,
+    )
+    remote.run(
+        "docker ps -a --filter name=appslides_backend --format '{{.Names}}' "
+        "| grep '^appslides_backend$' >/dev/null 2>&1 && docker rm appslides_backend || true",
+        check=False,
+    )
+    remote.run(
+        "docker ps --filter name=appslides_admin_bot --format '{{.Names}}' "
+        "| grep '^appslides_admin_bot$' >/dev/null 2>&1 && docker stop appslides_admin_bot || true",
+        check=False,
+    )
+    remote.run(
+        "docker ps -a --filter name=appslides_admin_bot --format '{{.Names}}' "
+        "| grep '^appslides_admin_bot$' >/dev/null 2>&1 && docker rm appslides_admin_bot || true",
+        check=False,
+    )
     remote.run(f"cd '{remote_dir}' && docker compose up -d --build --remove-orphans")
 
 
@@ -286,14 +313,14 @@ def choose_host_port(remote: RemoteHost, preferred_port: int = 8010) -> int:
         return preferred_port
 
     exit_code, container_out, _ = remote.run(
-        "docker ps --format '{{.Names}} {{.Ports}}' | grep '^appslides_backend '",
+        "docker ps --format '{{.Names}} {{.Ports}}' | grep -E '^(apptaro_backend|appslides_backend) '",
         check=False,
     )
     if exit_code == 0 and f':{preferred_port}->' in container_out:
         return preferred_port
 
     raise RuntimeError(
-        f'Host port {preferred_port} is busy. AppSlides mobile client is fixed to this port, '
+        f'Host port {preferred_port} is busy. apptaro mobile client is fixed to this port, '
         'so release the port or update the application configuration before redeploy.'
     )
 

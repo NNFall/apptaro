@@ -1,9 +1,9 @@
 services:
-  appslides_backend:
+  apptaro_backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: appslides_backend
+    container_name: apptaro_backend
     restart: unless-stopped
     env_file:
       - ./.env
@@ -12,14 +12,15 @@ services:
     volumes:
       - ./data:/data
       - ./templates:/app/runtime/templates
+      - ./tarot:/app/runtime/tarot
       - ./temp:/app/runtime/temp
       - ./logs:/app/logs
 
-  appslides_admin_bot:
+  apptaro_admin_bot:
     build:
       context: .
       dockerfile: ./telegram_admin_bot/Dockerfile
-    container_name: appslides_admin_bot
+    container_name: apptaro_admin_bot
     restart: unless-stopped
     env_file:
       - ./.env

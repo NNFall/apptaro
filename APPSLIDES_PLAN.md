@@ -35,7 +35,12 @@
 - [x] Создать commit с текущим состоянием `apptaro`: `d1d6fe2 Adapt platform to apptaro`.
 - [x] Push в пустой GitHub repository `NNFall/apptaro`.
 - [x] Проверить возможность backend deploy по `OPERATIONS.md`.
-- [ ] Backend deploy не выполнен: deploy script требует `--password <SERVER_PASSWORD>`, серверного пароля в окружении нет.
+- [x] Получен серверный пароль от владельца проекта для текущего deploy-сеанса.
+- [x] Обновить deploy script под `/root/apptaro`, `telegram_taro_bot/.env`, `backend/runtime/tarot` и новые compose services `apptaro_*`.
+- [x] Добавить остановку legacy контейнеров `appslides_backend` / `appslides_admin_bot` при миграции на `apptaro`.
+- [ ] Commit/push deploy-script обновлений перед выкладкой.
+- [ ] Выполнить backend deploy в `/root/apptaro`.
+- [ ] Проверить remote health `http://185.171.83.116:8010/v1/health`.
 
 ## Документация для повторного использования продукта - 2026-05-03
 
