@@ -45,8 +45,9 @@
 - [x] Live-smoke production API: `GET /v1/templates/presentation` -> `200`, `POST /v1/presentations/outline` -> `200`, paid job без баланса -> `402 Payment Required`.
 - [x] Найден security issue в backend logs: `httpx` INFO-лог раскрывает полный Telegram Bot API URL.
 - [x] Заглушить `httpx/httpcore` INFO logs, чтобы Telegram token не попадал в Docker logs.
-- [ ] Commit/push logging fix.
-- [ ] Redeploy backend после logging fix.
+- [x] Commit/push logging fix: `e76cfb4 Suppress token-bearing http client logs`.
+- [x] Redeploy backend после logging fix.
+- [x] Проверить production logs после live outline: `httpx` request logs и Telegram Bot API URL больше не появляются.
 
 ## Документация для повторного использования продукта - 2026-05-03
 
