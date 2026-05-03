@@ -38,9 +38,9 @@
 - [x] Получен серверный пароль от владельца проекта для текущего deploy-сеанса.
 - [x] Обновить deploy script под `/root/apptaro`, `telegram_taro_bot/.env`, `backend/runtime/tarot` и новые compose services `apptaro_*`.
 - [x] Добавить остановку legacy контейнеров `appslides_backend` / `appslides_admin_bot` при миграции на `apptaro`.
-- [ ] Commit/push deploy-script обновлений перед выкладкой.
-- [ ] Выполнить backend deploy в `/root/apptaro`.
-- [ ] Проверить remote health `http://185.171.83.116:8010/v1/health`.
+- [x] Commit/push deploy-script обновлений перед выкладкой: `69b2f3c Update apptaro backend deploy`.
+- [x] Выполнить backend deploy в `/root/apptaro`.
+- [x] Проверить remote health `http://185.171.83.116:8010/v1/health`: `{"status":"ok","service":"apptaro Backend","environment":"production","version":"0.1.0"}`.
 
 ## Документация для повторного использования продукта - 2026-05-03
 
