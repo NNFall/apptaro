@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-TELEGRAMBOT_DIR = PROJECT_ROOT / 'telegrambot'
+TELEGRAMBOT_DIR = PROJECT_ROOT / 'telegram_taro_bot'
 ADMIN_BOT_DIR = PROJECT_ROOT / 'telegram_admin_bot'
 
 

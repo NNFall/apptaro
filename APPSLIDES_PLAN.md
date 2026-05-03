@@ -41,6 +41,12 @@
 - [x] Commit/push deploy-script обновлений перед выкладкой: `69b2f3c Update apptaro backend deploy`.
 - [x] Выполнить backend deploy в `/root/apptaro`.
 - [x] Проверить remote health `http://185.171.83.116:8010/v1/health`: `{"status":"ok","service":"apptaro Backend","environment":"production","version":"0.1.0"}`.
+- [x] Проверить занятость порта `8010`: порт слушает `docker-proxy` для `apptaro_backend`, это ожидаемое состояние.
+- [x] Live-smoke production API: `GET /v1/templates/presentation` -> `200`, `POST /v1/presentations/outline` -> `200`, paid job без баланса -> `402 Payment Required`.
+- [x] Найден security issue в backend logs: `httpx` INFO-лог раскрывает полный Telegram Bot API URL.
+- [x] Заглушить `httpx/httpcore` INFO logs, чтобы Telegram token не попадал в Docker logs.
+- [ ] Commit/push logging fix.
+- [ ] Redeploy backend после logging fix.
 
 ## Документация для повторного использования продукта - 2026-05-03
 
