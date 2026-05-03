@@ -66,7 +66,7 @@
 
 Канонический файл по операциям:
 
-- [OPERATIONS.md](C:/Users/User/Desktop/work/appslides/OPERATIONS.md:1)
+- [OPERATIONS.md](OPERATIONS.md)
 
 ## 8. Документационные правила
 
@@ -109,4 +109,3 @@
 - billing-каркас;
 - admin-каркас;
 - deploy-каркас.
-

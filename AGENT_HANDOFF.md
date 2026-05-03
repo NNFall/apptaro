@@ -13,17 +13,17 @@
 Обязательно:
 
 - папку Telegram-бота по новой тематике;
-- [PRODUCT_ADAPTATION_GUIDE.md](C:/Users/User/Desktop/work/appslides/PRODUCT_ADAPTATION_GUIDE.md:1);
-- [IMPLEMENTATION_RULES.md](C:/Users/User/Desktop/work/appslides/IMPLEMENTATION_RULES.md:1);
-- [OPERATIONS.md](C:/Users/User/Desktop/work/appslides/OPERATIONS.md:1);
-- [APPSLIDES_PLAN.md](C:/Users/User/Desktop/work/appslides/APPSLIDES_PLAN.md:1).
+- [PRODUCT_ADAPTATION_GUIDE.md](PRODUCT_ADAPTATION_GUIDE.md);
+- [IMPLEMENTATION_RULES.md](IMPLEMENTATION_RULES.md);
+- [OPERATIONS.md](OPERATIONS.md);
+- [APPSLIDES_PLAN.md](APPSLIDES_PLAN.md).
 
 Желательно:
 
-- [README.md](C:/Users/User/Desktop/work/appslides/README.md:1);
-- [app/README.md](C:/Users/User/Desktop/work/appslides/app/README.md:1);
-- [backend/README.md](C:/Users/User/Desktop/work/appslides/backend/README.md:1);
-- [instructions/design_refs/telegram_bot_ui_brief.md](C:/Users/User/Desktop/work/appslides/instructions/design_refs/telegram_bot_ui_brief.md:1).
+- [README.md](README.md);
+- [app/README.md](app/README.md);
+- [backend/README.md](backend/README.md);
+- [instructions/design_refs/telegram_bot_ui_brief.md](instructions/design_refs/telegram_bot_ui_brief.md).
 
 ## Что должен понять новый агент
 
@@ -67,25 +67,25 @@
 
 ### Flutter
 
-- [app/lib/features/chat/chat_screen.dart](C:/Users/User/Desktop/work/appslides/app/lib/features/chat/chat_screen.dart:1)
-- [app/lib/features/billing/billing_controller.dart](C:/Users/User/Desktop/work/appslides/app/lib/features/billing/billing_controller.dart:1)
-- [app/lib/data/api/appslides_api_client.dart](C:/Users/User/Desktop/work/appslides/app/lib/data/api/appslides_api_client.dart:1)
-- [app/lib/data/repositories/chat_transcript_repository.dart](C:/Users/User/Desktop/work/appslides/app/lib/data/repositories/chat_transcript_repository.dart:1)
+- [app/lib/features/chat/chat_screen.dart](app/lib/features/chat/chat_screen.dart)
+- [app/lib/features/billing/billing_controller.dart](app/lib/features/billing/billing_controller.dart)
+- [app/lib/data/api/appslides_api_client.dart](app/lib/data/api/appslides_api_client.dart)
+- [app/lib/data/repositories/chat_transcript_repository.dart](app/lib/data/repositories/chat_transcript_repository.dart)
 
 ### Backend
 
-- [backend/src/api/presentations.py](C:/Users/User/Desktop/work/appslides/backend/src/api/presentations.py:1)
-- [backend/src/domain/presentation_outline_service.py](C:/Users/User/Desktop/work/appslides/backend/src/domain/presentation_outline_service.py:1)
-- [backend/src/domain/presentation_render_service.py](C:/Users/User/Desktop/work/appslides/backend/src/domain/presentation_render_service.py:1)
-- [backend/src/domain/presentation_prompts.py](C:/Users/User/Desktop/work/appslides/backend/src/domain/presentation_prompts.py:1)
-- [backend/src/integrations/text_generation.py](C:/Users/User/Desktop/work/appslides/backend/src/integrations/text_generation.py:1)
+- [backend/src/api/presentations.py](backend/src/api/presentations.py)
+- [backend/src/domain/presentation_outline_service.py](backend/src/domain/presentation_outline_service.py)
+- [backend/src/domain/presentation_render_service.py](backend/src/domain/presentation_render_service.py)
+- [backend/src/domain/presentation_prompts.py](backend/src/domain/presentation_prompts.py)
+- [backend/src/integrations/text_generation.py](backend/src/integrations/text_generation.py)
 
 ### Инфраструктура
 
-- [backend/src/domain/billing_service.py](C:/Users/User/Desktop/work/appslides/backend/src/domain/billing_service.py:1)
-- [backend/src/integrations/admin_notifier.py](C:/Users/User/Desktop/work/appslides/backend/src/integrations/admin_notifier.py:1)
-- [telegram_admin_bot/handlers/admin.py](C:/Users/User/Desktop/work/appslides/telegram_admin_bot/handlers/admin.py:1)
-- [OPERATIONS.md](C:/Users/User/Desktop/work/appslides/OPERATIONS.md:1)
+- [backend/src/domain/billing_service.py](backend/src/domain/billing_service.py)
+- [backend/src/integrations/admin_notifier.py](backend/src/integrations/admin_notifier.py)
+- [telegram_admin_bot/handlers/admin.py](telegram_admin_bot/handlers/admin.py)
+- [OPERATIONS.md](OPERATIONS.md)
 
 ## Что просить от нового агента по этапам
 

@@ -36,13 +36,13 @@
 
 Ключевые файлы:
 
-- [app/lib/features/chat/chat_screen.dart](C:/Users/User/Desktop/work/appslides/app/lib/features/chat/chat_screen.dart:1)
-- [app/lib/features/billing/billing_controller.dart](C:/Users/User/Desktop/work/appslides/app/lib/features/billing/billing_controller.dart:1)
-- [app/lib/data/api/appslides_api_client.dart](C:/Users/User/Desktop/work/appslides/app/lib/data/api/appslides_api_client.dart:1)
-- [app/lib/data/repositories/chat_transcript_repository.dart](C:/Users/User/Desktop/work/appslides/app/lib/data/repositories/chat_transcript_repository.dart:1)
-- [app/lib/data/repositories/saved_files_repository.dart](C:/Users/User/Desktop/work/appslides/app/lib/data/repositories/saved_files_repository.dart:1)
-- [app/lib/data/repositories/client_session_repository.dart](C:/Users/User/Desktop/work/appslides/app/lib/data/repositories/client_session_repository.dart:1)
-- [app/lib/app/app_scope.dart](C:/Users/User/Desktop/work/appslides/app/lib/app/app_scope.dart:1)
+- [app/lib/features/chat/chat_screen.dart](app/lib/features/chat/chat_screen.dart)
+- [app/lib/features/billing/billing_controller.dart](app/lib/features/billing/billing_controller.dart)
+- [app/lib/data/api/appslides_api_client.dart](app/lib/data/api/appslides_api_client.dart)
+- [app/lib/data/repositories/chat_transcript_repository.dart](app/lib/data/repositories/chat_transcript_repository.dart)
+- [app/lib/data/repositories/saved_files_repository.dart](app/lib/data/repositories/saved_files_repository.dart)
+- [app/lib/data/repositories/client_session_repository.dart](app/lib/data/repositories/client_session_repository.dart)
+- [app/lib/app/app_scope.dart](app/lib/app/app_scope.dart)
 
 ### Backend-каркас
 
@@ -58,14 +58,14 @@
 
 Ключевые файлы:
 
-- [backend/src/main.py](C:/Users/User/Desktop/work/appslides/backend/src/main.py:1)
-- [backend/src/api/router.py](C:/Users/User/Desktop/work/appslides/backend/src/api/router.py:1)
-- [backend/src/repositories/storage.py](C:/Users/User/Desktop/work/appslides/backend/src/repositories/storage.py:1)
-- [backend/src/repositories/billing.py](C:/Users/User/Desktop/work/appslides/backend/src/repositories/billing.py:1)
-- [backend/src/domain/billing_service.py](C:/Users/User/Desktop/work/appslides/backend/src/domain/billing_service.py:1)
-- [backend/src/integrations/yookassa_gateway.py](C:/Users/User/Desktop/work/appslides/backend/src/integrations/yookassa_gateway.py:1)
-- [backend/src/integrations/admin_notifier.py](C:/Users/User/Desktop/work/appslides/backend/src/integrations/admin_notifier.py:1)
-- [backend/src/repositories/jobs.py](C:/Users/User/Desktop/work/appslides/backend/src/repositories/jobs.py:1)
+- [backend/src/main.py](backend/src/main.py)
+- [backend/src/api/router.py](backend/src/api/router.py)
+- [backend/src/repositories/storage.py](backend/src/repositories/storage.py)
+- [backend/src/repositories/billing.py](backend/src/repositories/billing.py)
+- [backend/src/domain/billing_service.py](backend/src/domain/billing_service.py)
+- [backend/src/integrations/yookassa_gateway.py](backend/src/integrations/yookassa_gateway.py)
+- [backend/src/integrations/admin_notifier.py](backend/src/integrations/admin_notifier.py)
+- [backend/src/repositories/jobs.py](backend/src/repositories/jobs.py)
 
 ### Операционный каркас
 
@@ -79,10 +79,10 @@
 
 Ключевые файлы:
 
-- [OPERATIONS.md](C:/Users/User/Desktop/work/appslides/OPERATIONS.md:1)
-- [scripts/deploy/deploy_backend_remote.py](C:/Users/User/Desktop/work/appslides/scripts/deploy/deploy_backend_remote.py:1)
-- [docker-compose.backend.yml](C:/Users/User/Desktop/work/appslides/docker-compose.backend.yml:1)
-- [telegram_admin_bot/main.py](C:/Users/User/Desktop/work/appslides/telegram_admin_bot/main.py:1)
+- [OPERATIONS.md](OPERATIONS.md)
+- [scripts/deploy/deploy_backend_remote.py](scripts/deploy/deploy_backend_remote.py)
+- [docker-compose.backend.yml](docker-compose.backend.yml)
+- [telegram_admin_bot/main.py](telegram_admin_bot/main.py)
 
 ## Что меняется под новую тематику
 
@@ -102,10 +102,10 @@
 
 Обычно это находится в:
 
-- [app/lib/features/chat/chat_screen.dart](C:/Users/User/Desktop/work/appslides/app/lib/features/chat/chat_screen.dart:1)
-- [app/lib/app/app.dart](C:/Users/User/Desktop/work/appslides/app/lib/app/app.dart:1)
-- [app/lib/app/theme.dart](C:/Users/User/Desktop/work/appslides/app/lib/app/theme.dart:1)
-- [app/android/app/src/main/AndroidManifest.xml](C:/Users/User/Desktop/work/appslides/app/android/app/src/main/AndroidManifest.xml:1)
+- [app/lib/features/chat/chat_screen.dart](app/lib/features/chat/chat_screen.dart)
+- [app/lib/app/app.dart](app/lib/app/app.dart)
+- [app/lib/app/theme.dart](app/lib/app/theme.dart)
+- [app/android/app/src/main/AndroidManifest.xml](app/android/app/src/main/AndroidManifest.xml)
 - `app/assets/branding/*`
 
 ### На backend
@@ -122,13 +122,13 @@
 
 Обычно это находится в:
 
-- [backend/src/domain/presentation_prompts.py](C:/Users/User/Desktop/work/appslides/backend/src/domain/presentation_prompts.py:1)
-- [backend/src/domain/presentation_outline_service.py](C:/Users/User/Desktop/work/appslides/backend/src/domain/presentation_outline_service.py:1)
-- [backend/src/domain/presentation_render_service.py](C:/Users/User/Desktop/work/appslides/backend/src/domain/presentation_render_service.py:1)
-- [backend/src/integrations/text_generation.py](C:/Users/User/Desktop/work/appslides/backend/src/integrations/text_generation.py:1)
-- [backend/src/jobs/pptx_builder.py](C:/Users/User/Desktop/work/appslides/backend/src/jobs/pptx_builder.py:1)
-- [backend/src/jobs/template_catalog.py](C:/Users/User/Desktop/work/appslides/backend/src/jobs/template_catalog.py:1)
-- [backend/src/api/presentations.py](C:/Users/User/Desktop/work/appslides/backend/src/api/presentations.py:1)
+- [backend/src/domain/presentation_prompts.py](backend/src/domain/presentation_prompts.py)
+- [backend/src/domain/presentation_outline_service.py](backend/src/domain/presentation_outline_service.py)
+- [backend/src/domain/presentation_render_service.py](backend/src/domain/presentation_render_service.py)
+- [backend/src/integrations/text_generation.py](backend/src/integrations/text_generation.py)
+- [backend/src/jobs/pptx_builder.py](backend/src/jobs/pptx_builder.py)
+- [backend/src/jobs/template_catalog.py](backend/src/jobs/template_catalog.py)
+- [backend/src/api/presentations.py](backend/src/api/presentations.py)
 
 ## Как переносить логику из другого Telegram-бота
 
@@ -181,9 +181,9 @@
 
 Файлы:
 
-- [README.md](C:/Users/User/Desktop/work/appslides/README.md:1)
-- [app/README.md](C:/Users/User/Desktop/work/appslides/app/README.md:1)
-- [docs/images](C:/Users/User/Desktop/work/appslides/docs/images)
+- [README.md](README.md)
+- [app/README.md](app/README.md)
+- `docs/images/`
 - `app/assets/branding/*`
 
 ## 2. Chat flow
@@ -199,7 +199,7 @@
 
 Файл:
 
-- [app/lib/features/chat/chat_screen.dart](C:/Users/User/Desktop/work/appslides/app/lib/features/chat/chat_screen.dart:1)
+- [app/lib/features/chat/chat_screen.dart](app/lib/features/chat/chat_screen.dart)
 
 Что обычно оставлять:
 
@@ -295,26 +295,26 @@
 
 Ключевые файлы:
 
-- [telegram_admin_bot/handlers/admin.py](C:/Users/User/Desktop/work/appslides/telegram_admin_bot/handlers/admin.py:1)
-- [backend/src/integrations/admin_notifier.py](C:/Users/User/Desktop/work/appslides/backend/src/integrations/admin_notifier.py:1)
+- [telegram_admin_bot/handlers/admin.py](telegram_admin_bot/handlers/admin.py)
+- [backend/src/integrations/admin_notifier.py](backend/src/integrations/admin_notifier.py)
 
 ## Что обязательно передать следующей нейросети
 
 Минимальный пакет:
 
 - папку нового Telegram-бота по твоей тематике;
-- [PRODUCT_ADAPTATION_GUIDE.md](C:/Users/User/Desktop/work/appslides/PRODUCT_ADAPTATION_GUIDE.md:1)
-- [IMPLEMENTATION_RULES.md](C:/Users/User/Desktop/work/appslides/IMPLEMENTATION_RULES.md:1)
-- [AGENT_HANDOFF.md](C:/Users/User/Desktop/work/appslides/AGENT_HANDOFF.md:1)
-- [OPERATIONS.md](C:/Users/User/Desktop/work/appslides/OPERATIONS.md:1)
-- [APPSLIDES_PLAN.md](C:/Users/User/Desktop/work/appslides/APPSLIDES_PLAN.md:1)
+- [PRODUCT_ADAPTATION_GUIDE.md](PRODUCT_ADAPTATION_GUIDE.md)
+- [IMPLEMENTATION_RULES.md](IMPLEMENTATION_RULES.md)
+- [AGENT_HANDOFF.md](AGENT_HANDOFF.md)
+- [OPERATIONS.md](OPERATIONS.md)
+- [APPSLIDES_PLAN.md](APPSLIDES_PLAN.md)
 
 Если нужен визуальный контекст:
 
-- [instructions/design_refs/telegram_bot_ui_brief.md](C:/Users/User/Desktop/work/appslides/instructions/design_refs/telegram_bot_ui_brief.md:1)
-- [docs/images/readme_home.png](C:/Users/User/Desktop/work/appslides/docs/images/readme_home.png)
-- [docs/images/readme_generation_step.png](C:/Users/User/Desktop/work/appslides/docs/images/readme_generation_step.png)
-- [docs/images/readme_subscription.png](C:/Users/User/Desktop/work/appslides/docs/images/readme_subscription.png)
+- [instructions/design_refs/telegram_bot_ui_brief.md](instructions/design_refs/telegram_bot_ui_brief.md)
+- [docs/images/readme_home.png](docs/images/readme_home.png)
+- [docs/images/readme_generation_step.png](docs/images/readme_generation_step.png)
+- [docs/images/readme_subscription.png](docs/images/readme_subscription.png)
 
 ## Рекомендуемый порядок миграции
 
@@ -337,4 +337,3 @@
 - [ ] Проверены admin-уведомления.
 - [ ] Проверено восстановление истории после перезапуска.
 - [ ] Обновлены README и handoff-доки.
-
