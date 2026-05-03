@@ -25,7 +25,7 @@ class HomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'AppSlides',
+                'apptaro',
                 style: theme.textTheme.headlineMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -33,7 +33,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Мобильный клиент для генерации презентаций и конвертации файлов на новом backend.',
+                'Мобильный чат для раскладов таро: вопрос, три карты, текстовый разбор и сохранённый результат.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: Colors.white.withValues(alpha: 0.9),
                   height: 1.45,
@@ -44,9 +44,9 @@ class HomeScreen extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: const [
-                  _StatChip(label: 'Outline API готов'),
-                  _StatChip(label: 'Render API готов'),
-                  _StatChip(label: 'PPTX/PDF backend готов'),
+                  _StatChip(label: 'Чатовый UX сохранён'),
+                  _StatChip(label: '3 карты в раскладе'),
+                  _StatChip(label: 'JPG/TXT результат'),
                 ],
               ),
             ],
@@ -54,15 +54,15 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const SectionCard(
-          title: 'Ближайший мобильный scope',
+          title: 'Как работает',
           subtitle:
-              'Следующий шаг для приложения: подключить templates, outline и render endpoints, затем собрать локальную историю файлов.',
+              'Напиши вопрос в чат, подтверди предложенные карты или перетяни расклад заново. Backend выполнит разбор и вернёт файлы для локального сохранения.',
         ),
         const SizedBox(height: 16),
         const SectionCard(
-          title: 'Текущее состояние проекта',
+          title: 'Платформа',
           subtitle:
-              'Telegram-бот уже разобран и его логика переносится в отдельный Python-backend. Мобильное приложение будет новым клиентом поверх этих API.',
+              'Архитектура Flutter-клиента, billing через YooKassa, локальная история, backend API и отдельный Telegram admin bot сохранены.',
         ),
       ],
     );

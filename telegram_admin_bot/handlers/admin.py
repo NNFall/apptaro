@@ -25,10 +25,10 @@ class AdminTemplateStates(StatesGroup):
 
 
 PLANS = {
-    'week': {'title': 'Неделя', 'price_rub': 199},
-    'month': {'title': 'Месяц', 'price_rub': 499},
-    'one10': {'title': 'Разово 10', 'price_rub': 199},
-    'one40': {'title': 'Разово 40', 'price_rub': 499},
+    'week': {'title': 'Неделя раскладов', 'price_rub': 199},
+    'month': {'title': 'Месяц раскладов', 'price_rub': 499},
+    'one10': {'title': 'Разово 10 раскладов', 'price_rub': 199},
+    'one40': {'title': 'Разово 40 раскладов', 'price_rub': 499},
     'manual': {'title': 'Ручной', 'price_rub': 0},
 }
 
@@ -92,13 +92,13 @@ async def botstats(message: Message) -> None:
     success_rate = _percent(success, generations)
 
     lines = [
-        '📊 Общая статистика AppSlides',
+        '📊 Общая статистика apptaro',
         '',
         f'👥 Всего клиентов: {users}',
-        f'🎁 Генерировали без оплаты: {free_users}',
+        f'🎁 Открывали бесплатную карту: {free_users}',
         f'💳 Оплативших: {paid_users}',
-        f'🧾 Всего задач генерации: {generations}',
-        f'✅ Успешных задач: {success} ({success_rate:.2f}%)',
+        f'🧾 Всего раскладов: {generations}',
+        f'✅ Успешных раскладов: {success} ({success_rate:.2f}%)',
         f'🔥 Активных подписок: {active_subs}',
         f"🟢 Подписка {PLANS['week']['price_rub']}₽ (неделя): {week_subs}",
         f"🔵 Подписка {PLANS['month']['price_rub']}₽ (месяц): {month_subs}",
@@ -198,7 +198,7 @@ async def sub_on(message: Message) -> None:
     client_id = parts[1].strip()
     tokens = int(parts[2])
     admin_repo.add_tokens(client_id, tokens)
-    await message.answer(f'Начислено {tokens} генераций клиенту {client_id}.')
+    await message.answer(f'Начислено {tokens} раскладов клиенту {client_id}.')
 
 
 @router.message(Command('sub_off'))
@@ -275,7 +275,7 @@ async def genpromo(message: Message) -> None:
     code = secrets.token_hex(4)
     admin_repo.create_promo_code(code, tokens, max_uses)
     await message.answer(
-        f'Промокод: {code}\nГенерации: {tokens}\nИспользований: {max_uses}\n'
+        f'Промокод: {code}\nРасклады: {tokens}\nИспользований: {max_uses}\n'
         'Флоу активации в мобильном клиенте будет привязан отдельно.'
     )
 

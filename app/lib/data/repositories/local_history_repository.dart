@@ -39,9 +39,8 @@ class LocalHistoryRepository extends ChangeNotifier {
           _entries
             ..clear()
             ..addAll(
-              decoded
-                  .whereType<Map>()
-                  .map((item) => HistoryEntry.fromJson(item.cast<String, dynamic>())),
+              decoded.whereType<Map>().map((item) =>
+                  HistoryEntry.fromJson(item.cast<String, dynamic>())),
             );
         }
       }
@@ -75,7 +74,7 @@ class LocalHistoryRepository extends ChangeNotifier {
         status: HistoryEntryStatus.info,
         title: title,
         subtitle: topic,
-        details: 'Слайдов: $slidesTotal, пунктов плана: $outlineItems',
+        details: 'Карт: 3, пунктов расклада: $outlineItems',
         createdAt: now,
         updatedAt: now,
       ),
@@ -96,7 +95,8 @@ class LocalHistoryRepository extends ChangeNotifier {
     List<String> links = const <String>[],
   }) {
     final now = DateTime.now();
-    final index = _entries.indexWhere((entry) => entry.id == 'presentation-$jobId');
+    final index =
+        _entries.indexWhere((entry) => entry.id == 'presentation-$jobId');
     final existingLinks = index >= 0 ? _entries[index].links : const <String>[];
     final entry = HistoryEntry(
       id: 'presentation-$jobId',
@@ -137,7 +137,8 @@ class LocalHistoryRepository extends ChangeNotifier {
     List<String> links = const <String>[],
   }) {
     final now = DateTime.now();
-    final index = _entries.indexWhere((entry) => entry.id == 'conversion-$jobId');
+    final index =
+        _entries.indexWhere((entry) => entry.id == 'conversion-$jobId');
     final existingLinks = index >= 0 ? _entries[index].links : const <String>[];
     final entry = HistoryEntry(
       id: 'conversion-$jobId',
@@ -290,7 +291,8 @@ class LocalHistoryRepository extends ChangeNotifier {
     buffer.write('Статус: ${status.name}. ');
     buffer.write('Backend updated_at: $updatedAtRaw.');
     if (artifacts.isNotEmpty) {
-      buffer.write(' Файлы: ${artifacts.map((item) => item.filename).join(', ')}.');
+      buffer.write(
+          ' Файлы: ${artifacts.map((item) => item.filename).join(', ')}.');
     }
     if (error != null && error.isNotEmpty) {
       buffer.write(' Ошибка: $error');
@@ -307,7 +309,8 @@ class LocalHistoryRepository extends ChangeNotifier {
     required JobArtifact? artifact,
   }) {
     final buffer = StringBuffer();
-    buffer.write('${sourceFormat.toUpperCase()} -> ${targetFormat.toUpperCase()}. ');
+    buffer.write(
+        '${sourceFormat.toUpperCase()} -> ${targetFormat.toUpperCase()}. ');
     buffer.write('Статус: ${status.name}. ');
     buffer.write('Backend updated_at: $updatedAtRaw.');
     if (artifact != null) {

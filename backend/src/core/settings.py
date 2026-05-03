@@ -109,6 +109,9 @@ class Settings:
     database_path: Path
     temp_dir: Path
     templates_dir: Path
+    tarot_cards_dir: Path
+    tarot_background_path: Path
+    tarot_layout_path: Path
 
     yookassa_shop_id: str
     yookassa_secret: str
@@ -133,9 +136,10 @@ def load_settings() -> Settings:
     default_database_path = default_data_dir / 'appslides.db'
     default_temp_dir = BACKEND_DIR / 'runtime' / 'temp'
     default_templates_dir = BACKEND_DIR / 'runtime' / 'templates'
+    default_tarot_dir = BACKEND_DIR / 'runtime' / 'tarot'
     default_fonts_dir = BACKEND_DIR / 'runtime' / 'fonts'
     return Settings(
-        app_name=os.getenv('APP_NAME', 'AppSlides Backend'),
+        app_name=os.getenv('APP_NAME', 'apptaro Backend'),
         app_env=os.getenv('APP_ENV', 'development'),
         app_version=os.getenv('APP_VERSION', '0.1.0'),
         app_host=os.getenv('APP_HOST', '0.0.0.0'),
@@ -174,6 +178,12 @@ def load_settings() -> Settings:
         database_path=_resolve_path(os.getenv('DATABASE_PATH', ''), default_database_path),
         temp_dir=_resolve_path(os.getenv('TEMP_DIR', ''), default_temp_dir),
         templates_dir=_resolve_path(os.getenv('TEMPLATES_DIR', ''), default_templates_dir),
+        tarot_cards_dir=_resolve_path(os.getenv('TAROT_CARDS_DIR', ''), default_tarot_dir / 'cards'),
+        tarot_background_path=_resolve_path(
+            os.getenv('TAROT_BACKGROUND_PATH', ''),
+            default_tarot_dir / 'backgrounds' / 'main.png',
+        ),
+        tarot_layout_path=_resolve_path(os.getenv('TAROT_LAYOUT_PATH', ''), default_tarot_dir / 'layout.json'),
         yookassa_shop_id=os.getenv('YOOKASSA_SHOP_ID', ''),
         yookassa_secret=os.getenv('YOOKASSA_SECRET', os.getenv('YOOKASSA_SECRET_KEY', '')),
         yookassa_return_url=os.getenv('YOOKASSA_RETURN_URL', ''),
@@ -183,7 +193,7 @@ def load_settings() -> Settings:
         yookassa_receipt_phone=os.getenv('YOOKASSA_RECEIPT_PHONE', '').strip(),
         yookassa_tax_system_code=int(os.getenv('YOOKASSA_TAX_SYSTEM_CODE', '1') or 1),
         yookassa_vat_code=int(os.getenv('YOOKASSA_VAT_CODE', '1') or 1),
-        yookassa_item_name=os.getenv('YOOKASSA_ITEM_NAME', 'Подписка на генерации AppSlides'),
+        yookassa_item_name=os.getenv('YOOKASSA_ITEM_NAME', 'Подписка на расклады apptaro'),
         yookassa_payment_subject=os.getenv('YOOKASSA_PAYMENT_SUBJECT', 'service') or 'service',
         yookassa_payment_mode=os.getenv('YOOKASSA_PAYMENT_MODE', 'full_prepayment') or 'full_prepayment',
         yookassa_test_mode=os.getenv('YOOKASSA_TEST_MODE', '1') == '1',

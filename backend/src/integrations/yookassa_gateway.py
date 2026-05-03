@@ -39,7 +39,7 @@ class YooKassaGateway:
         self._receipt_phone = receipt_phone.strip()
         self._tax_system_code = tax_system_code
         self._vat_code = vat_code
-        self._item_name = item_name.strip() or 'Подписка на генерации AppSlides'
+        self._item_name = item_name.strip() or 'Подписка на расклады apptaro'
         self._payment_subject = payment_subject or 'service'
         self._payment_mode = payment_mode or 'full_prepayment'
 

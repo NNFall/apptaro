@@ -16,23 +16,23 @@ class BillingPlan:
 PLANS: dict[str, BillingPlan] = {
     'week': BillingPlan(
         key='week',
-        title='Неделя',
+        title='Неделя раскладов',
         price_rub=199,
-        limit=10,
+        limit=15,
         days=7,
         recurring=True,
     ),
     'month': BillingPlan(
         key='month',
-        title='Месяц',
+        title='Месяц раскладов',
         price_rub=499,
-        limit=50,
+        limit=100,
         days=30,
         recurring=True,
     ),
     'one10': BillingPlan(
         key='one10',
-        title='Разово 10',
+        title='Разово 10 раскладов',
         price_rub=199,
         limit=10,
         days=7,
@@ -40,7 +40,7 @@ PLANS: dict[str, BillingPlan] = {
     ),
     'one40': BillingPlan(
         key='one40',
-        title='Разово 40',
+        title='Разово 40 раскладов',
         price_rub=499,
         limit=50,
         days=7,

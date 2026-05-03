@@ -15,6 +15,7 @@ from src.domain.presentation_prompts import (
     outline_comment_prompt,
     outline_prompt,
     slides_prompt,
+    tarot_reading_prompt,
     title_prompt,
 )
 
@@ -312,7 +313,7 @@ class PresentationGenerationClient:
 
     def generate_outline(self, topic: str, slides: int) -> list[str]:
         if not self.api_key or not self.text_endpoint:
-            return [f'Слайд {index}: {topic}' for index in range(1, slides + 1)]
+            return [f'Позиция {index}: {topic}' for index in range(1, slides + 1)]
 
         prompt = outline_prompt(topic, slides)
         payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.6}
@@ -366,6 +367,32 @@ class PresentationGenerationClient:
         if replicate is not None:
             return replicate
         return self._fallback_slides(topic, outline)
+
+    def generate_tarot_reading(self, question: str, cards_block: str) -> str:
+        prompt = tarot_reading_prompt(question, cards_block)
+        if not self.api_key or not self.text_endpoint:
+            return _fallback_tarot_reading(question, cards_block)
+
+        payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.7}
+        try:
+            data = self._post(self.text_endpoint, payload)
+        except Exception:
+            self.logger.exception('Primary tarot reading generation failed')
+            replicate = self._try_replicate_text(prompt)
+            return replicate or _fallback_tarot_reading(question, cards_block)
+
+        content = _extract_content(data)
+        err = _error_from_text(content)
+        if err:
+            self.logger.warning('Tarot reading generation returned provider error: %s', err)
+            replicate = self._try_replicate_text(prompt)
+            return replicate or _fallback_tarot_reading(question, cards_block)
+
+        text = content.strip()
+        if text:
+            return text
+        replicate = self._try_replicate_text(prompt)
+        return replicate or _fallback_tarot_reading(question, cards_block)
 
     def generate_image(self, prompt: str, out_path: str) -> str:
         output_path = Path(out_path)
@@ -538,6 +565,16 @@ class PresentationGenerationClient:
         slides = _parse_json_list(text)
         return slides or None
 
+    def _try_replicate_text(self, prompt: str) -> str | None:
+        if not self.replicate_text_client:
+            return None
+        try:
+            text = self.replicate_text_client.generate_text(prompt)
+        except Exception:
+            self.logger.exception('Replicate text fallback failed')
+            return None
+        return text.strip() or None
+
     def _try_fallback_outline(self, payload: dict[str, Any], slides: int) -> list[str] | None:
         if not self.text_fallback_models or self._text_endpoint_explicit:
             return None
@@ -691,18 +728,29 @@ def _clean_title(text: str) -> str:
 
 def _fallback_title(topic: str) -> str:
     if not topic:
-        return 'Презентация'
+        return 'Расклад таро'
     value = topic.strip()
     if not value:
-        return 'Презентация'
+        return 'Расклад таро'
     lines = [line for line in value.splitlines() if line.strip()]
     value = lines[0] if lines else value
     value = re.sub(r'\s+', ' ', value).strip()
     if not value:
-        return 'Презентация'
+        return 'Расклад таро'
     if len(value) > 80:
         value = value[:77].rstrip() + '...'
     return value
+
+
+def _fallback_tarot_reading(question: str, cards_block: str) -> str:
+    return (
+        'Давайте посмотрим, что говорят карты:\n\n'
+        f'Вопрос: {question}\n\n'
+        f'{cards_block}\n\n'
+        'Итог: расклад показывает тенденции и опорные точки, а не фиксированное будущее. '
+        'Сейчас важнее всего действовать постепенно, наблюдать за сигналами ситуации и выбирать решения, '
+        'которые возвращают вам устойчивость.'
+    )
 
 
 def _placeholder_image(text: str, out_path: Path) -> None:

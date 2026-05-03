@@ -1,5 +1,41 @@
 # AppSlides Plan
 
+## apptaro Product Adaptation - 2026-05-03
+
+- Новый активный продукт: `apptaro`.
+- Источник предметной логики: `telegram_taro_bot/`.
+- Платформенный shell сохранен: Flutter chat UX, local transcript persistence, local saved files, `client_id`, FastAPI backend, YooKassa billing, Telegram admin bot, deploy workflow.
+- Product mapping:
+  - `presentation topic` -> вопрос пользователя к таро;
+  - `outline` -> три карты: ситуация, препятствие, совет;
+  - `template/design` -> скрытое compatibility-поле, не пользовательский шаг;
+  - `render job` -> генерация текстового разбора и JPG/TXT artifacts;
+  - `generations` -> расклады в пользовательских и admin-формулировках.
+- Выполнено:
+  - [x] изучены `PRODUCT_ADAPTATION_GUIDE.md`, `IMPLEMENTATION_RULES.md`, `AGENT_HANDOFF.md`, `OPERATIONS.md`, `APPSLIDES_PLAN.md`, `README.md`, `app/README.md`, `backend/README.md`;
+  - [x] изучен `telegram_taro_bot/` как источник текстов, prompts, сценариев, платежных сущностей и tarot assets;
+  - [x] адаптирован Flutter chat flow под вопрос, три карты, подтверждение, paywall и результат расклада;
+  - [x] адаптирован backend domain layer под tarot deck/layout/reading generation;
+  - [x] добавлены JPG/TXT artifacts и download routes;
+  - [x] обновлены billing/admin формулировки под расклады;
+  - [x] обновлены README-документы под `apptaro`.
+- Сохраненное ограничение:
+  - presentation endpoint names пока не переименованы, чтобы не ломать клиент, billing flow и deploy-интеграции.
+
+### GitHub / Deploy Actions
+
+- [x] Проверить текущий remote перед переносом в новый репозиторий.
+- [x] Проверить реальные `.env` и tracked `.env.example` перед push.
+- [x] Обновить README и backend `.env.example` под `apptaro`.
+- [x] Запустить Flutter APK build после web/analyze/test; результат: timeout after 10 minutes, fresh APK не получен.
+- [x] Остановить Gradle daemon после timeout.
+- [x] Добавить ignore-правила для `telegram_taro_bot` runtime DB/temp и `app/android/.kotlin/`.
+- [ ] Повторить fresh APK build отдельно, если нужен installable артефакт именно этого commit.
+- [x] Перенастроить `origin` на `https://github.com/NNFall/apptaro.git`.
+- [ ] Создать commit с текущим состоянием `apptaro`.
+- [ ] Push в пустой GitHub repository `NNFall/apptaro`.
+- [ ] Проверить возможность backend deploy по `OPERATIONS.md`.
+
 ## Документация для повторного использования продукта - 2026-05-03
 
 - Зафиксировано новое продуктовое требование:

@@ -97,18 +97,18 @@ class AdminNotifier:
 
     async def notify_outline_created(self, client_id: str, topic: str, slides: int) -> None:
         await self.notify(
-            f"{_bold('🧠 План создан')}\n"
+            f"{_bold('🔮 Расклад подготовлен')}\n"
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
-            f"{_bold('Тема:')} {html.escape(_shorten_text(topic))}\n"
-            f"{_bold('Слайдов:')} {slides}"
+            f"{_bold('Вопрос:')} {html.escape(_shorten_text(topic))}\n"
+            f"{_bold('Карт:')} {slides}"
         )
 
     async def notify_outline_updated(self, client_id: str, topic: str, slides: int) -> None:
         await self.notify(
-            f"{_bold('✍️ План обновлен по комментарию')}\n"
+            f"{_bold('🔄 Карты перетянуты по комментарию')}\n"
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
-            f"{_bold('Тема:')} {html.escape(_shorten_text(topic))}\n"
-            f"{_bold('Слайдов:')} {slides}"
+            f"{_bold('Вопрос:')} {html.escape(_shorten_text(topic))}\n"
+            f"{_bold('Карт:')} {slides}"
         )
 
     async def notify_text_error(self, client_id: str, error: str) -> None:
@@ -133,7 +133,7 @@ class AdminNotifier:
 
     async def notify_generation_success(self, client_id: str) -> None:
         await self.notify(
-            f"{_bold('✅ Успешная генерация (Презентация)')}\n"
+            f"{_bold('✅ Успешный расклад таро')}\n"
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}"
         )
 
@@ -179,7 +179,7 @@ class AdminNotifier:
         await self.notify(
             f"{_bold('Продление подписки - УСПЕХ')}\n"
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
-            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} генераций)\n"
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} раскладов)\n"
             f"{_bold('Сумма:')} {amount_rub}₽\n"
             f"{_bold('Status:')} {html.escape(status)}\n"
             f"{_bold('Payment ID:')} {_code(payment_id or '-')}"
@@ -200,7 +200,7 @@ class AdminNotifier:
         await self.notify(
             f"{_bold('Продление подписки - ОШИБКА')}\n"
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
-            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} генераций)\n"
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} раскладов)\n"
             f"{_bold('Сумма:')} {amount_rub}₽\n"
             f"{_bold('Status:')} {html.escape(status)}\n"
             f"{_bold('Payment ID:')} {_code(payment_id or '-')}\n"
@@ -221,7 +221,7 @@ class AdminNotifier:
         await self.notify(
             f"{_bold('Автосписание - УСПЕХ')}\n"
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
-            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} генераций)\n"
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} раскладов)\n"
             f"{_bold('Сумма:')} {amount_rub}₽\n"
             f"{_bold('Status:')} {html.escape(status)}\n"
             f"{_bold('Payment ID:')} {_code(payment_id or '-')}"
@@ -244,7 +244,7 @@ class AdminNotifier:
         lines = [
             _bold("Автосписание - ОШИБКА"),
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}",
-            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} генераций)",
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} раскладов)",
             f"{_bold('Сумма:')} {amount_rub}₽",
             f"{_bold('Status:')} {html.escape(status)}",
             f"{_bold('Payment ID:')} {_code(payment_id or '-')}",

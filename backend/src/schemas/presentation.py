@@ -9,7 +9,7 @@ from src.schemas.artifacts import ArtifactItem
 
 TopicStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=2000)]
 CommentStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
-OutlineItemStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+OutlineItemStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
 
 
 class OutlineGenerateRequest(BaseModel):

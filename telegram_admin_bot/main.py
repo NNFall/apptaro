@@ -20,16 +20,16 @@ async def _set_commands(bot: Bot, admin_ids: list[int]) -> None:
         BotCommand(command='adstats_all', description='Статистика по всем меткам'),
         BotCommand(command='adtag', description='Создать рекламную метку'),
         BotCommand(command='tag', description='Создать рекламную метку (alias)'),
-        BotCommand(command='sub_on', description='Начислить генерации'),
-        BotCommand(command='sub_off', description='Обнулить генерации'),
+        BotCommand(command='sub_on', description='Начислить расклады'),
+        BotCommand(command='sub_off', description='Обнулить расклады'),
         BotCommand(command='sub_check', description='Проверить баланс'),
         BotCommand(command='sub_cancel', description='Отключить подписку'),
         BotCommand(command='genpromo', description='Создать промокод'),
         BotCommand(command='admin_add', description='Добавить админа'),
         BotCommand(command='admin_del', description='Удалить админа'),
         BotCommand(command='admin_list', description='Список админов'),
-        BotCommand(command='templates', description='Показать шаблоны'),
-        BotCommand(command='template_set', description='Заменить шаблон'),
+        BotCommand(command='templates', description='Показать файлы шаблонов'),
+        BotCommand(command='template_set', description='Заменить файл шаблона'),
     ]
     await bot.set_my_commands(commands)
     for admin_id in admin_ids:

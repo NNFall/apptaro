@@ -37,7 +37,7 @@ PNG_1X1 = base64.b64decode(
 
 class StubGenerationClient:
     def generate_title(self, topic: str) -> str:
-        return f'Презентация: {topic[:40]}'
+        return f'Расклад: {topic[:40]}'
 
     def generate_outline(self, topic: str, slides: int) -> list[str]:
         return [f'Раздел {index}: {topic}' for index in range(1, slides + 1)]
@@ -63,6 +63,9 @@ class StubGenerationClient:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(PNG_1X1)
         return str(path)
+
+    def generate_tarot_reading(self, question: str, cards_block: str) -> str:
+        return f'Тестовый разбор по вопросу: {question}\n\n{cards_block}'
 
 
 class StubConversionService(ConversionService):
@@ -115,15 +118,23 @@ class BackendApiSmokeTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir_context = tempfile.TemporaryDirectory()
         self.temp_dir = Path(self.temp_dir_context.name)
-        self.templates_dir = BACKEND_DIR.parent / 'telegrambot' / 'media' / 'templates'
+        self.templates_dir = self.temp_dir / 'templates'
+        self.templates_dir.mkdir(parents=True, exist_ok=True)
+        self.tarot_dir = BACKEND_DIR / 'runtime' / 'tarot'
         self.stub_generation_client = StubGenerationClient()
 
         app = create_app()
-        app.dependency_overrides[get_outline_service] = lambda: PresentationOutlineService(self.stub_generation_client)
+        app.dependency_overrides[get_outline_service] = lambda: PresentationOutlineService(
+            self.stub_generation_client,
+            cards_dir=self.tarot_dir / 'cards',
+        )
         app.dependency_overrides[get_render_service] = lambda: PresentationRenderService(
             generation_client=self.stub_generation_client,
             temp_dir=self.temp_dir,
             templates_dir=self.templates_dir,
+            tarot_cards_dir=self.tarot_dir / 'cards',
+            tarot_background_path=self.tarot_dir / 'backgrounds' / 'main.png',
+            tarot_layout_path=self.tarot_dir / 'layout.json',
             libreoffice_path='soffice',
             image_concurrency=2,
         )
@@ -148,7 +159,6 @@ class BackendApiSmokeTests(unittest.TestCase):
         self.assertEqual(templates.status_code, 200)
         payload = templates.json()
         self.assertGreaterEqual(len(payload['templates']), 4)
-        self.assertTrue(any(item['template_available'] for item in payload['templates']))
 
     def test_outline_generation(self) -> None:
         response = self.client.post(
@@ -161,18 +171,22 @@ class BackendApiSmokeTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload['title'], 'Презентация: Тестовая тема')
+        self.assertEqual(payload['title'], 'Расклад: Тестовая тема')
         self.assertEqual(payload['slides_total'], 6)
-        self.assertEqual(payload['content_slides'], 5)
-        self.assertEqual(len(payload['outline']), 5)
+        self.assertEqual(payload['content_slides'], 3)
+        self.assertEqual(len(payload['outline']), 3)
 
     def test_presentation_job_download_routes(self) -> None:
         create_response = self.client.post(
             '/v1/presentations/jobs',
             json={
-                'topic': 'Тема презентации',
-                'title': 'Готовый файл',
-                'outline': ['Вступление', 'Основная часть', 'Выводы'],
+                'topic': 'Что поможет мне увеличить доход?',
+                'title': 'Расклад про доход',
+                'outline': [
+                    'Текущая ситуация',
+                    'Ключевое препятствие',
+                    'Совет и направление',
+                ],
                 'design_id': 1,
                 'generate_pdf': False,
             },
@@ -184,19 +198,19 @@ class BackendApiSmokeTests(unittest.TestCase):
         job = self._wait_for_job(f'/v1/presentations/jobs/{job_id}')
         self.assertEqual(job['status'], 'succeeded')
 
-        pptx = self.client.get(f'/v1/presentations/jobs/{job_id}/download/pptx')
-        self.assertEqual(pptx.status_code, 200)
-        self.assertIn(
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            pptx.headers.get('content-type', ''),
-        )
-        self.assertGreater(len(pptx.content), 0)
+        image = self.client.get(f'/v1/presentations/jobs/{job_id}/download/image')
+        self.assertEqual(image.status_code, 200)
+        self.assertIn('image/jpeg', image.headers.get('content-type', ''))
+        self.assertGreater(len(image.content), 0)
 
-        pdf = self.client.get(f'/v1/presentations/jobs/{job_id}/download/pdf')
-        self.assertEqual(pdf.status_code, 404)
+        txt = self.client.get(f'/v1/presentations/jobs/{job_id}/download/txt')
+        self.assertEqual(txt.status_code, 200)
+        self.assertIn('text/plain', txt.headers.get('content-type', ''))
+        self.assertIn('Тестовый разбор', txt.text)
 
     def test_conversion_job_download_route(self) -> None:
-        source_path = self.templates_dir / 'design_1.pptx'
+        source_path = self.temp_dir / 'source.pptx'
+        source_path.write_bytes(b'dummy pptx')
         with source_path.open('rb') as source_file:
             create_response = self.client.post(
                 '/v1/conversions/jobs',

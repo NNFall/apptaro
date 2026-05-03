@@ -11,7 +11,7 @@ from uuid import uuid4
 from src.repositories.storage import connect
 
 
-ArtifactKind = Literal['pptx', 'pdf', 'docx', 'image', 'other']
+ArtifactKind = Literal['pptx', 'pdf', 'docx', 'image', 'txt', 'other']
 
 
 @dataclass(frozen=True)

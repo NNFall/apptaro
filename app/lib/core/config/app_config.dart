@@ -1,5 +1,5 @@
 class AppConfig {
-  static const String appName = 'AppSlides';
+  static const String appName = 'apptaro';
   static const String fixedBackendBaseUrl = 'http://185.171.83.116:8010';
   static const String healthPath = '/v1/health';
   static const String templatesPath = '/v1/templates/presentation';
@@ -13,7 +13,8 @@ class AppConfig {
   static const String billingCancelSubscriptionPath =
       '/v1/billing/subscription/cancel';
 
-  static String presentationJobPath(String jobId) => '$presentationJobsPath/$jobId';
+  static String presentationJobPath(String jobId) =>
+      '$presentationJobsPath/$jobId';
 
   static String presentationDownloadPath(String jobId, String format) =>
       '${presentationJobPath(jobId)}/download/$format';

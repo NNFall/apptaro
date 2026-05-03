@@ -1,159 +1,53 @@
-# App
+# apptaro Flutter Client
 
-## Active UI Direction
+Flutter-клиент остается единым Telegram-style чатовым приложением. Новая предметная логика таро встроена поверх существующего chat shell без переписывания UI с нуля.
 
-- Current active client UI is no longer a tabbed mobile app shell.
-- The app is now moving to a single-screen Telegram-style bot experience:
-  - one chat feed;
-  - bot and user bubbles;
-  - inline/reply-like action buttons;
-  - command-style input;
-  - file cards inside the conversation;
-  - Telegram-like green wallpaper and compact header/composer layout.
-- The active chat client already has:
-  - local persistent transcript restore after restart;
-  - full chat snapshot restore with messages, file cards, template previews and inline keyboards;
-  - restored conversation step and pending paywall context after relaunch;
-  - mobile transcript persistence backed by a flushed JSON file in app documents storage, with legacy prefs migration;
-  - verified Android release behavior: chat history survives full `force-stop` and relaunch on a real phone;
-  - `/help`, `/balance`, `/settings`, `/history`, `/files` command-style flows;
-  - local file cards with `Открыть` / `Удалить` actions directly inside the chat;
-  - preserved backend-driven presentation/converter flows inside the same conversation.
-- Latest phone-QA UX pass is already applied:
-  - idle composer placeholder is removed;
-  - fake Telegram icons are removed from header and bottom bar;
-  - keyboard collapses automatically after sending text;
-  - temporary plan/payment/render messages are cleaned up as the real result arrives;
-  - the template-step paywall now uses the “presentation is almost ready” wording;
-  - one-time billing package buttons are hidden from the mobile client flow;
-  - offer text is rendered as an inline clickable link;
-  - generated result files auto-prefetch locally on non-web platforms and open as real files from chat cards.
-- The previous dashboard-style design is archived in `../old_design/flutter_ui_v1/`.
-- Visual/product notes for this redesign are stored in `../instructions/design_refs/telegram_bot_ui_brief.md`.
+## Активный UX
 
-## Current Runtime
+- Один чат вместо набора продуктовых экранов.
+- Пользователь может нажать `Задать вопрос` или просто написать вопрос в composer.
+- Приложение показывает три карты расклада и предлагает открыть полный разбор или перетянуть карты.
+- Если расклады закончились, paywall открывает YooKassa flow через backend.
+- После оплаты pending context восстанавливается и генерация продолжается.
+- Готовый результат приходит в чат как карточки файлов `JPG` и `TXT`.
 
-- Mobile/web client is now hard-wired to the remote backend:
-  - `http://185.171.83.116:8010`
-- Local URL switching inside the app is intentionally removed.
-- The chat now drives billing from the same conversation:
-  - `/balance` loads live subscription state from backend;
-  - plan selection opens YooKassa checkout in test mode;
-  - payment status is polled back into the chat every `10 seconds` for up to `15 minutes`;
-  - returning to the app from YooKassa triggers an immediate payment re-check;
-  - if the user was blocked on the template step, successful payment resumes presentation creation automatically;
-  - temporary polling transport errors do not immediately break the wait flow;
-  - generation is blocked when balance is exhausted.
-- The app sends a persistent `X-AppSlides-Client-Id` header on backend requests so billing and generation limits are tied to the installed client.
-- Operational workflow for `git -> push -> server deploy` is documented in `../OPERATIONS.md`.
+## Сохраненные платформенные инварианты
 
-Здесь будет Flutter-клиент `AppSlides`.
+- Transcript persistence хранит сообщения, inline-кнопки, pending paywall context и file cards.
+- История чата восстанавливается после перезапуска приложения.
+- Результаты скачиваются в app-specific storage и открываются системным приложением.
+- `client_id` сохраняется локально и передается в backend как `X-AppSlides-Client-Id`.
+- Billing остается backend-driven; Flutter только открывает checkout URL и poll-ит статус.
+- Конвертер и старые сервисные экраны не удалены из платформы, но основной user-facing menu теперь ведет в tarot flow.
 
-Назначение приложения:
+## Ключевые файлы
 
-- сценарий создания презентации;
-- сценарий конвертации файлов;
-- локальная история пользователя;
-- локальное хранение результатов;
-- подписки, paywall, восстановление покупок;
-- настройки и поддержка.
+- `lib/features/chat/chat_screen.dart` - основной чат, onboarding, tarot flow, paywall, file cards.
+- `lib/features/billing/billing_controller.dart` - YooKassa payment polling.
+- `lib/features/presentation/presentation_controller.dart` - job flow, сохранен как совместимый слой для tarot reading.
+- `lib/data/api/appslides_api_client.dart` - backend API client.
+- `lib/data/repositories/chat_transcript_repository.dart` - persistent chat snapshot.
+- `lib/data/repositories/saved_files_repository.dart` - локальное сохранение и открытие файлов.
+- `lib/app/app_scope.dart` - DI для клиентских сервисов.
 
-Стартовая структура:
+## Runtime
+
+Клиент фиксированно подключается к production backend:
 
 ```text
-app/
-  lib/
-    bootstrap/
-    app/
-    core/
-    data/
-    domain/
-    features/
-      home/
-      presentation/
-      converter/
-      subscription/
-      history/
-      settings/
-    shared/
-  assets/
-    images/
-    icons/
-  test/
+http://185.171.83.116:8010
 ```
 
-На текущем шаге это уже реальный Flutter-проект с подключенным backend API, локальной историей и локальным файловым индексом для сохраненных результатов.
+Локальное переключение backend URL в приложении намеренно не возвращалось.
 
-Обновление:
+## Проверки
 
-- добавлен ручной Flutter-ready scaffold:
-  - `pubspec.yaml`
-  - `lib/main.dart`
-  - `bootstrap/`
-  - `app/`
-  - базовые экраны по основным сценариям
-- добавлен первичный client/data layer под backend API:
-  - `lib/data/api/appslides_api_client.dart`
-  - `lib/data/repositories/appslides_repository.dart`
-  - `lib/domain/models/...`
-- добавлен `AppScope` для DI без внешнего state-management пакета:
-  - `lib/app/app_scope.dart`
-- экран `Presentation` больше не заглушка:
-  - загружает templates
-  - вызывает `outline` и `outline/revise`
-  - запускает `presentation jobs`
-  - показывает polling статуса и download URLs
-  - сохраняет готовые `PPTX/PDF` в локальное хранилище приложения
-- экран `Converter` больше не заглушка:
-  - открывает системный file picker
-  - запускает `conversion jobs`
-  - показывает polling статуса и download URL результата
-  - сохраняет готовый файл в локальное хранилище приложения
-- экран `History` теперь восстанавливает и очищает локальную историю через persistent storage
-  - показывает список локально сохраненных файлов
-  - умеет открыть локальный файл системным приложением
-  - умеет удалить локальную копию и убрать ее из индекса/истории
-- `LocalHistoryRepository` больше не только in-memory:
-  - восстанавливает записи при старте
-  - сохраняет outline/render/conversion события локально
-  - держит ограничение по числу записей
-- добавлен `SavedFilesRepository`:
-  - скачивает артефакты с backend download routes
-  - сохраняет их в app-specific storage
-  - ведет persistent-index локальных файлов
-  - открывает и удаляет локальные файлы
-- backend endpoint теперь зафиксирован:
-  - приложение всегда использует `http://185.171.83.116:8010`
-  - локальное переключение URL из `Settings` отключено
-  - в `Settings` оставлена только проверка `/v1/health`
-- в среде разработки установлен Flutter SDK:
-  - `C:\Users\User\develop\flutter`
-- `app/` уже переведен в настоящий Flutter-проект:
-  - сгенерированы `android/`, `ios/`, `web/`, `windows/`
-  - выполнены `flutter pub get`, `flutter analyze`, `flutter test`
-  - выполнен `flutter build web`
-  - выполнен `flutter build apk`
-  - собран Android-артефакт `build/app/outputs/flutter-apk/app-release.apk`
-- Android toolchain приведен в рабочее состояние:
-  - установлен `cmdline-tools`
-  - приняты Android SDK licenses
-  - `flutter doctor` проходит по Android toolchain без ошибок
-- текущие системные блокеры:
-  - для `flutter build windows` нужен Windows Developer Mode
-  - в `flutter doctor` может всплывать временный timeout по `Network resources`, это сетевой шум, не блокер для локальной разработки
-
-Следующий практический шаг:
-
-```bash
-# отдельно подними backend
-.\scripts\dev\start_backend.ps1
-
+```powershell
 cd app
-flutter run -d chrome
-# или после запуска Android-эмулятора / подключения телефона
-flutter run -d android
-# или собрать installable Android APK
+flutter analyze
+flutter test
+flutter build web
 flutter build apk
 ```
 
-Важно: `flutter run` не завершится сам по себе. Это нормальная живая dev-сессия с hot reload. Останавливать ее нужно через `q` в терминале.
+`flutter run` является живой dev-сессией и не завершается сам; останавливать через `q` в терминале.

@@ -23,11 +23,19 @@ telegrambot/logs/
 telegrambot/database/*.db
 telegrambot/database/*.backup*
 
+telegram_taro_bot/.env
+telegram_taro_bot/fonts/
+telegram_taro_bot/logs/
+telegram_taro_bot/database/*.db
+telegram_taro_bot/database/*.backup*
+telegram_taro_bot/media/temp/
+
 app/.dart_tool/
 app/.packages
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
 app/build/
+app/android/.kotlin/
 app/.pub/
 
 old_design/flutter_ui_v1/app/.dart_tool/

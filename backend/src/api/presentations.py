@@ -108,7 +108,7 @@ async def render_presentation(
     if not await billing_service.can_start_generation(client_id):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail='Лимит генераций исчерпан. Оформите подписку через YooKassa.',
+            detail='Лимит раскладов исчерпан. Оформите подписку через YooKassa.',
         )
 
     try:
@@ -129,11 +129,11 @@ async def render_presentation(
         await notifier.notify_generation_failed(client_id, str(exc))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to render presentation: {exc}',
+            detail=f'Failed to render tarot reading: {exc}',
         ) from exc
 
     if not await billing_service.consume_generation(client_id):
-        error_text = 'Не удалось списать генерацию после успешного рендера.'
+        error_text = 'Не удалось списать расклад после успешной генерации.'
         await notifier.notify_generation_failed(client_id, error_text)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -172,7 +172,7 @@ async def create_presentation_job(
     if not await billing_service.can_start_generation(client_id):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail='Лимит генераций исчерпан. Оформите подписку через YooKassa.',
+            detail='Лимит раскладов исчерпан. Оформите подписку через YooKassa.',
         )
 
     job = create_job(
@@ -224,6 +224,18 @@ async def download_presentation_pdf(job_id: str) -> FileResponse:
     return build_artifact_response(artifact_id)
 
 
+@router.get('/jobs/{job_id}/download/image')
+async def download_presentation_image(job_id: str) -> FileResponse:
+    artifact_id = _get_presentation_artifact_id(job_id, 'image')
+    return build_artifact_response(artifact_id)
+
+
+@router.get('/jobs/{job_id}/download/txt')
+async def download_presentation_txt(job_id: str) -> FileResponse:
+    artifact_id = _get_presentation_artifact_id(job_id, 'txt')
+    return build_artifact_response(artifact_id)
+
+
 async def _run_presentation_job(
     job_id: str,
     service: PresentationRenderService,
@@ -247,7 +259,7 @@ async def _run_presentation_job(
         return
 
     if not await billing_service.consume_generation(client_id):
-        error_text = 'Не удалось списать генерацию после успешного рендера.'
+        error_text = 'Не удалось списать расклад после успешной генерации.'
         mark_job_failed(job_id, error_text)
         await notifier.notify_generation_failed(client_id, error_text)
         return
@@ -270,6 +282,7 @@ async def _run_presentation_job(
             'design_id': result.design_id,
             'slides_total': result.slides_total,
             'content_slides': result.content_slides,
+            'reading_text': result.reading_text,
             'artifacts': artifacts,
         },
     )

@@ -12,7 +12,7 @@ void main() {
       ),
     );
 
-    expect(find.text('AppSlides'), findsOneWidget);
-    expect(find.textContaining('Outline API готов'), findsOneWidget);
+    expect(find.text('apptaro'), findsOneWidget);
+    expect(find.textContaining('3 карты в раскладе'), findsOneWidget);
   });
 }

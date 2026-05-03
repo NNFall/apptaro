@@ -43,7 +43,11 @@ def get_generation_client() -> PresentationGenerationClient:
 
 @lru_cache(maxsize=1)
 def get_outline_service() -> PresentationOutlineService:
-    return PresentationOutlineService(get_generation_client())
+    settings = get_settings()
+    return PresentationOutlineService(
+        get_generation_client(),
+        cards_dir=settings.tarot_cards_dir,
+    )
 
 
 @lru_cache(maxsize=1)
@@ -53,6 +57,9 @@ def get_render_service() -> PresentationRenderService:
         generation_client=get_generation_client(),
         temp_dir=settings.temp_dir,
         templates_dir=settings.templates_dir,
+        tarot_cards_dir=settings.tarot_cards_dir,
+        tarot_background_path=settings.tarot_background_path,
+        tarot_layout_path=settings.tarot_layout_path,
         libreoffice_path=settings.libreoffice_path,
         image_concurrency=settings.image_concurrency,
     )

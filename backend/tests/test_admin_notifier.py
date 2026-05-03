@@ -39,9 +39,9 @@ class AdminNotifierFormattingTests(unittest.IsolatedAsyncioTestCase):
             "тема откуда берутся страхи титульный лист учреждения: Краснодарский краевой базовый медицинский колледж",
             9,
         )
-        self.assertIn("<b>🧠 План создан</b>", notifier.messages[-1])
+        self.assertIn("<b>🔮 Расклад подготовлен</b>", notifier.messages[-1])
         self.assertIn("<b>User ID:</b> <code>appslides_m…d0e059</code>", notifier.messages[-1])
-        self.assertIn("<b>Слайдов:</b> 9", notifier.messages[-1])
+        self.assertIn("<b>Карт:</b> 9", notifier.messages[-1])
 
     async def test_auto_renew_success_format(self) -> None:
         notifier = CapturingNotifier()
@@ -58,7 +58,7 @@ class AdminNotifierFormattingTests(unittest.IsolatedAsyncioTestCase):
             notifier.messages[-1],
             "<b>Автосписание - УСПЕХ</b>\n"
             "<b>User ID:</b> <code>client-1234…abcdef</code>\n"
-            "<b>Тариф:</b> week (Неделя - 10 генераций)\n"
+            "<b>Тариф:</b> week (Неделя - 10 раскладов)\n"
             "<b>Сумма:</b> 199₽\n"
             "<b>Status:</b> succeeded\n"
             "<b>Payment ID:</b> <code>payment-1</code>",
@@ -97,7 +97,7 @@ class AdminNotifierFormattingTests(unittest.IsolatedAsyncioTestCase):
             notifier.messages[-1],
             "<b>Продление подписки - УСПЕХ</b>\n"
             "<b>User ID:</b> <code>client-123</code>\n"
-            "<b>Тариф:</b> month (Месяц - 50 генераций)\n"
+            "<b>Тариф:</b> month (Месяц - 50 раскладов)\n"
             "<b>Сумма:</b> 499₽\n"
             "<b>Status:</b> succeeded\n"
             "<b>Payment ID:</b> <code>payment-2</code>",

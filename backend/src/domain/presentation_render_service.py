@@ -7,8 +7,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from src.integrations.text_generation import PresentationGenerationClient
-from src.jobs.file_converter import convert_file
-from src.jobs.pptx_builder import build_presentation
+from src.domain.tarot_deck import DrawnCard, display_card_line, draw_cards, load_deck, parse_card_lines
+from src.domain.tarot_layout import compose_spread_image
 from src.repositories.artifacts import StoredArtifact, register_artifact
 
 
@@ -20,6 +20,7 @@ class RenderedPresentation:
     slides_total: int
     content_slides: int
     artifacts: list[StoredArtifact]
+    reading_text: str = ''
 
 
 class PresentationRenderService:
@@ -28,12 +29,18 @@ class PresentationRenderService:
         generation_client: PresentationGenerationClient,
         temp_dir: Path,
         templates_dir: Path,
+        tarot_cards_dir: Path,
+        tarot_background_path: Path,
+        tarot_layout_path: Path,
         libreoffice_path: str,
         image_concurrency: int = 5,
     ) -> None:
         self._generation_client = generation_client
         self._temp_dir = temp_dir
         self._templates_dir = templates_dir
+        self._tarot_cards_dir = tarot_cards_dir
+        self._tarot_background_path = tarot_background_path
+        self._tarot_layout_path = tarot_layout_path
         self._libreoffice_path = libreoffice_path
         self._image_concurrency = max(1, image_concurrency)
 
@@ -45,87 +52,59 @@ class PresentationRenderService:
         design_id: int,
         generate_pdf: bool = True,
     ) -> RenderedPresentation:
-        template_path = self._templates_dir / f'design_{design_id}.pptx'
-        if not template_path.exists():
-            raise FileNotFoundError(f'Template design_{design_id}.pptx not found')
-
         presentation_id = uuid4().hex
-        job_dir = self._temp_dir / 'presentations' / presentation_id
-        images_dir = job_dir / 'images'
+        job_dir = self._temp_dir / 'tarot' / presentation_id
         job_dir.mkdir(parents=True, exist_ok=True)
-        images_dir.mkdir(parents=True, exist_ok=True)
 
-        content_slides = len(outline)
-        slide_contents = await asyncio.to_thread(
-            self._generation_client.generate_slide_contents,
+        cards = parse_card_lines(self._tarot_cards_dir, outline)
+        if len(cards) < 3:
+            deck = load_deck(self._tarot_cards_dir)
+            cards = draw_cards(deck, count=3)
+
+        cards_block = _cards_block(cards)
+        reading_text = await asyncio.to_thread(
+            self._generation_client.generate_tarot_reading,
             topic,
-            outline,
+            cards_block,
         )
 
-        semaphore = asyncio.Semaphore(self._image_concurrency)
+        base_name = _safe_filename(title) or 'tarot-reading'
+        image_path = job_dir / f'{base_name}.jpg'
+        text_path = job_dir / f'{base_name}.txt'
 
-        async def build_payload(index: int, slide: dict[str, str]) -> dict[str, str]:
-            async with semaphore:
-                image_path = images_dir / f'{index:02d}_{uuid4().hex}.png'
-                generated_image = await asyncio.to_thread(
-                    self._generation_client.generate_image,
-                    slide.get('image_prompt', ''),
-                    str(image_path),
-                )
-            return {
-                'title': slide.get('title', f'Слайд {index}'),
-                'text': slide.get('text', ''),
-                'image_path': generated_image,
-            }
-
-        content_payloads = await asyncio.gather(
-            *(build_payload(index, slide) for index, slide in enumerate(slide_contents, start=1))
-        )
-
-        slides_payload: list[dict[str, str | None]] = [{'title': title, 'text': '', 'image_path': None}]
-        slides_payload.extend(content_payloads)
-
-        base_name = _safe_filename(title) or 'presentation'
-        pptx_path = job_dir / f'{base_name}.pptx'
         await asyncio.to_thread(
-            build_presentation,
-            str(template_path),
-            slides_payload,
-            str(pptx_path),
+            compose_spread_image,
+            cards,
+            image_path,
+            self._tarot_layout_path,
+            self._tarot_background_path,
+        )
+        text_path.write_text(
+            f'{title}\n\nВопрос: {topic}\n\n{_visible_outline(outline)}\n\n{reading_text}\n',
+            encoding='utf-8',
         )
 
         artifacts: list[StoredArtifact] = [
             register_artifact(
-                pptx_path,
-                kind='pptx',
-                media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            )
+                image_path,
+                kind='image',
+                media_type='image/jpeg',
+            ),
+            register_artifact(
+                text_path,
+                kind='txt',
+                media_type='text/plain; charset=utf-8',
+            ),
         ]
-
-        if generate_pdf:
-            pdf_path = await asyncio.to_thread(
-                convert_file,
-                str(pptx_path),
-                'pdf',
-                self._libreoffice_path,
-                str(job_dir),
-            )
-            if pdf_path:
-                artifacts.append(
-                    register_artifact(
-                        pdf_path,
-                        kind='pdf',
-                        media_type='application/pdf',
-                    )
-                )
 
         return RenderedPresentation(
             presentation_id=presentation_id,
             title=title,
             design_id=design_id,
-            slides_total=content_slides + 1,
-            content_slides=content_slides,
+            slides_total=3,
+            content_slides=3,
             artifacts=artifacts,
+            reading_text=reading_text,
         )
 
 
@@ -138,3 +117,20 @@ def _safe_filename(value: str) -> str:
     if len(base) > 60:
         base = base[:57].rstrip() + '...'
     return base
+
+
+def _cards_block(cards: list[DrawnCard]) -> str:
+    positions = [
+        'Текущая ситуация вокруг вопроса',
+        'Ключевое препятствие или узел',
+        'Совет и направление',
+    ]
+    lines = []
+    for index, drawn in enumerate(cards[:3]):
+        orientation = 'перевернутая' if drawn.is_reversed else 'прямая'
+        lines.append(f'{index + 1}. {positions[index]} — {drawn.card.title} ({orientation})')
+    return '\n'.join(lines)
+
+
+def _visible_outline(outline: list[str]) -> str:
+    return '\n'.join(f'{index}. {display_card_line(line)}' for index, line in enumerate(outline, start=1))
