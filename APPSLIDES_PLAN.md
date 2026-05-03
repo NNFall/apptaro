@@ -32,9 +32,10 @@
 - [x] Добавить ignore-правила для `telegram_taro_bot` runtime DB/temp и `app/android/.kotlin/`.
 - [ ] Повторить fresh APK build отдельно, если нужен installable артефакт именно этого commit.
 - [x] Перенастроить `origin` на `https://github.com/NNFall/apptaro.git`.
-- [ ] Создать commit с текущим состоянием `apptaro`.
-- [ ] Push в пустой GitHub repository `NNFall/apptaro`.
-- [ ] Проверить возможность backend deploy по `OPERATIONS.md`.
+- [x] Создать commit с текущим состоянием `apptaro`: `d1d6fe2 Adapt platform to apptaro`.
+- [x] Push в пустой GitHub repository `NNFall/apptaro`.
+- [x] Проверить возможность backend deploy по `OPERATIONS.md`.
+- [ ] Backend deploy не выполнен: deploy script требует `--password <SERVER_PASSWORD>`, серверного пароля в окружении нет.
 
 ## Документация для повторного использования продукта - 2026-05-03
 
