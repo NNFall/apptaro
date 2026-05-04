@@ -5,8 +5,8 @@ Backend остается FastAPI-сервисом с billing, jobs, artifacts, a
 ## Runtime
 
 - Production backend: `http://185.171.83.116:8010`
-- Remote app dir: `/root/appslides`
-- SQLite: `/root/appslides/data/appslides.db`
+- Remote app dir: `/root/apptaro`
+- SQLite: `/root/apptaro/data/appslides.db`
 - Billing: YooKassa через backend API.
 - Admin notifications: отдельный `telegram_admin_bot/` через `ADMIN_BOT_TOKEN` и `ADMIN_IDS`.
 

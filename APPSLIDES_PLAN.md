@@ -244,7 +244,7 @@
 - Flutter client no longer allows changing backend URL locally.
 - Remote deployment target is fixed to:
   - host `185.171.83.116`
-  - app dir `/root/appslides`
+  - app dir `/root/apptaro`
   - Docker host port `8010`
 - Billing implementation direction is now concrete:
   - `YooKassa` test mode through backend billing APIs
