@@ -57,14 +57,54 @@ def touch_client(client_id: str) -> bool:
             ).fetchone()
             conn.execute(
                 '''
-                INSERT INTO billing_clients (client_id, created_at, last_seen_at)
-                VALUES (?, ?, ?)
+                INSERT INTO billing_clients (client_id, created_at, last_seen_at, free_trial_used)
+                VALUES (?, ?, ?, 0)
                 ON CONFLICT(client_id) DO UPDATE SET last_seen_at = excluded.last_seen_at
                 ''',
                 (client_id, now, now),
             )
             conn.commit()
     return existing is None
+
+
+def is_free_trial_used(client_id: str) -> bool:
+    with _LOCK:
+        with closing(connect()) as conn:
+            row = conn.execute(
+                'SELECT COALESCE(free_trial_used, 0) AS free_trial_used FROM billing_clients WHERE client_id = ?',
+                (client_id,),
+            ).fetchone()
+    return bool(int(row['free_trial_used'])) if row is not None else False
+
+
+def mark_free_trial_used(client_id: str) -> None:
+    with _LOCK:
+        with closing(connect()) as conn:
+            conn.execute(
+                '''
+                UPDATE billing_clients
+                SET free_trial_used = 1, last_seen_at = ?
+                WHERE client_id = ?
+                ''',
+                (_now(), client_id),
+            )
+            conn.commit()
+
+
+def has_successful_payment(client_id: str) -> bool:
+    with _LOCK:
+        with closing(connect()) as conn:
+            row = conn.execute(
+                '''
+                SELECT 1
+                FROM billing_payments
+                WHERE client_id = ?
+                  AND status IN ('paid', 'succeeded')
+                LIMIT 1
+                ''',
+                (client_id,),
+            ).fetchone()
+    return row is not None
 
 
 def create_payment(

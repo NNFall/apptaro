@@ -73,6 +73,12 @@
 - [x] APK metadata verified with `aapt`: package `com.apptaro.app`, label `apptaro`, launchable activity `com.apptaro.app.MainActivity`, URL schemes `apptaro` and `appslides`.
 - [x] Android NDK `28.2.13676358` was reinstalled automatically during APK build; Gradle daemon stopped and rebuildable Gradle `8.14.4` cache removed afterward to recover disk space.
 - [x] Продолжить mobile smoke на устройстве или эмуляторе, когда появится Android target.
+- [x] Added backend trial-teaser gating on `client_id`: one-card teaser is available once for a new unpaid client, then disabled for next questions.
+- [x] Added `teaser_mode` payload to outline API response with optional `teaser_text` and teaser image artifact.
+- [x] Full reading flow remains a 3-card spread image (`JPG`) + text analysis (`TXT`) after paywall and successful entitlement check.
+- [x] Flutter chat now renders tarot image artifacts inline in the message feed (not only as file tiles).
+- [x] Real-device Android smoke on `SM_A165F` (USB): first question returned one-card teaser + image preview; second question in the same install returned standard 3-card outline (trial consumed).
+- [ ] Real-device post-payment smoke for "open full spread" is pending a completed payment or manual entitlement for that exact device `client_id`.
 
 ## Документация для повторного использования продукта - 2026-05-03
 

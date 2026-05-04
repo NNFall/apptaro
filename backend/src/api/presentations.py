@@ -45,41 +45,18 @@ router = APIRouter(prefix='/v1/presentations', tags=['presentations'])
 async def generate_outline(
     payload: OutlineGenerateRequest,
     service: PresentationOutlineService = Depends(get_outline_service),
+    render_service: PresentationRenderService = Depends(get_render_service),
+    billing_service: BillingService = Depends(get_billing_service),
     client_id: str = Depends(get_known_client_id),
     notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> OutlineResponse:
+    teaser_mode = await billing_service.should_show_trial_teaser(client_id)
+    cards_count = 1 if teaser_mode else 3
     try:
-        result = await service.generate(payload.topic, payload.slides_total)
-    except TextGenerationError as exc:
-        await notifier.notify_text_error(client_id, str(exc))
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        ) from exc
-
-    await notifier.notify_outline_created(client_id, payload.topic, result.content_slides)
-    return OutlineResponse(
-        title=result.title,
-        outline=result.outline,
-        slides_total=result.slides_total,
-        content_slides=result.content_slides,
-    )
-
-
-@router.post('/outline/revise', response_model=OutlineResponse)
-async def revise_outline(
-    payload: OutlineReviseRequest,
-    service: PresentationOutlineService = Depends(get_outline_service),
-    client_id: str = Depends(get_known_client_id),
-    notifier: AdminNotifier = Depends(get_admin_notifier),
-) -> OutlineResponse:
-    try:
-        result = await service.revise(
-            topic=payload.topic,
-            slides_total=payload.slides_total,
-            outline=payload.outline,
-            comment=payload.comment,
-            title=payload.title,
+        result = await service.generate(
+            payload.topic,
+            payload.slides_total,
+            cards_count=cards_count,
         )
     except TextGenerationError as exc:
         await notifier.notify_text_error(client_id, str(exc))
@@ -88,12 +65,100 @@ async def revise_outline(
             detail=str(exc),
         ) from exc
 
+    teaser_text: str | None = None
+    teaser_artifacts: list[ArtifactItem] = []
+    if teaser_mode:
+        try:
+            teaser = await render_service.render_teaser(
+                topic=payload.topic,
+                title=result.title,
+                outline=result.outline,
+            )
+            teaser_text = teaser.text
+            teaser_artifacts = [
+                ArtifactItem(
+                    artifact_id=teaser.image_artifact.artifact_id,
+                    kind=teaser.image_artifact.kind,
+                    filename=teaser.image_artifact.filename,
+                    media_type=teaser.image_artifact.media_type,
+                    download_url=f'/v1/artifacts/{teaser.image_artifact.artifact_id}',
+                )
+            ]
+        except Exception as exc:  # noqa: BLE001
+            await notifier.notify_generation_failed(client_id, f'teaser image error: {exc}')
+        finally:
+            billing_service.mark_trial_teaser_used(client_id)
+
+    await notifier.notify_outline_created(client_id, payload.topic, result.content_slides)
+    return OutlineResponse(
+        title=result.title,
+        outline=result.outline,
+        slides_total=result.slides_total,
+        content_slides=result.content_slides,
+        teaser_mode=teaser_mode,
+        teaser_text=teaser_text,
+        teaser_artifacts=teaser_artifacts,
+    )
+
+
+@router.post('/outline/revise', response_model=OutlineResponse)
+async def revise_outline(
+    payload: OutlineReviseRequest,
+    service: PresentationOutlineService = Depends(get_outline_service),
+    render_service: PresentationRenderService = Depends(get_render_service),
+    billing_service: BillingService = Depends(get_billing_service),
+    client_id: str = Depends(get_known_client_id),
+    notifier: AdminNotifier = Depends(get_admin_notifier),
+) -> OutlineResponse:
+    teaser_mode = len(payload.outline) <= 1 and not await billing_service.can_start_generation(client_id)
+    cards_count = 1 if teaser_mode else 3
+    try:
+        result = await service.revise(
+            topic=payload.topic,
+            slides_total=payload.slides_total,
+            outline=payload.outline,
+            comment=payload.comment,
+            title=payload.title,
+            cards_count=cards_count,
+        )
+    except TextGenerationError as exc:
+        await notifier.notify_text_error(client_id, str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    teaser_text: str | None = None
+    teaser_artifacts: list[ArtifactItem] = []
+    if teaser_mode:
+        try:
+            teaser = await render_service.render_teaser(
+                topic=payload.topic,
+                title=result.title,
+                outline=result.outline,
+            )
+            teaser_text = teaser.text
+            teaser_artifacts = [
+                ArtifactItem(
+                    artifact_id=teaser.image_artifact.artifact_id,
+                    kind=teaser.image_artifact.kind,
+                    filename=teaser.image_artifact.filename,
+                    media_type=teaser.image_artifact.media_type,
+                    download_url=f'/v1/artifacts/{teaser.image_artifact.artifact_id}',
+                )
+            ]
+        except Exception as exc:  # noqa: BLE001
+            await notifier.notify_generation_failed(client_id, f'teaser image error: {exc}')
+
     await notifier.notify_outline_updated(client_id, payload.topic, result.content_slides)
     return OutlineResponse(
         title=result.title,
         outline=result.outline,
         slides_total=result.slides_total,
         content_slides=result.content_slides,
+        teaser_mode=teaser_mode,
+        teaser_text=teaser_text,
+        teaser_artifacts=teaser_artifacts,
     )
 
 

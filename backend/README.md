@@ -16,6 +16,7 @@ Backend остается FastAPI-сервисом с billing, jobs, artifacts, a
 
 - `topic` теперь означает вопрос пользователя.
 - `outline` теперь означает черновик из трех карт: ситуация, препятствие, совет.
+- For a brand-new unpaid `client_id`, `outline` can return one-card teaser mode once (`teaser_mode=true`) with teaser image/text payload.
 - `render/job` теперь генерирует tarot reading вместо PPTX/PDF.
 - `design_id` остается техническим compatibility-полем, в пользовательском flow не выбирается.
 - Результат job содержит `reading_text` и artifacts:

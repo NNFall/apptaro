@@ -10,6 +10,9 @@ Flutter-клиент остается единым Telegram-style чатовым
 - Если расклады закончились, paywall открывает YooKassa flow через backend.
 - После оплаты pending context восстанавливается и генерация продолжается.
 - Готовый результат приходит в чат как карточки файлов `JPG` и `TXT`.
+- Trial teaser behavior: a brand-new unpaid client receives a one-card preview once.
+- After the teaser is used, next questions in the same install return the standard three-card outline.
+- Tarot image artifacts are rendered inline in chat messages and remain available as downloadable files.
 
 ## Сохраненные платформенные инварианты
 

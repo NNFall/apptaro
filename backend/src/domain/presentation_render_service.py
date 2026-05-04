@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
+from PIL import Image
+
 from src.integrations.text_generation import PresentationGenerationClient
 from src.domain.tarot_deck import DrawnCard, display_card_line, draw_cards, load_deck, parse_card_lines
 from src.domain.tarot_layout import compose_spread_image
@@ -21,6 +23,12 @@ class RenderedPresentation:
     content_slides: int
     artifacts: list[StoredArtifact]
     reading_text: str = ''
+
+
+@dataclass(frozen=True)
+class TeaserPreview:
+    text: str
+    image_artifact: StoredArtifact
 
 
 class PresentationRenderService:
@@ -107,6 +115,40 @@ class PresentationRenderService:
             reading_text=reading_text,
         )
 
+    async def render_teaser(
+        self,
+        topic: str,
+        title: str,
+        outline: list[str],
+    ) -> TeaserPreview:
+        cards = parse_card_lines(self._tarot_cards_dir, outline)
+        if not cards:
+            deck = load_deck(self._tarot_cards_dir)
+            cards = draw_cards(deck, count=1)
+        first_card = cards[0]
+        cards_block = _cards_block([first_card])
+        teaser_text = await asyncio.to_thread(
+            self._generation_client.generate_tarot_reading,
+            topic,
+            cards_block,
+        )
+
+        teaser_dir = self._temp_dir / 'tarot' / 'teaser'
+        teaser_dir.mkdir(parents=True, exist_ok=True)
+        base_name = _safe_filename(title) or 'tarot-teaser'
+        image_path = teaser_dir / f'{base_name}-{uuid4().hex}.jpg'
+        await asyncio.to_thread(_render_single_card_image, first_card, image_path)
+
+        image_artifact = register_artifact(
+            image_path,
+            kind='image',
+            media_type='image/jpeg',
+        )
+        return TeaserPreview(
+            text=teaser_text,
+            image_artifact=image_artifact,
+        )
+
 
 def _safe_filename(value: str) -> str:
     base = value.strip()
@@ -134,3 +176,11 @@ def _cards_block(cards: list[DrawnCard]) -> str:
 
 def _visible_outline(outline: list[str]) -> str:
     return '\n'.join(f'{index}. {display_card_line(line)}' for index, line in enumerate(outline, start=1))
+
+
+def _render_single_card_image(card: DrawnCard, output_path: Path) -> None:
+    image = Image.open(card.card.image_path).convert('RGBA')
+    if card.is_reversed:
+        image = image.rotate(180, expand=True, resample=Image.Resampling.BICUBIC)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    image.convert('RGB').save(output_path, format='JPEG', quality=95)

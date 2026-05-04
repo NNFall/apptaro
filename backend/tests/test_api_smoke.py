@@ -106,6 +106,12 @@ class StubBillingService:
     async def can_start_generation(self, client_id: str) -> bool:
         return True
 
+    async def should_show_trial_teaser(self, client_id: str) -> bool:
+        return False
+
+    def mark_trial_teaser_used(self, client_id: str) -> None:
+        return
+
     async def consume_generation(self, client_id: str) -> bool:
         return True
 

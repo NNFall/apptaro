@@ -71,7 +71,8 @@ def init_storage(path: str | Path | None = None) -> Path:
                 CREATE TABLE IF NOT EXISTS billing_clients (
                     client_id TEXT PRIMARY KEY,
                     created_at TEXT NOT NULL,
-                    last_seen_at TEXT NOT NULL
+                    last_seen_at TEXT NOT NULL,
+                    free_trial_used INTEGER NOT NULL DEFAULT 0
                 )
                 '''
             )
@@ -193,6 +194,12 @@ def init_storage(path: str | Path | None = None) -> Path:
             conn.execute(
                 'CREATE INDEX IF NOT EXISTS idx_promo_uses_code ON promo_uses(code)'
             )
+            _ensure_column(
+                conn,
+                table='billing_clients',
+                column='free_trial_used',
+                definition='INTEGER NOT NULL DEFAULT 0',
+            )
             conn.commit()
 
         _INITIALIZED = True
@@ -205,3 +212,17 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(str(get_database_path()), timeout=30, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _ensure_column(
+    conn: sqlite3.Connection,
+    *,
+    table: str,
+    column: str,
+    definition: str,
+) -> None:
+    try:
+        conn.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
+    except sqlite3.OperationalError as exc:
+        if 'duplicate column name' not in str(exc).lower():
+            raise

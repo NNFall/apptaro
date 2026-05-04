@@ -42,6 +42,9 @@ class PresentationController extends ChangeNotifier {
   bool _startingJob = false;
   String? _error;
   RemoteJob? _job;
+  bool _teaserMode = false;
+  String? _teaserText;
+  List<JobArtifact> _teaserArtifacts = const <JobArtifact>[];
   final Set<String> _savingArtifactIds = <String>{};
   Timer? _pollTimer;
 
@@ -58,6 +61,9 @@ class PresentationController extends ChangeNotifier {
   bool get startingJob => _startingJob;
   String? get error => _error;
   RemoteJob? get job => _job;
+  bool get teaserMode => _teaserMode;
+  String? get teaserText => _teaserText;
+  List<JobArtifact> get teaserArtifacts => _teaserArtifacts;
 
   bool get canGenerateOutline =>
       _topic.trim().length >= 3 && !_generatingOutline;
@@ -245,6 +251,9 @@ class PresentationController extends ChangeNotifier {
     _startingJob = false;
     _error = null;
     _job = null;
+    _teaserMode = false;
+    _teaserText = null;
+    _teaserArtifacts = const <JobArtifact>[];
     _savingArtifactIds.clear();
     notifyListeners();
   }
@@ -294,6 +303,9 @@ class PresentationController extends ChangeNotifier {
   void _applyOutlineResult(OutlineResult result) {
     _title = result.title;
     _outline = List<String>.from(result.outline);
+    _teaserMode = result.teaserMode;
+    _teaserText = result.teaserText;
+    _teaserArtifacts = List<JobArtifact>.from(result.teaserArtifacts);
     _historyRepository.recordOutline(
       topic: _topic.trim(),
       title: result.title,

@@ -4,8 +4,8 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.integrations.text_generation import PresentationGenerationClient
 from src.domain.tarot_deck import card_line, draw_cards, load_deck
+from src.integrations.text_generation import PresentationGenerationClient
 
 
 @dataclass(frozen=True)
@@ -21,10 +21,16 @@ class PresentationOutlineService:
         self._text_client = text_client
         self._cards_dir = cards_dir
 
-    async def generate(self, topic: str, slides_total: int) -> OutlineResult:
-        content_slides = 3
+    async def generate(
+        self,
+        topic: str,
+        slides_total: int,
+        cards_count: int = 3,
+    ) -> OutlineResult:
+        safe_count = _safe_cards_count(cards_count)
+        content_slides = 1 if safe_count == 1 else 3
         title = await asyncio.to_thread(self._text_client.generate_title, topic)
-        outline = self._draw_tarot_outline()
+        outline = self._draw_tarot_outline(cards_count=safe_count)
         return OutlineResult(
             title=title,
             outline=outline,
@@ -39,10 +45,13 @@ class PresentationOutlineService:
         outline: list[str],
         comment: str,
         title: str | None = None,
+        cards_count: int = 3,
     ) -> OutlineResult:
-        content_slides = 3
+        _ = outline, comment
+        safe_count = _safe_cards_count(cards_count)
+        content_slides = 1 if safe_count == 1 else 3
         resolved_title = title or await asyncio.to_thread(self._text_client.generate_title, topic)
-        updated_outline = self._draw_tarot_outline()
+        updated_outline = self._draw_tarot_outline(cards_count=safe_count)
         return OutlineResult(
             title=resolved_title,
             outline=updated_outline,
@@ -50,18 +59,28 @@ class PresentationOutlineService:
             content_slides=content_slides,
         )
 
-    def _draw_tarot_outline(self) -> list[str]:
+    def _draw_tarot_outline(self, cards_count: int = 3) -> list[str]:
         if self._cards_dir is None:
+            if cards_count == 1:
+                return ['Первая карта по вопросу']
             return [
                 'Текущая ситуация вокруг вопроса',
                 'Ключевое препятствие или узел',
                 'Совет и направление',
             ]
+
         deck = load_deck(self._cards_dir)
-        cards = draw_cards(deck, count=3)
+        cards = draw_cards(deck, count=cards_count)
+        if cards_count == 1:
+            return [card_line(1, 'Первая карта', cards[0])]
+
         positions = [
             'Текущая ситуация',
             'Ключевое препятствие',
             'Совет и направление',
         ]
         return [card_line(index, positions[index - 1], card) for index, card in enumerate(cards, start=1)]
+
+
+def _safe_cards_count(value: int) -> int:
+    return 1 if value <= 1 else 3

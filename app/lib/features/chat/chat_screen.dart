@@ -58,6 +58,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   StreamSubscription<Uri>? _deepLinkSubscription;
   String? _lastHandledBillingReturnKey;
   String? _lastPresentationOutlineKey;
+  String? _lastPresentationTeaserKey;
   String? _lastPresentationError;
   String? _lastPresentationStatusKey;
   String? _lastPresentationResultKey;
@@ -707,6 +708,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _clearRenderProgressMessages();
     _clearBillingProgressMessage();
     _lastPresentationOutlineKey = null;
+    _lastPresentationTeaserKey = null;
     _lastPresentationError = null;
     _lastPresentationStatusKey = null;
     _lastPresentationResultKey = null;
@@ -916,10 +918,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     if (controller.hasOutline) {
-      final key = '${controller.title}|${controller.outline.join('||')}';
+      final key = '${controller.title}|${controller.outline.join('||')}|${controller.teaserMode}';
       if (key != _lastPresentationOutlineKey) {
         _lastPresentationOutlineKey = key;
         _clearOutlineProgressMessage();
+        if (controller.teaserArtifacts.isNotEmpty) {
+          final teaserKey = controller.teaserArtifacts
+              .map((item) => item.artifactId)
+              .join(',');
+          if (teaserKey != _lastPresentationTeaserKey) {
+            _lastPresentationTeaserKey = teaserKey;
+            final teaserAttachments = controller.teaserArtifacts
+                .map((artifact) =>
+                    _buildPresentationAttachment('teaser', artifact))
+                .toList(growable: false);
+            final teaserText = controller.teaserText?.trim().isNotEmpty == true
+                ? controller.teaserText!.trim()
+                : 'Первая карта раскрыта. Для полной картины открой полный расклад.';
+            _appendBotMessage(
+              teaserText,
+              attachments: teaserAttachments,
+            );
+          }
+        }
         _appendBotMessage(_buildOutlineText(controller));
         _appendBotMessage(
           'Открыть полный расклад или перетянуть карты?\nМожно написать комментарий, и я обновлю фокус расклада.',
@@ -1833,7 +1854,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     JobArtifact artifact,
   ) {
     final remoteUri = _presentationController?.downloadUriFor(artifact) ??
-        Uri.parse(artifact.downloadUrl);
+        _resolveRemoteArtifactUri(artifact.downloadUrl);
     return _ChatAttachment(
       jobId: jobId,
       artifactId: artifact.artifactId,
@@ -1855,6 +1876,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _ => 'Файл результата',
       },
     );
+  }
+
+  Uri _resolveRemoteArtifactUri(String value) {
+    final parsed = Uri.tryParse(value);
+    if (parsed == null) {
+      return Uri.parse(_backendConfigRepository?.baseUrl ?? AppConfig.defaultBackendBaseUrl);
+    }
+    if (parsed.hasScheme) {
+      return parsed;
+    }
+    final base = Uri.parse(_backendConfigRepository?.baseUrl ?? AppConfig.defaultBackendBaseUrl);
+    return base.resolveUri(parsed);
   }
 
   _ChatAttachment _buildConversionAttachment(
@@ -2629,6 +2662,12 @@ class _ChatMessageCard extends StatelessWidget {
     final timeLabel = isUser
         ? '${_formatTime(message.sentAt)}  ✓✓'
         : _formatTime(message.sentAt);
+    final imageAttachments = message.attachments
+        .where((attachment) => attachment.kind == 'image')
+        .toList(growable: false);
+    final fileAttachments = message.attachments
+        .where((attachment) => attachment.kind != 'image')
+        .toList(growable: false);
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: LayoutBuilder(
@@ -2677,10 +2716,24 @@ class _ChatMessageCard extends StatelessWidget {
                                 ? const Color(0xFF273226)
                                 : const Color(0xFF202124),
                           ),
-                        if (message.attachments.isNotEmpty) ...[
+                        if (imageAttachments.isNotEmpty) ...[
                           if (message.text.trim().isNotEmpty)
                             const SizedBox(height: 10),
-                          ...message.attachments.map(
+                          ...imageAttachments.map(
+                            (attachment) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _ImageAttachmentPreview(
+                                attachment: attachment,
+                                onTap: () => onAttachmentTap(attachment),
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (fileAttachments.isNotEmpty) ...[
+                          if (message.text.trim().isNotEmpty ||
+                              imageAttachments.isNotEmpty)
+                            const SizedBox(height: 10),
+                          ...fileAttachments.map(
                             (attachment) => Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _AttachmentTile(
@@ -2910,6 +2963,86 @@ class _AttachmentTile extends StatelessWidget {
       default:
         return attachment.kind.toUpperCase();
     }
+  }
+}
+
+class _ImageAttachmentPreview extends StatelessWidget {
+  const _ImageAttachmentPreview({
+    required this.attachment,
+    required this.onTap,
+  });
+
+  final _ChatAttachment attachment;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFDDE5D8)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(15),
+                  topRight: Radius.circular(15),
+                ),
+                child: AspectRatio(
+                  aspectRatio: 3 / 4,
+                  child: Image.network(
+                    attachment.remoteUri.toString(),
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) {
+                        return child;
+                      }
+                      return const ColoredBox(
+                        color: Color(0xFFF0F4EC),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2.1),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const ColoredBox(
+                        color: Color(0xFFF0F4EC),
+                        child: Center(
+                          child: Icon(
+                            Icons.image_not_supported_rounded,
+                            color: Color(0xFF8AA174),
+                            size: 28,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
+                child: Text(
+                  attachment.caption,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    color: Color(0xFF516247),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

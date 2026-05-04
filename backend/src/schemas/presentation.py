@@ -43,6 +43,9 @@ class OutlineResponse(BaseModel):
     outline: list[str]
     slides_total: int
     content_slides: int
+    teaser_mode: bool = False
+    teaser_text: str | None = None
+    teaser_artifacts: list[ArtifactItem] = Field(default_factory=list)
 
 
 class PresentationRenderRequest(BaseModel):

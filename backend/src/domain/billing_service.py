@@ -76,6 +76,18 @@ class BillingService:
         await self._sync_open_payments(client_id)
         return billing_repo.get_subscription_for_use(client_id) is not None
 
+    async def should_show_trial_teaser(self, client_id: str) -> bool:
+        billing_repo.touch_client(client_id)
+        if billing_repo.is_free_trial_used(client_id):
+            return False
+        if billing_repo.has_successful_payment(client_id):
+            return False
+        return not await self.can_start_generation(client_id)
+
+    def mark_trial_teaser_used(self, client_id: str) -> None:
+        billing_repo.touch_client(client_id)
+        billing_repo.mark_free_trial_used(client_id)
+
     async def consume_generation(self, client_id: str) -> bool:
         return billing_repo.decrement_subscription(client_id)
 
