@@ -49,6 +49,15 @@
 - [x] Redeploy backend после logging fix.
 - [x] Проверить production logs после live outline: `httpx` request logs и Telegram Bot API URL больше не появляются.
 
+### Admin Bot Token / UTF-8 Follow-up - 2026-05-04
+
+- [x] Получено указание: локальный `telegram_admin_bot/.env` обновлен владельцем проекта, production должен забрать новый `ADMIN_BOT_TOKEN`.
+- [x] Проверить гипотезу по `???` в вопросе: PowerShell smoke отправлял JSON не как явный UTF-8; Python UTF-8 request возвращает корректную кириллицу от production API.
+- [x] Redeploy `/root/apptaro`, чтобы production `.env` получил новый `ADMIN_BOT_TOKEN`.
+- [x] Проверить production health и admin bot контейнер после redeploy: health `ok`, `apptaro_admin_bot` Up, `ADMIN_BOT_TOKEN` присутствует в remote `.env` без вывода секрета.
+- [x] Fresh APK build выполнен: `app/build/app/outputs/flutter-apk/app-release.apk`, `52271468` bytes, `2026-05-04 11:29:20`.
+- [ ] Продолжить следующий блок: mobile smoke на устройстве или эмуляторе.
+
 ## Документация для повторного использования продукта - 2026-05-03
 
 - Зафиксировано новое продуктовое требование:
