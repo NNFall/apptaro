@@ -66,7 +66,12 @@
 - [x] Emulator launch passed: package `com.appslides.appslides` starts, app header shows `apptaro`, Russian UI renders correctly, no fatal crash in logcat.
 - [x] Production outline smoke from emulator passed: chat request reaches `http://185.171.83.116:8010`, tarot outline is returned in Russian, action buttons `Открыть расклад` / `Перетянуть` / `Отмена` are shown.
 - [x] Temporary Android disk cleanup performed for smoke: deleted rebuildable `app/build`/Gradle caches and uninstalled Android NDK `ndk;28.2.13676358`; reinstall NDK if future native Android builds require it.
-- [ ] Rename Android package/application id from legacy `com.appslides.appslides` to an `apptaro` id before store release; this is intentionally left as a release-identity decision.
+- [x] Rename Android package/application id from legacy `com.appslides.appslides` to release id `com.apptaro.app`; keep legacy `appslides://billing/return` as a compatible billing return scheme alongside `apptaro://billing/return`.
+- [x] Update Android application label to `apptaro` and remove remaining user-visible AppSlides wording from settings.
+- [x] Rename iOS bundle id/display name to `com.apptaro.app` / `apptaro` and register `apptaro` + legacy `appslides` URL schemes for billing return.
+- [x] Validate package rename: `flutter analyze` passed, `flutter test` passed, `flutter build apk` passed after rebuilding Gradle cache.
+- [x] APK metadata verified with `aapt`: package `com.apptaro.app`, label `apptaro`, launchable activity `com.apptaro.app.MainActivity`, URL schemes `apptaro` and `appslides`.
+- [x] Android NDK `28.2.13676358` was reinstalled automatically during APK build; Gradle daemon stopped and rebuildable Gradle `8.14.4` cache removed afterward to recover disk space.
 - [x] Продолжить mobile smoke на устройстве или эмуляторе, когда появится Android target.
 
 ## Документация для повторного использования продукта - 2026-05-03

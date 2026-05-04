@@ -14,7 +14,7 @@
         android:name="android.permission.READ_MEDIA_VIDEO"
         tools:node="remove" />
     <application
-        android:label="Слайд ИИ"
+        android:label="apptaro"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -46,6 +46,10 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
 
+                <data
+                    android:scheme="apptaro"
+                    android:host="billing"
+                    android:pathPrefix="/return" />
                 <data
                     android:scheme="appslides"
                     android:host="billing"

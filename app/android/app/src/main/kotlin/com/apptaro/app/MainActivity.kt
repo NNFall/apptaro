@@ -1,4 +1,4 @@
-package com.appslides.appslides
+package com.apptaro.app
 
 import io.flutter.embedding.android.FlutterActivity
 

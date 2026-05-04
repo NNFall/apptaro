@@ -23,7 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SectionCard(
           title: 'Backend endpoint',
           subtitle:
-              'Приложение всегда подключается к удаленному серверу AppSlides. Локальное переключение URL отключено.',
+              'Приложение всегда подключается к удаленному серверу apptaro. Локальное переключение URL отключено.',
         ),
         const SizedBox(height: 16),
         SectionCard(

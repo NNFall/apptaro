@@ -342,7 +342,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   bool _isBillingReturnUri(Uri uri) {
-    return uri.scheme == 'appslides' &&
+    return (uri.scheme == 'apptaro' || uri.scheme == 'appslides') &&
         uri.host == 'billing' &&
         uri.path == '/return';
   }
