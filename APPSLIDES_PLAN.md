@@ -61,7 +61,7 @@
 - [x] Защитить Flutter API client от повторения `???`: JSON request body теперь отправляется явными UTF-8 bytes с `Content-Type: application/json; charset=utf-8`.
 - [x] Повторить Flutter analyze/test/APK build после UTF-8 fix: `flutter analyze`, `flutter test`, `flutter build apk` passed.
 - [x] Финальный APK после UTF-8 fix: `app/build/app/outputs/flutter-apk/app-release.apk`, `52271468` bytes, `2026-05-04 11:35:20`.
-- [ ] Commit/push UTF-8 fix.
+- [x] Commit/push UTF-8 fix: `abc1006 Send Flutter API JSON as UTF-8`.
 - [ ] Продолжить mobile smoke на устройстве или эмуляторе, когда появится Android target.
 
 ## Документация для повторного использования продукта - 2026-05-03
