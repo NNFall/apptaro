@@ -56,7 +56,13 @@
 - [x] Redeploy `/root/apptaro`, чтобы production `.env` получил новый `ADMIN_BOT_TOKEN`.
 - [x] Проверить production health и admin bot контейнер после redeploy: health `ok`, `apptaro_admin_bot` Up, `ADMIN_BOT_TOKEN` присутствует в remote `.env` без вывода секрета.
 - [x] Fresh APK build выполнен: `app/build/app/outputs/flutter-apk/app-release.apk`, `52271468` bytes, `2026-05-04 11:29:20`.
-- [ ] Продолжить следующий блок: mobile smoke на устройстве или эмуляторе.
+- [x] Проверить новый admin bot token через Telegram `getMe` без вывода секрета: `ok`, username `demoliveapi_bot`.
+- [x] Android device/emulator check: подключенного Android-девайса нет, `flutter emulators` не видит AVD, создать `apptaro_smoke` нельзя из-за отсутствия Android system image.
+- [x] Защитить Flutter API client от повторения `???`: JSON request body теперь отправляется явными UTF-8 bytes с `Content-Type: application/json; charset=utf-8`.
+- [x] Повторить Flutter analyze/test/APK build после UTF-8 fix: `flutter analyze`, `flutter test`, `flutter build apk` passed.
+- [x] Финальный APK после UTF-8 fix: `app/build/app/outputs/flutter-apk/app-release.apk`, `52271468` bytes, `2026-05-04 11:35:20`.
+- [ ] Commit/push UTF-8 fix.
+- [ ] Продолжить mobile smoke на устройстве или эмуляторе, когда появится Android target.
 
 ## Документация для повторного использования продукта - 2026-05-03
 

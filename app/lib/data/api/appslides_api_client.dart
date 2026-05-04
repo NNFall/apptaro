@@ -32,10 +32,12 @@ class AppSlidesApiClient {
 
   Future<List<PresentationTemplate>> fetchTemplates() async {
     final payload = await _getJsonMap(AppConfig.templatesPath);
-    final rawTemplates = payload['templates'] as List<dynamic>? ?? const <dynamic>[];
+    final rawTemplates =
+        payload['templates'] as List<dynamic>? ?? const <dynamic>[];
     return rawTemplates
         .whereType<Map>()
-        .map((item) => PresentationTemplate.fromJson(item.cast<String, dynamic>()))
+        .map((item) =>
+            PresentationTemplate.fromJson(item.cast<String, dynamic>()))
         .toList();
   }
 
@@ -108,7 +110,7 @@ class AppSlidesApiClient {
       _resolve(AppConfig.conversionJobsPath),
     )
       ..fields['target_format'] = targetFormat
-      ..headers.addAll(await _jsonHeaders())
+      ..headers.addAll(await _requestHeaders())
       ..files.add(
         http.MultipartFile.fromBytes(
           'file',
@@ -211,7 +213,7 @@ class AppSlidesApiClient {
     final response = await _client.post(
       _resolve(path),
       headers: await _jsonHeaders(),
-      body: jsonEncode(body),
+      body: utf8.encode(jsonEncode(body)),
     );
     final payload = _decodeResponse(response);
     _ensureSuccess(response, payload);
@@ -224,7 +226,7 @@ class AppSlidesApiClient {
 
   Future<Map<String, String>> _jsonHeaders() async {
     final headers = await _requestHeaders();
-    headers['Content-Type'] = 'application/json';
+    headers['Content-Type'] = 'application/json; charset=utf-8';
     return headers;
   }
 
