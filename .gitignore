@@ -38,6 +38,10 @@ app/build/
 app/android/.kotlin/
 app/.pub/
 
+emulator-apptaro-*.log
+emulator-apptaro-*.png
+emulator-window*.xml
+
 old_design/flutter_ui_v1/app/.dart_tool/
 old_design/flutter_ui_v1/app/build/
 

@@ -30,7 +30,7 @@
 - [x] Запустить Flutter APK build после web/analyze/test; результат: timeout after 10 minutes, fresh APK не получен.
 - [x] Остановить Gradle daemon после timeout.
 - [x] Добавить ignore-правила для `telegram_taro_bot` runtime DB/temp и `app/android/.kotlin/`.
-- [ ] Повторить fresh APK build отдельно, если нужен installable артефакт именно этого commit.
+- [x] Повторить fresh APK build отдельно, если нужен installable артефакт именно этого commit.
 - [x] Перенастроить `origin` на `https://github.com/NNFall/apptaro.git`.
 - [x] Создать commit с текущим состоянием `apptaro`: `d1d6fe2 Adapt platform to apptaro`.
 - [x] Push в пустой GitHub repository `NNFall/apptaro`.
@@ -62,7 +62,12 @@
 - [x] Повторить Flutter analyze/test/APK build после UTF-8 fix: `flutter analyze`, `flutter test`, `flutter build apk` passed.
 - [x] Финальный APK после UTF-8 fix: `app/build/app/outputs/flutter-apk/app-release.apk`, `52271468` bytes, `2026-05-04 11:35:20`.
 - [x] Commit/push UTF-8 fix: `abc1006 Send Flutter API JSON as UTF-8`.
-- [ ] Продолжить mobile smoke на устройстве или эмуляторе, когда появится Android target.
+- [x] Android emulator smoke executed on AVD `apptaro_smoke` after installing `system-images;android-35;default;x86_64`; APK installed from `%TEMP%/apptaro-app-release.apk`.
+- [x] Emulator launch passed: package `com.appslides.appslides` starts, app header shows `apptaro`, Russian UI renders correctly, no fatal crash in logcat.
+- [x] Production outline smoke from emulator passed: chat request reaches `http://185.171.83.116:8010`, tarot outline is returned in Russian, action buttons `Открыть расклад` / `Перетянуть` / `Отмена` are shown.
+- [x] Temporary Android disk cleanup performed for smoke: deleted rebuildable `app/build`/Gradle caches and uninstalled Android NDK `ndk;28.2.13676358`; reinstall NDK if future native Android builds require it.
+- [ ] Rename Android package/application id from legacy `com.appslides.appslides` to an `apptaro` id before store release; this is intentionally left as a release-identity decision.
+- [x] Продолжить mobile smoke на устройстве или эмуляторе, когда появится Android target.
 
 ## Документация для повторного использования продукта - 2026-05-03
 
