@@ -74,6 +74,7 @@ class PresentationRenderService:
             self._generation_client.generate_tarot_reading,
             topic,
             cards_block,
+            mode='full',
         )
 
         base_name = _safe_filename(title) or 'tarot-reading'
@@ -131,6 +132,7 @@ class PresentationRenderService:
             self._generation_client.generate_tarot_reading,
             topic,
             cards_block,
+            mode='teaser',
         )
 
         teaser_dir = self._temp_dir / 'tarot' / 'teaser'

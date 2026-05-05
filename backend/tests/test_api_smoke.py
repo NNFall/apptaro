@@ -64,7 +64,7 @@ class StubGenerationClient:
         path.write_bytes(PNG_1X1)
         return str(path)
 
-    def generate_tarot_reading(self, question: str, cards_block: str) -> str:
+    def generate_tarot_reading(self, question: str, cards_block: str, *, mode: str = 'auto') -> str:
         return f'Тестовый разбор по вопросу: {question}\n\n{cards_block}'
 
 

@@ -368,10 +368,10 @@ class PresentationGenerationClient:
             return replicate
         return self._fallback_slides(topic, outline)
 
-    def generate_tarot_reading(self, question: str, cards_block: str) -> str:
-        prompt = tarot_reading_prompt(question, cards_block)
+    def generate_tarot_reading(self, question: str, cards_block: str, *, mode: str = 'auto') -> str:
+        prompt = tarot_reading_prompt(question, cards_block, mode=mode)
         if not self.api_key or not self.text_endpoint:
-            return _fallback_tarot_reading(question, cards_block)
+            return _fallback_tarot_reading(question, cards_block, mode=mode)
 
         payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.7}
         try:
@@ -379,20 +379,20 @@ class PresentationGenerationClient:
         except Exception:
             self.logger.exception('Primary tarot reading generation failed')
             replicate = self._try_replicate_text(prompt)
-            return replicate or _fallback_tarot_reading(question, cards_block)
+            return replicate or _fallback_tarot_reading(question, cards_block, mode=mode)
 
         content = _extract_content(data)
         err = _error_from_text(content)
         if err:
             self.logger.warning('Tarot reading generation returned provider error: %s', err)
             replicate = self._try_replicate_text(prompt)
-            return replicate or _fallback_tarot_reading(question, cards_block)
+            return replicate or _fallback_tarot_reading(question, cards_block, mode=mode)
 
         text = content.strip()
         if text:
             return text
         replicate = self._try_replicate_text(prompt)
-        return replicate or _fallback_tarot_reading(question, cards_block)
+        return replicate or _fallback_tarot_reading(question, cards_block, mode=mode)
 
     def generate_image(self, prompt: str, out_path: str) -> str:
         output_path = Path(out_path)
@@ -742,7 +742,18 @@ def _fallback_title(topic: str) -> str:
     return value
 
 
-def _fallback_tarot_reading(question: str, cards_block: str) -> str:
+def _fallback_tarot_reading(question: str, cards_block: str, *, mode: str = 'auto') -> str:
+    cards = [line.strip() for line in cards_block.splitlines() if line.strip()]
+    teaser_mode = mode == 'teaser' or (mode == 'auto' and len(cards) <= 1)
+    if teaser_mode:
+        first = cards[0] if cards else '1) Первая карта — уточняется'
+        return (
+            'Давайте посмотрим, что говорят карты:\n\n'
+            f'Вопрос: {question}\n\n'
+            f'Текущая ситуация: {first}\n\n'
+            'Эта карта показывает главный вектор вопроса и подсказывает, куда направить внимание в первую очередь.\n\n'
+            'Чтобы увидеть полную картину и получить итоговый совет, откройте полный расклад.'
+        )
     return (
         'Давайте посмотрим, что говорят карты:\n\n'
         f'Вопрос: {question}\n\n'

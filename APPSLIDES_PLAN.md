@@ -12,6 +12,11 @@
 - [x] Align teaser UX to Telegram reference:
   - teaser mode shows CTA block with one button `🔓 Открыть полный расклад`;
   - non-teaser mode keeps full outline + `Открыть расклад`/`Перетянуть` flow.
+- [x] Align LLM tarot prompts with `telegram_taro_bot/prompts/tarot_prompts.py`:
+  - split `teaser` / `full` instruction styles;
+  - keep Telegram-markdown output format requirement;
+  - keep safety clause for medical/legal/death topics;
+  - keep explicit teaser CTA instruction.
 - [x] Run Flutter/backend checks after hotfix:
   - `flutter analyze` (pass)
   - `flutter test` (pass)
@@ -22,6 +27,7 @@
   - release/debug APK installed successfully via `flutter install`;
   - app launch + local storage probe done (`SharedPreferences DataStore` parsed from device);
   - confirmed stable value across restart: `apptaro.client_id.v1` remains identical after `force-stop` + relaunch.
+  - API-level first-user mechanism verified in isolated backend smoke (`should_show_trial_teaser=True` for new client, then `False` after trial mark).
   - teaser/paywall visual smoke still recommended manually in UI.
 - [x] Commit + push hotfix branch to `https://github.com/NNFall/apptaro`.
 - [x] Redeploy backend on `/root/apptaro` after backend validation.
