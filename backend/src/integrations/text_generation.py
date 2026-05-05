@@ -15,6 +15,7 @@ from src.domain.presentation_prompts import (
     outline_comment_prompt,
     outline_prompt,
     slides_prompt,
+    tarot_continuation_prompt,
     tarot_reading_prompt,
     title_prompt,
 )
@@ -379,20 +380,129 @@ class PresentationGenerationClient:
         except Exception:
             self.logger.exception('Primary tarot reading generation failed')
             replicate = self._try_replicate_text(prompt)
-            return replicate or _fallback_tarot_reading(question, cards_block, mode=mode)
+            if replicate:
+                validated = _enforce_tarot_card_consistency(
+                    text=replicate,
+                    cards_block=cards_block,
+                    question=question,
+                    mode=mode,
+                )
+                if validated:
+                    return validated
+            return _fallback_tarot_reading(question, cards_block, mode=mode)
 
         content = _extract_content(data)
         err = _error_from_text(content)
         if err:
             self.logger.warning('Tarot reading generation returned provider error: %s', err)
             replicate = self._try_replicate_text(prompt)
-            return replicate or _fallback_tarot_reading(question, cards_block, mode=mode)
+            if replicate:
+                validated = _enforce_tarot_card_consistency(
+                    text=replicate,
+                    cards_block=cards_block,
+                    question=question,
+                    mode=mode,
+                )
+                if validated:
+                    return validated
+            return _fallback_tarot_reading(question, cards_block, mode=mode)
 
         text = content.strip()
         if text:
-            return text
+            validated = _enforce_tarot_card_consistency(
+                text=text,
+                cards_block=cards_block,
+                question=question,
+                mode=mode,
+            )
+            if validated:
+                return validated
         replicate = self._try_replicate_text(prompt)
-        return replicate or _fallback_tarot_reading(question, cards_block, mode=mode)
+        if replicate:
+            validated = _enforce_tarot_card_consistency(
+                text=replicate,
+                cards_block=cards_block,
+                question=question,
+                mode=mode,
+            )
+            if validated:
+                return validated
+        return _fallback_tarot_reading(question, cards_block, mode=mode)
+
+    def generate_tarot_continuation(
+        self,
+        question: str,
+        first_card_line: str,
+        first_text: str,
+        cards_block: str,
+    ) -> str:
+        prompt = tarot_continuation_prompt(
+            question=question,
+            first_card_line=first_card_line,
+            first_text=first_text,
+            cards_block=cards_block,
+        )
+        if not self.api_key or not self.text_endpoint:
+            return _fallback_tarot_continuation(question, first_card_line, cards_block)
+
+        payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.7}
+        try:
+            data = self._post(self.text_endpoint, payload)
+        except Exception:
+            self.logger.exception('Primary tarot continuation generation failed')
+            replicate = self._try_replicate_text(prompt)
+            if replicate:
+                validated = _enforce_tarot_card_consistency(
+                    text=replicate,
+                    cards_block=cards_block,
+                    question=question,
+                    mode='continuation',
+                    first_card_line=first_card_line,
+                )
+                if validated:
+                    return validated
+            return _fallback_tarot_continuation(question, first_card_line, cards_block)
+
+        content = _extract_content(data)
+        err = _error_from_text(content)
+        if err:
+            self.logger.warning('Tarot continuation generation returned provider error: %s', err)
+            replicate = self._try_replicate_text(prompt)
+            if replicate:
+                validated = _enforce_tarot_card_consistency(
+                    text=replicate,
+                    cards_block=cards_block,
+                    question=question,
+                    mode='continuation',
+                    first_card_line=first_card_line,
+                )
+                if validated:
+                    return validated
+            return _fallback_tarot_continuation(question, first_card_line, cards_block)
+
+        text = content.strip()
+        if text:
+            validated = _enforce_tarot_card_consistency(
+                text=text,
+                cards_block=cards_block,
+                question=question,
+                mode='continuation',
+                first_card_line=first_card_line,
+            )
+            if validated:
+                return validated
+        replicate = self._try_replicate_text(prompt)
+        if replicate:
+            validated = _enforce_tarot_card_consistency(
+                text=replicate,
+                cards_block=cards_block,
+                question=question,
+                mode='continuation',
+                first_card_line=first_card_line,
+            )
+            if validated:
+                return validated
+        return _fallback_tarot_continuation(question, first_card_line, cards_block)
 
     def generate_image(self, prompt: str, out_path: str) -> str:
         output_path = Path(out_path)
@@ -761,6 +871,68 @@ def _fallback_tarot_reading(question: str, cards_block: str, *, mode: str = 'aut
         'Итог: расклад показывает тенденции и опорные точки, а не фиксированное будущее. '
         'Сейчас важнее всего действовать постепенно, наблюдать за сигналами ситуации и выбирать решения, '
         'которые возвращают вам устойчивость.'
+    )
+
+
+def _enforce_tarot_card_consistency(
+    *,
+    text: str,
+    cards_block: str,
+    question: str,
+    mode: str,
+    first_card_line: str | None = None,
+) -> str:
+    expected = _extract_expected_card_titles(cards_block)
+    if not expected:
+        return text.strip()
+
+    normalized_text = _normalize_ru_text(text)
+    matches_all = all(_normalize_ru_text(title) in normalized_text for title in expected)
+    if matches_all:
+        return text.strip()
+
+    if mode == 'continuation':
+        return _fallback_tarot_continuation(question, first_card_line or expected[0], cards_block)
+    return _fallback_tarot_reading(question, cards_block, mode=mode)
+
+
+def _extract_expected_card_titles(cards_block: str) -> list[str]:
+    titles: list[str] = []
+    for raw_line in cards_block.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = re.search(r'—\s*(.+?)\s*\((?:прямая|перевернутая)\)', line, flags=re.IGNORECASE)
+        if match:
+            titles.append(match.group(1).strip())
+            continue
+        normalized = re.sub(r'^\s*\d+[\).]?\s*', '', line).strip()
+        if normalized:
+            titles.append(normalized)
+    return titles
+
+
+def _normalize_ru_text(value: str) -> str:
+    lowered = value.lower().replace('ё', 'е')
+    lowered = lowered.replace('жезлов', 'посохов')
+    lowered = lowered.replace('жезлы', 'посохи')
+    lowered = lowered.replace('пентаклей', 'денариев')
+    lowered = lowered.replace('пентакли', 'денарии')
+    lowered = re.sub(r'\s+', ' ', lowered)
+    return lowered
+
+
+def _fallback_tarot_continuation(question: str, first_card_line: str, cards_block: str) -> str:
+    cards = [line.strip() for line in cards_block.splitlines() if line.strip()]
+    second = cards[0] if cards else '2) position card is not available'
+    third = cards[1] if len(cards) > 1 else '3) position card is not available'
+    return (
+        'Давайте посмотрим, что говорят карты:\n\n'
+        f'Вопрос: {question}\n\n'
+        f'Связка с первой картой: {first_card_line}\n\n'
+        f'*2) {second}* — Эта карта показывает основной узел и источник напряжения в контексте вопроса.\n'
+        f'*3) {third}* — Эта карта дает практичное направление и шаги, которые помогут выровнять ситуацию.\n\n'
+        '*Итог:* Финальный ответ складывается из честного взгляда на препятствие и последовательных действий по совету третьей карты.'
     )
 
 

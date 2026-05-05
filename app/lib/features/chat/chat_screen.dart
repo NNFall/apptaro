@@ -918,7 +918,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     if (controller.hasOutline) {
-      final key = '${controller.title}|${controller.outline.join('||')}|${controller.teaserMode}';
+      final key =
+          '${controller.title}|${controller.outline.join('||')}|${controller.teaserMode}';
       if (key != _lastPresentationOutlineKey) {
         _lastPresentationOutlineKey = key;
         _clearOutlineProgressMessage();
@@ -1885,7 +1886,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _ => Icons.insert_drive_file_rounded,
       },
       caption: switch (artifact.kind) {
-        'image' => 'Изображение расклада',
+        'image' => '',
         'txt' => 'Текстовый разбор',
         'pdf' => 'Финальный PDF',
         _ => 'Файл результата',
@@ -1896,12 +1897,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Uri _resolveRemoteArtifactUri(String value) {
     final parsed = Uri.tryParse(value);
     if (parsed == null) {
-      return Uri.parse(_backendConfigRepository?.baseUrl ?? AppConfig.defaultBackendBaseUrl);
+      return Uri.parse(
+          _backendConfigRepository?.baseUrl ?? AppConfig.defaultBackendBaseUrl);
     }
     if (parsed.hasScheme) {
       return parsed;
     }
-    final base = Uri.parse(_backendConfigRepository?.baseUrl ?? AppConfig.defaultBackendBaseUrl);
+    final base = Uri.parse(
+        _backendConfigRepository?.baseUrl ?? AppConfig.defaultBackendBaseUrl);
     return base.resolveUri(parsed);
   }
 
@@ -2724,16 +2727,7 @@ class _ChatMessageCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (message.text.trim().isNotEmpty)
-                          _MessageMarkdown(
-                            data: message.text,
-                            textColor: isUser
-                                ? const Color(0xFF273226)
-                                : const Color(0xFF202124),
-                          ),
                         if (imageAttachments.isNotEmpty) ...[
-                          if (message.text.trim().isNotEmpty)
-                            const SizedBox(height: 10),
                           ...imageAttachments.map(
                             (attachment) => Padding(
                               padding: const EdgeInsets.only(bottom: 10),
@@ -2744,6 +2738,16 @@ class _ChatMessageCard extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (message.text.trim().isNotEmpty)
+                          _MessageMarkdown(
+                            data: message.text,
+                            textColor: isUser
+                                ? const Color(0xFF273226)
+                                : const Color(0xFF202124),
+                          ),
+                        if (imageAttachments.isNotEmpty &&
+                            message.text.trim().isNotEmpty)
+                          const SizedBox(height: 10),
                         if (fileAttachments.isNotEmpty) ...[
                           if (message.text.trim().isNotEmpty ||
                               imageAttachments.isNotEmpty)
@@ -2992,68 +2996,46 @@ class _ImageAttachmentPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFDDE5D8)),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: 180,
+            maxHeight: 420,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(15),
-                  topRight: Radius.circular(15),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 3 / 4,
-                  child: Image.network(
-                    attachment.remoteUri.toString(),
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) {
-                        return child;
-                      }
-                      return const ColoredBox(
-                        color: Color(0xFFF0F4EC),
-                        child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2.1),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return const ColoredBox(
-                        color: Color(0xFFF0F4EC),
-                        child: Center(
-                          child: Icon(
-                            Icons.image_not_supported_rounded,
-                            color: Color(0xFF8AA174),
-                            size: 28,
-                          ),
-                        ),
-                      );
-                    },
+          child: Image.network(
+            attachment.remoteUri.toString(),
+            fit: BoxFit.contain,
+            alignment: Alignment.topCenter,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) {
+                return child;
+              }
+              return const ColoredBox(
+                color: Color(0xFFF0F4EC),
+                child: Center(
+                  child: SizedBox.square(
+                    dimension: 26,
+                    child: CircularProgressIndicator(strokeWidth: 2.1),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
-                child: Text(
-                  attachment.caption,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    color: Color(0xFF516247),
-                    fontWeight: FontWeight.w500,
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return const ColoredBox(
+                color: Color(0xFFF0F4EC),
+                child: Center(
+                  child: Icon(
+                    Icons.image_not_supported_rounded,
+                    color: Color(0xFF8AA174),
+                    size: 28,
                   ),
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),

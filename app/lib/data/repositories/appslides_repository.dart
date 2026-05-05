@@ -58,6 +58,7 @@ class AppSlidesRepository {
     required List<String> outline,
     required int designId,
     bool generatePdf = true,
+    String? teaserFirstText,
   }) {
     return _api.createPresentationJob(
       topic: topic,
@@ -65,6 +66,7 @@ class AppSlidesRepository {
       outline: outline,
       designId: designId,
       generatePdf: generatePdf,
+      teaserFirstText: teaserFirstText,
     );
   }
 

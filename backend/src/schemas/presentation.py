@@ -56,6 +56,7 @@ class PresentationRenderRequest(BaseModel):
     outline: list[OutlineItemStr]
     design_id: Annotated[int, Field(ge=1, le=4)]
     generate_pdf: bool = True
+    teaser_first_text: str | None = None
 
     @field_validator('outline')
     @classmethod

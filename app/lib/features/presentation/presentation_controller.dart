@@ -200,6 +200,7 @@ class PresentationController extends ChangeNotifier {
         outline: _outline.where((item) => item.trim().isNotEmpty).toList(),
         designId: _selectedDesignId!,
         generatePdf: _generatePdf,
+        teaserFirstText: _teaserMode ? _teaserText : null,
       );
       _job = created;
       _startPolling(created.jobId);

@@ -1,5 +1,47 @@
 # AppSlides Plan
 
+## apptaro Tarot Flow Fixes - 2026-05-05
+
+- [x] Reworked teaser -> paid continuation domain flow on backend:
+  - `PresentationRenderRequest` extended with `teaser_first_text`;
+  - API `/v1/presentations/render` and `/v1/presentations/jobs` pass continuation context;
+  - render service now supports continuation mode when paid render starts from 1-card teaser;
+  - continuation mode now draws 2 new cards (positions 2 and 3), generates continuation text, and returns image+txt artifacts.
+- [x] Fixed first-card orientation for teaser:
+  - teaser outline generation now forces upright first card (`rev=0`);
+  - teaser single-card renderer no longer rotates image by reverse flag.
+- [x] Added dedicated continuation text generation path:
+  - `generate_tarot_continuation(...)` added in text generation client;
+  - continuation prompt wiring uses `tarot_continuation_prompt(...)`.
+- [x] Fixed prompt layer quality/parity:
+  - rebuilt `backend/src/domain/presentation_prompts.py` in clean UTF-8;
+  - kept Telegram-bot prompt structure (`teaser/full/followup/continuation`);
+  - added strict anti-substitution constraints: model must use only provided cards/orientation.
+- [x] Added server-side protection against card substitution in fallback paths:
+  - tarot text output is validated against expected cards from `cards_block`;
+  - if model output uses wrong cards, backend returns deterministic safe fallback bound to provided cards.
+- [x] Updated Flutter chat image UX to match requested behavior:
+  - tarot images render above text in message bubble;
+  - removed separate framed preview card/caption block for image attachments;
+  - changed image fit to `BoxFit.contain` to avoid heavy cropping of horizontal spreads.
+- [x] Kept platform invariants unchanged:
+  - transcript persistence untouched;
+  - YooKassa billing flow untouched on client/server responsibility split;
+  - separate Telegram admin bot untouched;
+  - deploy/workflow files untouched by this iteration.
+- [x] Validation runs:
+  - `python -m compileall backend/src` (pass);
+  - `python -m unittest discover -s backend/tests -v` (pass);
+  - `flutter analyze` (pass);
+  - `flutter test` (pass);
+  - local scripted smoke for teaser/continuation/full render paths (pass).
+- [x] Prompt smoke with Russian sample questions executed via current text generation client.
+  - Observation: primary text endpoint intermittently returns maintenance error;
+  - fallback path now enforces provided cards, preventing random-card substitutions in user output.
+- [ ] Android USB screenshot smoke from this workstation is currently blocked:
+  - `flutter devices` sees only Windows/Chrome/Edge;
+  - `adb` is not available in PATH in this shell session.
+
 ## apptaro Hotfix - 2026-05-04 (client_id + teaser flow)
 
 - [x] Investigate repeated admin `new user` notifications on every app reopen.

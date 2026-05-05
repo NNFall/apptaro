@@ -81,15 +81,17 @@ class AppSlidesApiClient {
     required List<String> outline,
     required int designId,
     bool generatePdf = true,
+    String? teaserFirstText,
   }) async {
     final payload = await _postJson(
       path: AppConfig.presentationJobsPath,
-      body: <String, Object>{
+      body: <String, Object?>{
         'topic': topic,
         'title': title,
         'outline': outline,
         'design_id': designId,
         'generate_pdf': generatePdf,
+        'teaser_first_text': teaserFirstText,
       },
     );
     return RemoteJob.fromJson(payload);

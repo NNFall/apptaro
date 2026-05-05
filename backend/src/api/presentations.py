@@ -183,6 +183,7 @@ async def render_presentation(
             outline=payload.outline,
             design_id=payload.design_id,
             generate_pdf=payload.generate_pdf,
+            teaser_first_text=payload.teaser_first_text,
         )
     except FileNotFoundError as exc:
         await notifier.notify_generation_failed(client_id, str(exc))
@@ -248,6 +249,7 @@ async def create_presentation_job(
             'outline': payload.outline,
             'design_id': payload.design_id,
             'generate_pdf': payload.generate_pdf,
+            'teaser_first_text': payload.teaser_first_text,
             'client_id': client_id,
         },
     )
@@ -317,6 +319,7 @@ async def _run_presentation_job(
             outline=payload.outline,
             design_id=payload.design_id,
             generate_pdf=payload.generate_pdf,
+            teaser_first_text=payload.teaser_first_text,
         )
     except Exception as exc:
         mark_job_failed(job_id, str(exc))

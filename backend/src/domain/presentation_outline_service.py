@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.domain.tarot_deck import card_line, draw_cards, load_deck
+from src.domain.tarot_deck import DrawnCard, card_line, draw_cards, load_deck
 from src.integrations.text_generation import PresentationGenerationClient
 
 
@@ -72,7 +72,9 @@ class PresentationOutlineService:
         deck = load_deck(self._cards_dir)
         cards = draw_cards(deck, count=cards_count)
         if cards_count == 1:
-            return [card_line(1, 'Первая карта', cards[0])]
+            # Teaser card must stay upright to match the reference UX.
+            first = DrawnCard(card=cards[0].card, is_reversed=False)
+            return [card_line(1, 'Первая карта', first)]
 
         positions = [
             'Текущая ситуация',
