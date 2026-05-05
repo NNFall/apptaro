@@ -31,6 +31,9 @@
   - teaser/paywall visual smoke still recommended manually in UI.
 - [x] Commit + push hotfix branch to `https://github.com/NNFall/apptaro`.
 - [x] Redeploy backend on `/root/apptaro` after backend validation.
+- [x] Live production smoke (`http://185.171.83.116:8010`) for first-user mechanism:
+  - request #1 with fresh `client_id` -> `teaser_mode=true`, `outline=1`, teaser artifact present;
+  - request #2 with same `client_id` -> `teaser_mode=false`, `outline=3`, teaser artifact absent.
 
 ## apptaro Product Adaptation - 2026-05-03
 
