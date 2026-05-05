@@ -34,6 +34,11 @@
 - [x] Live production smoke (`http://185.171.83.116:8010`) for first-user mechanism:
   - request #1 with fresh `client_id` -> `teaser_mode=true`, `outline=1`, teaser artifact present;
   - request #2 with same `client_id` -> `teaser_mode=false`, `outline=3`, teaser artifact absent.
+- [x] Compare `backend/src/domain/presentation_prompts.py` with `telegram_taro_bot/prompts/tarot_prompts.py` and close prompt parity gaps:
+  - keep platform presentation prompts (`title/outline/revise/slides`);
+  - add missing telegram-style tarot prompt blocks for events (`followup`, `continuation`);
+  - add helper texts (`teaser_intro_text`, `paywall_text`, `confirmation_text`) for reuse.
+- [x] Validate prompt-layer refactor: `python -m compileall backend/src` and `python -m unittest discover -s backend/tests -v` passed.
 
 ## apptaro Product Adaptation - 2026-05-03
 
