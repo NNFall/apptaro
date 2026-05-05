@@ -941,32 +941,47 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             );
           }
         }
-        _appendBotMessage(_buildOutlineText(controller));
-        _appendBotMessage(
-          'Открыть полный расклад или перетянуть карты?\nМожно написать комментарий, и я обновлю фокус расклада.',
-          keyboard: [
-            [
-              _action(
-                '✅ Открыть расклад',
-                _approveOutline,
-                actionKey: 'approve_outline',
-              ),
-              _action(
-                '🔄 Перетянуть',
-                _requestOutlineRevision,
-                actionKey: 'request_outline_revision',
-              ),
+        if (controller.teaserMode) {
+          _appendBotMessage(
+            'Продолжение расклада в двух оставшихся картах дает главный ответ.\nНажми кнопку ниже, чтобы открыть полный расклад.',
+            keyboard: [
+              [
+                _action(
+                  '🔓 Открыть полный расклад',
+                  _approveOutline,
+                  actionKey: 'approve_outline',
+                ),
+              ],
             ],
-            [
-              _action(
-                '↩ Отмена',
-                _showMainMenu,
-                actionKey: 'show_main_menu',
-                echoAsUser: false,
-              ),
+          );
+        } else {
+          _appendBotMessage(_buildOutlineText(controller));
+          _appendBotMessage(
+            'Открыть полный расклад или перетянуть карты?\nМожно написать комментарий, и я обновлю фокус расклада.',
+            keyboard: [
+              [
+                _action(
+                  '✅ Открыть расклад',
+                  _approveOutline,
+                  actionKey: 'approve_outline',
+                ),
+                _action(
+                  '🔄 Перетянуть',
+                  _requestOutlineRevision,
+                  actionKey: 'request_outline_revision',
+                ),
+              ],
+              [
+                _action(
+                  '↩ Отмена',
+                  _showMainMenu,
+                  actionKey: 'show_main_menu',
+                  echoAsUser: false,
+                ),
+              ],
             ],
-          ],
-        );
+          );
+        }
       }
     }
 

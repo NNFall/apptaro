@@ -114,13 +114,14 @@ def get_admin_notifier() -> AdminNotifier:
 
 
 def get_client_id(
+    x_apptaro_client_id: str | None = Header(default=None, alias='X-Apptaro-Client-Id'),
     x_appslides_client_id: str | None = Header(default=None, alias='X-AppSlides-Client-Id'),
 ) -> str:
-    client_id = (x_appslides_client_id or '').strip()
+    client_id = (x_apptaro_client_id or x_appslides_client_id or '').strip()
     if len(client_id) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Missing or invalid X-AppSlides-Client-Id header',
+            detail='Missing or invalid X-Apptaro-Client-Id header',
         )
     return client_id
 

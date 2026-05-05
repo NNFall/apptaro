@@ -1,5 +1,31 @@
 # AppSlides Plan
 
+## apptaro Hotfix - 2026-05-04 (client_id + teaser flow)
+
+- [x] Investigate repeated admin `new user` notifications on every app reopen.
+- [x] Root cause found: race in `ClientSessionRepository.restore()` could return before restore finished, causing a new `client_id` to be generated.
+- [x] Fix repository restore synchronization via `_restoreFuture` and persist ID exactly once.
+- [x] Switch installation key prefix from `appslides_` to `apptaro_`.
+- [x] Add legacy migration: read old key `appslides.client_id.v1`, convert once, save under `apptaro.client_id.v1`, remove legacy key.
+- [x] Send both headers from Flutter client: `X-Apptaro-Client-Id` (new) + `X-AppSlides-Client-Id` (legacy compatibility).
+- [x] Update backend dependency parser to prefer `X-Apptaro-Client-Id` and still accept legacy header.
+- [x] Align teaser UX to Telegram reference:
+  - teaser mode shows CTA block with one button `🔓 Открыть полный расклад`;
+  - non-teaser mode keeps full outline + `Открыть расклад`/`Перетянуть` flow.
+- [x] Run Flutter/backend checks after hotfix:
+  - `flutter analyze` (pass)
+  - `flutter test` (pass)
+  - `python -m compileall backend/src` (pass)
+  - `python -m unittest discover -s backend/tests -v` (pass)
+  - `flutter build apk --release` (pass, artifact rebuilt)
+- [~] Real Android verification in progress (`SM A165F`):
+  - release/debug APK installed successfully via `flutter install`;
+  - app launch + local storage probe done (`SharedPreferences DataStore` parsed from device);
+  - confirmed stable value across restart: `apptaro.client_id.v1` remains identical after `force-stop` + relaunch.
+  - teaser/paywall visual smoke still recommended manually in UI.
+- [x] Commit + push hotfix branch to `https://github.com/NNFall/apptaro`.
+- [x] Redeploy backend on `/root/apptaro` after backend validation.
+
 ## apptaro Product Adaptation - 2026-05-03
 
 - Новый активный продукт: `apptaro`.

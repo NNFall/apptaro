@@ -234,6 +234,7 @@ class AppSlidesApiClient {
     final clientId = await _clientSession.getOrCreateClientId();
     return <String, String>{
       'Accept': 'application/json',
+      'X-Apptaro-Client-Id': clientId,
       'X-AppSlides-Client-Id': clientId,
     };
   }
