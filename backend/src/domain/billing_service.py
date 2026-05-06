@@ -246,6 +246,11 @@ class BillingService:
     async def redeem_promo_code(self, *, client_id: str, code: str) -> tuple[BillingSummary, int]:
         billing_repo.touch_client(client_id)
         tokens = billing_repo.redeem_promo_code(client_id, code)
+        await self._notifier.notify_promo_redeemed(
+            client_id=client_id,
+            promo_code=code,
+            tokens=tokens,
+        )
         summary = await self.get_summary(client_id)
         return summary, tokens
 

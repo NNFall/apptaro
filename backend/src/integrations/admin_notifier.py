@@ -125,6 +125,14 @@ class AdminNotifier:
             f"{_bold('Тариф:')} {html.escape(plan_title)}"
         )
 
+    async def notify_promo_redeemed(self, *, client_id: str, promo_code: str, tokens: int) -> None:
+        await self.notify(
+            f"{_bold('🎁 Промокод активирован')}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Промокод:')} {_code((promo_code or '').strip().upper())}\n"
+            f"{_bold('Начислено раскладов:')} {tokens}"
+        )
+
     async def notify_subscription_canceled(self, client_id: str) -> None:
         await self.notify(
             f"{_bold('❌ Подписка отключена')}\n"

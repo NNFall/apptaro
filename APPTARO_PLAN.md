@@ -1,5 +1,13 @@
 # APPTARO Plan
 
+## Promo Activation Admin Notify - 2026-05-06
+
+- [x] Добавить backend admin-событие на успешную активацию промокода.
+- [x] В уведомление передавать: `User ID`, `promo code`, `начисленные расклады`.
+- [x] Прогнать backend проверки.
+- [x] Выкатить backend на сервер.
+- [x] Закоммитить и запушить изменения.
+
 ## Help ID + APK Naming + Spread Background Tuning - 2026-05-06
 
 - [x] Унифицировать help: везде показывать формулировку `ID пользователя`.
