@@ -12,8 +12,8 @@ class BillingController extends ChangeNotifier {
     required AppSlidesRepository repository,
   }) : _repository = repository;
 
-  static const Duration _paymentPollInterval = Duration(seconds: 10);
-  static const Duration _paymentPollTimeout = Duration(minutes: 15);
+  static const Duration _paymentPollInterval = Duration(seconds: 20);
+  static const Duration _paymentPollTimeout = Duration(minutes: 30);
 
   final AppSlidesRepository _repository;
 

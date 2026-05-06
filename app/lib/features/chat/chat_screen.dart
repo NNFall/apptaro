@@ -73,6 +73,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _billingProgressMessageId;
   PresentationTemplate? _pendingTemplateAfterPayment;
   bool _resumingPresentationAfterPayment = false;
+  bool _awaitingTeaserContinuationPayment = false;
+  String? _autoRenderOutlineKey;
 
   @override
   void initState() {
@@ -274,7 +276,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'Задай вопрос, и я сделаю расклад на 3 карты: текущая ситуация, препятствие и совет.\n\n'
       '🃏 Первая карта помогает сфокусировать вопрос\n'
       '✨ Полный расклад дает связный разбор\n'
-      '💾 Результат сохраняется локально как файл\n'
       '💳 Подписка и лимиты идут через YooKassa\n\n'
       'Выбери раздел ниже 👇',
       keyboard: _mainMenuKeyboard(),
@@ -436,13 +437,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       case '/history':
         _showHistory();
         return;
-      case '/files':
-        _showFiles();
-        return;
       default:
         _appendBotMessage(
           'Я не знаю команду `$command`.\n'
-          'Попробуй `/start`, `/help`, `/balance`, `/settings`, `/files` или просто отправь вопрос для расклада.',
+          'Попробуй `/start`, `/help`, `/balance`, `/settings` или просто отправь вопрос для расклада.',
           keyboard: _mainMenuKeyboard(),
         );
         return;
@@ -467,9 +465,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       '**❓ Помощь**\n'
       '1. Нажми **«Задать вопрос»** или просто напиши вопрос в чат.\n'
       '2. Я подготовлю 3 карты: ситуация, препятствие и совет.\n'
-      '3. Подтверди расклад или перетяни карты.\n'
-      '4. Получи разбор и файлы **JPG** / **TXT**.\n\n'
-      'Команда `/files` показывает локально сохранённые расклады.\n\n'
+      '3. Для нового пользователя один раз показывается первая карта, затем можно открыть полный расклад через подписку.\n'
+      '4. После активной подписки расклад формируется сразу автоматически.\n\n'
       '**ID устройства:** `$clientId`\n\n'
       'Если что-то не работает, напиши в поддержку:\n'
       '$supportLink',
@@ -554,13 +551,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _showHistory() {
     final history = _historyRepository;
-    final savedFiles = _savedFilesRepository;
-    if (history == null || savedFiles == null) {
+    if (history == null) {
       return;
     }
 
     final recentEntries = history.entries.take(6).toList();
-    final recentFiles = savedFiles.entries.take(4).toList();
     final buffer = StringBuffer('🗂 История\n');
 
     if (recentEntries.isEmpty) {
@@ -572,66 +567,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     }
 
-    if (recentFiles.isNotEmpty) {
-      buffer.writeln('\nЛокально сохраненные файлы:');
-      for (final file in recentFiles) {
-        buffer.writeln('• ${file.filename} — ${file.kind.toUpperCase()}');
-      }
-    }
-
     _appendBotMessage(
       buffer.toString().trim(),
-      attachments:
-          recentFiles.map(_buildSavedFileAttachment).toList(growable: false),
       keyboard: [
         [
-          _action('📁 Файлы', () async => _showFiles(),
-              actionKey: 'show_files'),
-          _action(
-            '🏠 Главное меню',
-            _showMainMenu,
-            actionKey: 'show_main_menu',
-            echoAsUser: false,
-          ),
-        ],
-      ],
-    );
-  }
-
-  void _showFiles() {
-    final savedFiles = _savedFilesRepository;
-    if (savedFiles == null) {
-      return;
-    }
-
-    final recentFiles = savedFiles.entries.take(6).toList(growable: false);
-    if (recentFiles.isEmpty) {
-      _appendBotMessage(
-        '📁 Локальных файлов пока нет.\n'
-        'Сохрани результат расклада, и он появится здесь.',
-        keyboard: [
-          [
-            _action(
-              '🏠 Главное меню',
-              _showMainMenu,
-              actionKey: 'show_main_menu',
-              echoAsUser: false,
-            ),
-          ],
-        ],
-      );
-      return;
-    }
-
-    _appendBotMessage(
-      '📁 Локальные файлы\n'
-      'Ниже последние сохранённые результаты. Их можно открыть или удалить прямо из чата.',
-      attachments:
-          recentFiles.map(_buildSavedFileAttachment).toList(growable: false),
-      keyboard: [
-        [
-          _action('🗂 История', () async => _showHistory(),
-              actionKey: 'show_history'),
           _action(
             '🏠 Главное меню',
             _showMainMenu,
@@ -704,6 +643,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     controller.resetDraft();
     _pendingTemplateAfterPayment = null;
     _resumingPresentationAfterPayment = false;
+    _awaitingTeaserContinuationPayment = false;
+    _autoRenderOutlineKey = null;
     _clearOutlineProgressMessage();
     _clearRenderProgressMessages();
     _clearBillingProgressMessage();
@@ -782,11 +723,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           previewAvailable: false,
         );
         _pendingTemplateAfterPayment = template;
+        _awaitingTeaserContinuationPayment = controller.teaserMode;
         await _showPendingPresentationPaywall(summary);
         return;
       }
     }
 
+    _awaitingTeaserContinuationPayment = false;
     controller.selectDesign(1);
     _clearRenderProgressMessages();
     _renderPreparationMessageId =
@@ -956,32 +899,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ],
           );
         } else {
-          _appendBotMessage(_buildOutlineText(controller));
-          _appendBotMessage(
-            'Открыть полный расклад или перетянуть карты?\nМожно написать комментарий, и я обновлю фокус расклада.',
-            keyboard: [
-              [
-                _action(
-                  '✅ Открыть расклад',
-                  _approveOutline,
-                  actionKey: 'approve_outline',
-                ),
-                _action(
-                  '🔄 Перетянуть',
-                  _requestOutlineRevision,
-                  actionKey: 'request_outline_revision',
-                ),
-              ],
-              [
-                _action(
-                  '↩ Отмена',
-                  _showMainMenu,
-                  actionKey: 'show_main_menu',
-                  echoAsUser: false,
-                ),
-              ],
-            ],
-          );
+          if (_autoRenderOutlineKey != key) {
+            _autoRenderOutlineKey = key;
+            unawaited(_approveOutline());
+          }
         }
       }
     }
@@ -1042,14 +963,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _lastPresentationResultKey = resultKey;
           _clearRenderProgressMessages();
           final attachments = job.artifacts
+              .where((artifact) => artifact.kind == 'image')
               .map((artifact) =>
                   _buildPresentationAttachment(job.jobId, artifact))
               .toList(growable: false);
           _appendBotMessage(
-            '**✅ Расклад готов**\n'
-            'Вопрос: **${controller.topic}**\n\n'
-            '${_readingTextFromJob(job)}\n\n'
-            'Файлы с раскладом доступны ниже.',
+            _readingTextFromJob(job),
             attachments: attachments,
             keyboard: _mainMenuOnlyKeyboard(),
           );
@@ -1154,7 +1073,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _lastBillingTimeoutPaymentId = payment.paymentId;
       _appendBotMessage(
         '⌛ **Оплата ещё не подтверждена**\n'
-        'Я автоматически проверял статус 15 минут. Если ты уже оплатил, нажми **«Проверить оплату»** или открой счёт снова.',
+        'Я продолжаю автоматически проверять статус оплаты.',
         keyboard: _buildPendingPaymentKeyboard(payment),
       );
     }
@@ -1168,7 +1087,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           case 'waiting_for_capture':
             _clearBillingProgressMessage();
             _appendBotMessage(
-              '💳 **Счёт создан**\nОткрой YooKassa, оплати тариф и затем нажми **«Проверить оплату»**.',
+              '💳 **Счёт создан**\nОткрой YooKassa и оплати тариф. Статус обновится автоматически.',
               keyboard: _buildPendingPaymentKeyboard(payment),
             );
             if (payment.confirmationUrl case final confirmationUrl?) {
@@ -1182,7 +1101,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _buildPaymentSuccessText(payment.summary),
               keyboard: _mainMenuOnlyKeyboard(),
             );
-            unawaited(_resumePendingPresentationAfterPayment());
+            if (_pendingTemplateAfterPayment != null ||
+                _awaitingTeaserContinuationPayment) {
+              _pendingTemplateAfterPayment ??= PresentationTemplate(
+                id: 1,
+                name: 'Таро',
+                templatePath: null,
+                previewPath: null,
+                templateAvailable: true,
+                previewAvailable: false,
+              );
+              unawaited(_resumePendingPresentationAfterPayment());
+            }
             break;
           case 'canceled':
             _lastBillingTimeoutPaymentId = null;
@@ -1346,16 +1276,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     rows.add([
       _action(
-        '🔄 Проверить оплату',
-        () async => _checkBillingPayment(payment.paymentId),
-        actionKey: 'check_billing_payment',
-        payload: <String, dynamic>{
-          'payment_id': payment.paymentId,
-        },
-      ),
-    ]);
-    rows.add([
-      _action(
         '🏠 Главное меню',
         _showMainMenu,
         actionKey: 'show_main_menu',
@@ -1391,7 +1311,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     _appendBotMessage(
       '**Расклад почти готов!** ✅\n'
-      'Выбери подписку, чтобы открыть полный разбор и сохранить результат.',
+      'Выбери подписку, чтобы открыть полный разбор.',
       keyboard: rows,
     );
   }
@@ -1437,6 +1357,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
     for (final attachment in attachments) {
+      if (attachment.kind != 'image') {
+        continue;
+      }
       await _saveAttachmentSilently(attachment);
     }
   }
@@ -1604,6 +1527,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     _resumingPresentationAfterPayment = true;
     _pendingTemplateAfterPayment = null;
+    _awaitingTeaserContinuationPayment = false;
 
     try {
       controller.selectDesign(template.id);
@@ -1841,9 +1765,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       ],
       [
-        _action('📁 Файлы', () async => _showFiles(), actionKey: 'show_files'),
-      ],
-      [
         _action('❓ Помощь', () async => _showHelp(), actionKey: 'show_help'),
       ],
     ];
@@ -1924,22 +1845,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ? Icons.description_rounded
           : Icons.picture_as_pdf_rounded,
       caption: 'Результат конвертации',
-    );
-  }
-
-  _ChatAttachment _buildSavedFileAttachment(SavedFileEntry entry) {
-    return _ChatAttachment(
-      jobId: entry.jobId,
-      artifactId: entry.artifactId,
-      filename: entry.filename,
-      kind: entry.kind,
-      mediaType: entry.mediaType,
-      remoteUri: Uri.tryParse(entry.remoteUrl) ?? Uri(),
-      sourceType: entry.sourceType,
-      icon: _iconForKind(entry.kind),
-      caption: entry.sourceType == SavedFileSourceType.presentationArtifact
-          ? 'Сохранённый файл расклада'
-          : 'Сохранённый результат конвертации',
     );
   }
 
@@ -2091,7 +1996,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         callback = () async => _showHistory();
         break;
       case 'show_files':
-        callback = () async => _showFiles();
+        callback = () async => _showMainMenu();
         break;
       case 'test_connection':
         callback = _testConnection;
@@ -2185,31 +2090,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  String _buildOutlineText(PresentationController controller) {
-    final buffer = StringBuffer();
-    buffer.writeln('**Расклад «${controller.title}»** 🔮');
-    buffer.writeln();
-    for (var index = 0; index < controller.outline.length; index++) {
-      buffer.writeln(
-          '${index + 1}. ${_displayOutlineItem(controller.outline[index])}');
-    }
-    return buffer.toString().trim();
-  }
-
-  String _displayOutlineItem(String value) {
-    return value.split(' [card=').first.trim();
-  }
-
   String _readingTextFromJob(RemoteJob job) {
     final raw = job.result?['reading_text'];
     if (raw is! String || raw.trim().isEmpty) {
-      return 'Разбор сохранён в TXT-файле.';
+      return 'Разбор готов.';
     }
-    final text = raw.trim();
-    if (text.length <= 1200) {
-      return text;
-    }
-    return '${text.substring(0, 1197).trimRight()}...';
+    return raw.trim();
   }
 
   String _appendBotMessage(
@@ -2540,7 +2426,7 @@ class _ChatHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
-            'apptaro',
+            'Таро бот',
             style: TextStyle(
               fontSize: 13.8,
               fontWeight: FontWeight.w600,

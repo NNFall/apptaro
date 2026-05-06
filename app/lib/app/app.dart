@@ -10,7 +10,7 @@ class AppSlidesApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'apptaro',
+      title: 'Таро бот',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       home: const AppScope(

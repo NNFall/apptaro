@@ -1,5 +1,5 @@
 class AppConfig {
-  static const String appName = 'apptaro';
+  static const String appName = 'Таро бот';
   static const String fixedBackendBaseUrl = 'http://185.171.83.116:8010';
   static const String healthPath = '/v1/health';
   static const String templatesPath = '/v1/templates/presentation';
