@@ -20,6 +20,14 @@
 - [x] Выполнен rebuild APK после обновления аватарки:
   - `app/build/app/outputs/flutter-apk/app-release.apk` успешно собран.
 
+## YooKassa Return-to-App Hardening - 2026-05-06
+
+- [x] Проверен целевой deeplink возврата оплаты: `apptaro://billing/return`.
+- [x] Усилена обработка deeplink в Flutter (`/return`, `/return/`, вложенные пути после `/return/`).
+- [x] В deploy-скрипт добавлен дефолт `YOOKASSA_RETURN_URL=apptaro://billing/return`, чтобы серверный `.env` всегда включал возврат в приложение.
+- [x] Финальный end-to-end тест на устройстве с реальной оплатой и автопереходом обратно в приложение.
+  - Скриншоты и UI-дампы: `docs/screenshots/android/2026-05-06_yookassa_return/`.
+
 ## Android Full Check + Paid Continuation - 2026-05-06
 
 - [x] Подключен Android-девайс `RF8Y503P4YX` по USB, выполнен повторный end-to-end прогон после последних UX-правок.

@@ -90,6 +90,7 @@ python -c "import telegram_admin_bot.main; print('admin bot import ok')"
 - The mobile/web client is hard-wired to `http://185.171.83.116:8010`.
 - Local backend URL switching inside the app is intentionally disabled.
 - YooKassa is currently integrated in backend test mode and driven through the chat `/balance` flow.
+- `YOOKASSA_RETURN_URL` must point to `apptaro://billing/return` so payment confirmation returns directly into the mobile app.
 - Successful payment should now be reflected both on app resume and on later summary/generation checks because the backend auto-syncs unfinished payments.
 - The separate `telegram_admin_bot/` works against the same SQLite database as the backend and uses `client_id` for subscription commands.
 - The production compose stack now includes both `apptaro_backend` and `apptaro_admin_bot`.

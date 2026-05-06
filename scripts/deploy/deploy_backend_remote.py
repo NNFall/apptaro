@@ -103,6 +103,7 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'IMAGE_CONCURRENCY': local_env.get('IMAGE_CONCURRENCY', '5'),
         'IMAGE_GENERATION_RETRIES': local_env.get('IMAGE_GENERATION_RETRIES', '2'),
         'IMAGE_GENERATION_RETRY_DELAY_SECONDS': local_env.get('IMAGE_GENERATION_RETRY_DELAY_SECONDS', '2.0'),
+        'YOOKASSA_RETURN_URL': local_env.get('YOOKASSA_RETURN_URL', 'apptaro://billing/return'),
         'TZ': 'Europe/Samara',
     }
 
