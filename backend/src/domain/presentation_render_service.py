@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from PIL import Image
 
-from src.domain.tarot_deck import DrawnCard, card_line, display_card_line, draw_cards, load_deck, parse_card_lines
+from src.domain.tarot_deck import DrawnCard, display_card_line, draw_cards, load_deck, parse_card_lines
 from src.domain.tarot_layout import compose_spread_image
 from src.integrations.text_generation import PresentationGenerationClient
 from src.repositories.artifacts import StoredArtifact, register_artifact
@@ -95,7 +95,6 @@ class PresentationRenderService:
 
         base_name = _safe_filename(title) or 'tarot-reading'
         image_path = job_dir / f'{base_name}.jpg'
-        text_path = job_dir / f'{base_name}.txt'
 
         await asyncio.to_thread(
             compose_spread_image,
@@ -104,21 +103,12 @@ class PresentationRenderService:
             self._tarot_layout_path,
             self._tarot_background_path,
         )
-        text_path.write_text(
-            f'{title}\n\nВопрос: {topic}\n\n{_visible_outline(outline)}\n\n{reading_text}\n',
-            encoding='utf-8',
-        )
 
         artifacts: list[StoredArtifact] = [
             register_artifact(
                 image_path,
                 kind='image',
                 media_type='image/jpeg',
-            ),
-            register_artifact(
-                text_path,
-                kind='txt',
-                media_type='text/plain; charset=utf-8',
             ),
         ]
 
@@ -198,7 +188,6 @@ class PresentationRenderService:
 
         base_name = _safe_filename(title) or 'tarot-reading'
         image_path = job_dir / f'{base_name}.jpg'
-        text_path = job_dir / f'{base_name}.txt'
 
         await asyncio.to_thread(
             _render_two_cards_image,
@@ -206,26 +195,12 @@ class PresentationRenderService:
             image_path,
             self._tarot_background_path,
         )
-        continuation_outline = [
-            outline[0] if outline else card_line(1, 'Первая карта', first_card),
-            card_line(2, 'Ключевое препятствие', continuation_cards[0]),
-            card_line(3, 'Совет и направление', continuation_cards[1]),
-        ]
-        text_path.write_text(
-            f'{title}\n\nВопрос: {topic}\n\n{_visible_outline(continuation_outline)}\n\n{reading_text}\n',
-            encoding='utf-8',
-        )
 
         artifacts: list[StoredArtifact] = [
             register_artifact(
                 image_path,
                 kind='image',
                 media_type='image/jpeg',
-            ),
-            register_artifact(
-                text_path,
-                kind='txt',
-                media_type='text/plain; charset=utf-8',
             ),
         ]
         return RenderedPresentation(
@@ -268,10 +243,6 @@ def _cards_block(cards: list[DrawnCard], *, start_position: int = 1) -> str:
     return '\n'.join(lines)
 
 
-def _visible_outline(outline: list[str]) -> str:
-    return '\n'.join(f'{index}. {display_card_line(line)}' for index, line in enumerate(outline, start=1))
-
-
 def _single_card_display_line(card: DrawnCard) -> str:
     orientation = 'перевернутая' if card.is_reversed else 'прямая'
     return f'{card.card.title} ({orientation})'
@@ -295,9 +266,9 @@ def _render_two_cards_image(cards: list[DrawnCard], output_path: Path, backgroun
     else:
         background = Image.new('RGBA', (canvas_width, canvas_height), (40, 42, 58, 255))
 
-    card_width = 420
-    card_height = 620
-    gap = 44
+    card_width = 460
+    card_height = 650
+    gap = 72
     start_x = (canvas_width - (card_width * 2 + gap)) // 2
     y = (canvas_height - card_height) // 2
 

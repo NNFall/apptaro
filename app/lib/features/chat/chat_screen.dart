@@ -475,31 +475,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _showHelp() {
-    final supportLink = _currentSupportMarkdownLink();
-    final clientId = _currentClientId();
-    _appendBotMessage(
-      '**❓ Помощь**\n'
-      '1. Нажми **«Задать вопрос»** или просто напиши вопрос в чат.\n'
-      '2. Я подготовлю 3 карты: ситуация, препятствие и совет.\n'
-      '3. Для нового пользователя один раз показывается первая карта, затем можно открыть полный расклад через подписку.\n'
-      '4. После активной подписки расклад формируется сразу автоматически.\n\n'
-      '**ID устройства:** `$clientId`\n\n'
-      'Если что-то не работает, напиши в поддержку:\n'
-      '$supportLink',
-      keyboard: [
-        [
-          _action(
-            '🏠 Главное меню',
-            _showMainMenu,
-            actionKey: 'show_main_menu',
-            echoAsUser: false,
-          ),
-        ],
-      ],
-    );
-  }
-
   void _showHelpV2() {
     final supportLink = _currentSupportMarkdownLink();
     final clientId = _currentClientId();
@@ -1867,7 +1842,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       ],
       [
-        _action('❓ Помощь', () async => _showHelp(), actionKey: 'show_help'),
+        _action('❓ Помощь', () async => _showHelpV2(), actionKey: 'show_help'),
       ],
     ];
   }
@@ -2086,7 +2061,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         callback = _showMainMenu;
         break;
       case 'show_help':
-        callback = () async => _showHelp();
+        callback = () async => _showHelpV2();
         break;
       case 'show_balance':
         callback = _showBalance;

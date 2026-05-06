@@ -35,9 +35,9 @@ DEFAULT_LAYOUT = TarotLayout(
     canvas_height=720,
     background=None,
     slots=[
-        CardSlot(x=230, y=140, width=260, height=440, angle=-4.0),
-        CardSlot(x=510, y=120, width=260, height=440, angle=0.0),
-        CardSlot(x=790, y=140, width=260, height=440, angle=4.0),
+        CardSlot(x=150, y=130, width=300, height=500, angle=-4.0),
+        CardSlot(x=490, y=110, width=300, height=500, angle=0.0),
+        CardSlot(x=830, y=130, width=300, height=500, angle=4.0),
     ],
 )
 
@@ -74,10 +74,47 @@ def load_layout(layout_path: str | Path) -> TarotLayout:
     )
 
 
-def _open_background(layout: TarotLayout, fallback_background_path: str | Path) -> Image.Image:
-    background_path = layout.background or str(fallback_background_path)
-    bg_file = Path(background_path)
-    if bg_file.exists():
+def _background_candidates(
+    layout: TarotLayout,
+    fallback_background_path: str | Path,
+    layout_base_dir: Path,
+) -> list[Path]:
+    candidates: list[Path] = []
+    raw_candidates: list[Path] = []
+
+    if layout.background:
+        bg_path = Path(layout.background)
+        if bg_path.is_absolute():
+            raw_candidates.append(bg_path)
+        else:
+            raw_candidates.append(layout_base_dir / bg_path)
+            raw_candidates.append(bg_path)
+
+    fallback = Path(fallback_background_path)
+    if fallback.is_absolute():
+        raw_candidates.append(fallback)
+    else:
+        raw_candidates.append(layout_base_dir / fallback)
+        raw_candidates.append(fallback)
+
+    seen: set[str] = set()
+    for candidate in raw_candidates:
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append(candidate)
+    return candidates
+
+
+def _open_background(
+    layout: TarotLayout,
+    fallback_background_path: str | Path,
+    layout_base_dir: Path,
+) -> Image.Image:
+    for bg_file in _background_candidates(layout, fallback_background_path, layout_base_dir):
+        if not bg_file.exists():
+            continue
         try:
             bg = Image.open(bg_file).convert('RGBA')
             if bg.size != (layout.canvas_width, layout.canvas_height):
@@ -98,8 +135,9 @@ def compose_spread_image(
     if len(drawn_cards) < 3:
         raise ValueError('Three drawn cards required')
 
-    layout = load_layout(layout_path)
-    canvas = _open_background(layout, background_path)
+    layout_file = Path(layout_path)
+    layout = load_layout(layout_file)
+    canvas = _open_background(layout, background_path, layout_file.resolve().parent)
 
     for idx, drawn in enumerate(drawn_cards[:3]):
         slot = layout.slots[idx]
