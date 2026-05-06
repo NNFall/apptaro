@@ -243,6 +243,12 @@ class BillingService:
             await self._notifier.notify_subscription_canceled(client_id)
         return await self.get_summary(client_id)
 
+    async def redeem_promo_code(self, *, client_id: str, code: str) -> tuple[BillingSummary, int]:
+        billing_repo.touch_client(client_id)
+        tokens = billing_repo.redeem_promo_code(client_id, code)
+        summary = await self.get_summary(client_id)
+        return summary, tokens
+
     async def process_due_auto_renewals_once(self) -> int:
         if not self.is_configured:
             return 0

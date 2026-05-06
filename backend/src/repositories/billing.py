@@ -417,6 +417,64 @@ def cancel_subscription(client_id: str) -> bool:
     return True
 
 
+def redeem_promo_code(client_id: str, code: str, days: int = 3650) -> int:
+    normalized = code.strip().upper()
+    if len(normalized) < 4:
+        raise ValueError('Некорректный промокод')
+
+    with _LOCK:
+        with closing(connect()) as conn:
+            row = conn.execute(
+                '''
+                SELECT code, tokens, max_uses, used, is_active
+                FROM promo_codes
+                WHERE code = ?
+                ''',
+                (normalized,),
+            ).fetchone()
+            if row is None:
+                raise LookupError('Промокод не найден')
+
+            if int(row['is_active']) != 1:
+                raise ValueError('Промокод неактивен')
+
+            max_uses = int(row['max_uses'])
+            used = int(row['used'])
+            if used >= max_uses:
+                raise ValueError('Промокод уже исчерпан')
+
+            existing_use = conn.execute(
+                'SELECT 1 FROM promo_uses WHERE code = ? AND client_id = ? LIMIT 1',
+                (normalized, client_id),
+            ).fetchone()
+            if existing_use is not None:
+                raise ValueError('Этот промокод уже был активирован на данном пользователе')
+
+            tokens = int(row['tokens'])
+            if tokens <= 0:
+                raise ValueError('Промокод не содержит раскладов')
+
+            conn.execute(
+                '''
+                INSERT INTO promo_uses (code, client_id, created_at)
+                VALUES (?, ?, ?)
+                ''',
+                (normalized, client_id, _now()),
+            )
+            conn.execute(
+                '''
+                UPDATE promo_codes
+                SET used = used + 1,
+                    is_active = CASE WHEN used + 1 >= max_uses THEN 0 ELSE is_active END
+                WHERE code = ?
+                ''',
+                (normalized,),
+            )
+            _grant_manual_tokens(conn, client_id=client_id, tokens=tokens, days=days)
+            conn.commit()
+            return tokens
+
+
 def get_due_auto_renew_subscriptions() -> list[StoredSubscription]:
     now = datetime.now(UTC).isoformat()
     with _LOCK:
@@ -482,6 +540,75 @@ def _subscription_not_expired(item: StoredSubscription) -> bool:
 
 def _is_subscription_valid(item: StoredSubscription) -> bool:
     return item.remaining > 0 and _subscription_not_expired(item)
+
+
+def _grant_manual_tokens(
+    conn,
+    *,
+    client_id: str,
+    tokens: int,
+    days: int,
+) -> None:
+    now = datetime.now(UTC)
+    row = conn.execute(
+        '''
+        SELECT *
+        FROM billing_subscriptions
+        WHERE client_id = ?
+          AND status IN ('active', 'canceled', 'manual')
+        ORDER BY id DESC
+        LIMIT 1
+        ''',
+        (client_id,),
+    ).fetchone()
+    if row is not None:
+        current = _row_to_subscription(row)
+        if current is not None:
+            try:
+                ends_at = datetime.fromisoformat(current.ends_at)
+            except Exception:  # noqa: BLE001
+                ends_at = now
+            new_ends = max(ends_at, now + timedelta(days=days))
+            remaining = current.remaining + tokens
+            conn.execute(
+                '''
+                UPDATE billing_subscriptions
+                SET remaining = ?, ends_at = ?, status = ?
+                WHERE id = ?
+                ''',
+                (remaining, new_ends.isoformat(), current.status or 'manual', current.id),
+            )
+            return
+
+    ends = now + timedelta(days=days)
+    conn.execute(
+        '''
+        INSERT INTO billing_subscriptions (
+            client_id,
+            plan_key,
+            starts_at,
+            ends_at,
+            remaining,
+            status,
+            auto_renew,
+            payment_method_id,
+            provider,
+            created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        (
+            client_id,
+            'manual',
+            now.isoformat(),
+            ends.isoformat(),
+            tokens,
+            'manual',
+            0,
+            None,
+            'manual',
+            _now(),
+        ),
+    )
 
 
 def _row_to_subscription(row) -> StoredSubscription | None:

@@ -399,9 +399,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _appendUserMessage(raw);
     await _persistTranscript();
 
-    final command = raw.toLowerCase();
-    if (command.startsWith('/')) {
-      await _handleCommand(command);
+    if (raw.startsWith('/')) {
+      await _handleCommand(raw);
       await _persistTranscript();
       return;
     }
@@ -426,13 +425,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleCommand(String command) async {
+  Future<void> _handleCommand(String rawCommand) async {
+    final parts = rawCommand.trim().split(RegExp(r'\s+'));
+    final command = parts.first.toLowerCase();
     switch (command) {
       case '/start':
       case '/menu':
         return _showMainMenu();
       case '/help':
-        _showHelp();
+        _showHelpV2();
         return;
       case '/balance':
         await _showBalance();
@@ -442,6 +443,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         return;
       case '/history':
         _showHistory();
+        return;
+      case '/promo':
+        if (parts.length < 2 || parts[1].trim().isEmpty) {
+          _appendBotMessage(
+            'Использование: `/promo XXXXXX`',
+            keyboard: _mainMenuKeyboard(),
+          );
+          return;
+        }
+        await _redeemPromo(parts[1].trim());
         return;
       default:
         _appendBotMessage(
@@ -474,6 +485,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       '3. Для нового пользователя один раз показывается первая карта, затем можно открыть полный расклад через подписку.\n'
       '4. После активной подписки расклад формируется сразу автоматически.\n\n'
       '**ID устройства:** `$clientId`\n\n'
+      'Если что-то не работает, напиши в поддержку:\n'
+      '$supportLink',
+      keyboard: [
+        [
+          _action(
+            '🏠 Главное меню',
+            _showMainMenu,
+            actionKey: 'show_main_menu',
+            echoAsUser: false,
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showHelpV2() {
+    final supportLink = _currentSupportMarkdownLink();
+    final clientId = _currentClientId();
+    _appendBotMessage(
+      '**❓ Помощь**\n'
+      '1. Нажми **«Задать вопрос»** или просто напиши вопрос в чат.\n'
+      '2. Я подготовлю 3 карты: ситуация, препятствие и совет.\n'
+      '3. Для нового пользователя один раз показывается первая карта, затем можно открыть полный расклад через подписку.\n'
+      '4. После активной подписки расклад формируется сразу автоматически.\n\n'
+      '**ID пользователя:** `$clientId`\n\n'
       'Если что-то не работает, напиши в поддержку:\n'
       '$supportLink',
       keyboard: [
@@ -527,6 +563,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _buildBalanceText(summary),
       keyboard: _buildBalanceKeyboard(summary),
     );
+  }
+
+  Future<void> _redeemPromo(String code) async {
+    final controller = _billingController;
+    if (controller == null) {
+      return;
+    }
+
+    try {
+      await controller.redeemPromoCode(code);
+      final summary = controller.summary;
+      if (summary == null) {
+        _appendBotMessage(
+          '✅ Промокод активирован. Открой `/balance`, чтобы проверить остаток раскладов.',
+          keyboard: _mainMenuKeyboard(),
+        );
+        return;
+      }
+      _appendBotMessage(
+        '✅ Промокод активирован.\n'
+        'Доступных раскладов: **${summary.remainingGenerations}**.',
+        keyboard: _mainMenuKeyboard(),
+      );
+    } catch (_) {
+      final message = controller.error ?? 'Не удалось активировать промокод.';
+      _appendBotMessage(
+        '❌ $message',
+        keyboard: _mainMenuKeyboard(),
+      );
+    }
   }
 
   Future<void> _showSettings() async {

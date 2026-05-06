@@ -61,3 +61,15 @@ class BillingPaymentResponse(BaseModel):
     test_mode: bool
     summary: BillingSummaryResponse
 
+
+class RedeemPromoCodeRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    code: Annotated[str, StringConstraints(strip_whitespace=True, min_length=4, max_length=64)]
+
+
+class RedeemPromoCodeResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    granted_tokens: Annotated[int, Field(ge=1)]
+    summary: BillingSummaryResponse

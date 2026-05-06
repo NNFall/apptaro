@@ -123,6 +123,20 @@ class BillingController extends ChangeNotifier {
     }
   }
 
+  Future<void> redeemPromoCode(String code) async {
+    _error = null;
+    notifyListeners();
+
+    try {
+      _summary = await _repository.redeemPromoCode(code);
+    } catch (error) {
+      _error = _describeError(error);
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   void clearPayment() {
     _stopPolling();
     _payment = null;
@@ -141,7 +155,8 @@ class BillingController extends ChangeNotifier {
     _paymentPollingTimedOut = false;
     _pollTimer = Timer.periodic(_paymentPollInterval, (_) async {
       if (_pollingStartedAt == null ||
-          DateTime.now().difference(_pollingStartedAt!) >= _paymentPollTimeout) {
+          DateTime.now().difference(_pollingStartedAt!) >=
+              _paymentPollTimeout) {
         _paymentPollingTimedOut = true;
         _stopPolling(resetTimeout: false);
         notifyListeners();

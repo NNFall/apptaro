@@ -122,6 +122,10 @@ class AppSlidesRepository {
     return _api.cancelBillingSubscription();
   }
 
+  Future<BillingSummary> redeemPromoCode(String code) {
+    return _api.redeemPromoCode(code);
+  }
+
   void dispose() {
     _api.close();
   }

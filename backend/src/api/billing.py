@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.core.dependencies import get_billing_service, get_known_client_id
 from src.domain.billing_service import BillingService
-from src.schemas.billing import BillingPaymentResponse, BillingSummaryResponse, CreateBillingPaymentRequest
+from src.schemas.billing import (
+    BillingPaymentResponse,
+    BillingSummaryResponse,
+    CreateBillingPaymentRequest,
+    RedeemPromoCodeRequest,
+    RedeemPromoCodeResponse,
+)
 
 
 router = APIRouter(prefix='/v1/billing', tags=['billing'])
@@ -102,3 +108,25 @@ async def cancel_billing_subscription(
 ) -> BillingSummaryResponse:
     summary = await service.cancel_subscription(client_id)
     return _summary_response(summary)
+
+
+@router.post('/promo/redeem', response_model=RedeemPromoCodeResponse)
+async def redeem_billing_promo_code(
+    payload: RedeemPromoCodeRequest,
+    client_id: str = Depends(get_known_client_id),
+    service: BillingService = Depends(get_billing_service),
+) -> RedeemPromoCodeResponse:
+    try:
+        summary, granted_tokens = await service.redeem_promo_code(
+            client_id=client_id,
+            code=payload.code,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return RedeemPromoCodeResponse(
+        granted_tokens=granted_tokens,
+        summary=_summary_response(summary),
+    )

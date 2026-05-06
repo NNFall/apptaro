@@ -275,8 +275,10 @@ async def genpromo(message: Message) -> None:
     code = secrets.token_hex(4)
     admin_repo.create_promo_code(code, tokens, max_uses)
     await message.answer(
-        f'Промокод: {code}\nРасклады: {tokens}\nИспользований: {max_uses}\n'
-        'Флоу активации в мобильном клиенте будет привязан отдельно.'
+        f'Промокод: {code}\n'
+        f'Раскладов: {tokens}\n'
+        f'Использований: {max_uses}\n\n'
+        f'Скопируй и отправь пользователю:\n/promo {code}'
     )
 
 

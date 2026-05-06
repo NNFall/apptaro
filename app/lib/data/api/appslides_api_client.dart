@@ -198,6 +198,26 @@ class AppSlidesApiClient {
     return BillingSummary.fromJson(payload);
   }
 
+  Future<BillingSummary> redeemPromoCode(String code) async {
+    final payload = await _postJson(
+      path: AppConfig.billingPromoRedeemPath,
+      body: <String, Object>{
+        'code': code.trim(),
+      },
+    );
+    final summary = payload['summary'];
+    if (summary is Map<String, dynamic>) {
+      return BillingSummary.fromJson(summary);
+    }
+    if (summary is Map) {
+      return BillingSummary.fromJson(summary.cast<String, dynamic>());
+    }
+    throw const AppSlidesApiException(
+      statusCode: 500,
+      message: 'Invalid promo response payload',
+    );
+  }
+
   Future<Map<String, dynamic>> _getJsonMap(String path) async {
     final response = await _client.get(
       _resolve(path),
