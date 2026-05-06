@@ -1192,7 +1192,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
       buffer.writeln('**Остаток раскладов:** ${active.remaining}');
       buffer.writeln('**Действует до:** ${_shortDate(active.endsAt)}');
-      if (active.provider == 'yookassa') {
+      if (_showAutoRenewStatusInBalance() && active.provider == 'yookassa') {
         buffer.writeln(
           active.autoRenew
               ? 'Автопродление через YooKassa включено.'
@@ -1628,6 +1628,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return '$year-$month-$day';
   }
 
+  bool _showAutoRenewStatusInBalance() => false;
+
   void _handleExternalStateChanged() {
     if (mounted) {
       setState(() {});
@@ -1635,6 +1637,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _handleAttachmentTap(_ChatAttachment attachment) async {
+    if (attachment.kind == 'image') {
+      await _showImagePreview(attachment);
+      return;
+    }
+
     final savedFiles = _savedFilesRepository;
     final history = _historyRepository;
     if (savedFiles == null || history == null) {
@@ -1704,6 +1711,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  Future<void> _showImagePreview(_ChatAttachment attachment) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'image_preview',
+      barrierColor: const Color(0xD9000000),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (dialogContext, _, __) {
+        return _FullscreenImagePreviewDialog(
+          imageUrl: attachment.remoteUri.toString(),
+          title: attachment.filename,
+        );
+      },
+      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+    );
   }
 
   Future<void> _handleAttachmentDelete(_ChatAttachment attachment) async {
@@ -2928,6 +2958,76 @@ class _ImageAttachmentPreview extends StatelessWidget {
                 ),
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FullscreenImagePreviewDialog extends StatelessWidget {
+  const _FullscreenImagePreviewDialog({
+    required this.imageUrl,
+    required this.title,
+  });
+
+  final String imageUrl;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).pop(),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: GestureDetector(
+                  onTap: () {},
+                  child: InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.sizeOf(context).width,
+                        maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+                      ),
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.contain,
+                        semanticLabel: title,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 24),
+                            child: Icon(
+                              Icons.image_not_supported_rounded,
+                              size: 44,
+                              color: Color(0xFFCBD5E1),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  tooltip: 'Закрыть',
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0x66000000),
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ],
           ),
         ),
       ),

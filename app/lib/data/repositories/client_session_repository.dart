@@ -80,9 +80,8 @@ class ClientSessionRepository extends ChangeNotifier {
   }
 
   String _generateClientId() {
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
-    final buffer = StringBuffer('apptaro_')..write(timestamp)..write('_');
-    for (var index = 0; index < 18; index++) {
+    final buffer = StringBuffer('at_');
+    for (var index = 0; index < 10; index++) {
       buffer.write(_random.nextInt(16).toRadixString(16));
     }
     return buffer.toString();
@@ -93,6 +92,9 @@ class ClientSessionRepository extends ChangeNotifier {
     if (trimmed == null || trimmed.length < 8) {
       return null;
     }
+    if (trimmed.startsWith('at_')) {
+      return trimmed;
+    }
     if (trimmed.startsWith('apptaro_')) {
       return trimmed;
     }
@@ -100,6 +102,6 @@ class ClientSessionRepository extends ChangeNotifier {
       final suffix = trimmed.substring('appslides_'.length);
       return suffix.isEmpty ? null : 'apptaro_$suffix';
     }
-    return 'apptaro_$trimmed';
+    return trimmed;
   }
 }
