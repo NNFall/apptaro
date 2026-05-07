@@ -272,14 +272,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _didSeedConversation = true;
     _appendBotMessage(
-      '🔮 apptaro\n'
-      'Задай вопрос, и я сделаю расклад на 3 карты: текущая ситуация, препятствие и совет.\n\n'
-      '🃏 Первая карта помогает сфокусировать вопрос\n'
-      '✨ Полный расклад дает связный разбор\n'
-      '💳 Подписка и лимиты идут через YooKassa\n\n'
-      'Выбери раздел ниже 👇',
+      _welcomeIntroText(),
       keyboard: _mainMenuKeyboard(),
     );
+  }
+
+  String _welcomeIntroText() {
+    return '🔮 **Таро Расклады ИИ**\n'
+        'Здравствуйте! Я сделаю расклад на 3 карты и дам разбор: текущая ситуация, препятствие и совет.\n'
+        'Задайте вопрос — я помогу увидеть направление и возможные подсказки.\n\n'
+        'Выберите раздел ниже 👇';
   }
 
   Future<void> _refreshAfterAppResume() async {
@@ -470,23 +472,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() {});
     }
     _appendBotMessage(
-      '**Главное меню** 📌',
+      _welcomeIntroText(),
       keyboard: _mainMenuKeyboard(),
     );
   }
 
   void _showHelpV2() {
-    final supportLink = _currentSupportMarkdownLink();
+    final telegramSupportLink = _currentSupportMarkdownLink();
+    final maxSupportLink = _currentSupportMaxMarkdownLink();
     final clientId = _currentClientId();
     _appendBotMessage(
       '**❓ Помощь**\n'
-      '1. Нажми **«Задать вопрос»** или просто напиши вопрос в чат.\n'
-      '2. Я подготовлю 3 карты: ситуация, препятствие и совет.\n'
-      '3. Для нового пользователя один раз показывается первая карта, затем можно открыть полный расклад через подписку.\n'
-      '4. После активной подписки расклад формируется сразу автоматически.\n\n'
+      '1. Нажмите **«Задать вопрос»**.\n'
+      '2. Введите ваш вопрос.\n'
+      '3. Получите расклад и разбор.\n\n'
       '**ID пользователя:** `$clientId`\n\n'
-      'Если что-то не работает, напиши в поддержку:\n'
-      '$supportLink',
+      '**Поддержка в Телеграм:** $telegramSupportLink\n'
+      '**Поддержка в Макс:** $maxSupportLink',
       keyboard: [
         [
           _action(
@@ -677,7 +679,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() {});
     }
     _appendBotMessage(
-      '🔮 Задай вопрос таро.\nНапример: «Что поможет мне увеличить доход?» или «Куда движутся эти отношения?»',
+      '🔮 **Задайте вопрос таро**\n'
+      'Примеры:\n'
+      '• *Когда в моей жизни появятся серьезные отношения?*\n'
+      '• *Что поможет мне увеличить доход?*\n\n'
+      'Я сделаю расклад и дам подробный разбор.',
     );
   }
 
@@ -709,8 +715,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     _clearOutlineProgressMessage();
-    _outlineProgressMessageId =
-        _appendBotMessage('_Настраиваюсь на расклад и тяну карты..._');
+    _outlineProgressMessageId = _appendBotMessage(
+      '_Настраиваюсь на расклад и тяну карты..._',
+      showLoadingAnimation: true,
+    );
     await controller.generateOutline();
   }
 
@@ -727,7 +735,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     _clearOutlineProgressMessage();
-    _outlineProgressMessageId = _appendBotMessage('_Готовлю расклад..._');
+    _outlineProgressMessageId = _appendBotMessage(
+      '_Готовлю расклад..._',
+      showLoadingAnimation: true,
+    );
     await controller.generateOutline();
   }
 
@@ -779,8 +790,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _awaitingTeaserContinuationPayment = false;
     controller.selectDesign(1);
     _clearRenderProgressMessages();
-    _renderPreparationMessageId =
-        _appendBotMessage('_Открываю карты и пишу разбор..._');
+    _renderPreparationMessageId = _appendBotMessage(
+      '_Открываю карты и пишу разбор..._',
+      showLoadingAnimation: true,
+    );
     unawaited(_startRender(generatePdf: false));
   }
 
@@ -807,8 +820,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     _clearOutlineProgressMessage();
-    _outlineProgressMessageId =
-        _appendBotMessage('_Перетягиваю карты и обновляю расклад..._');
+    _outlineProgressMessageId = _appendBotMessage(
+      '_Перетягиваю карты и обновляю расклад..._',
+      showLoadingAnimation: true,
+    );
     await controller.reviseOutline(comment);
   }
 
@@ -838,7 +853,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     controller.selectDesign(template.id);
     _clearRenderProgressMessages();
-    _renderPreparationMessageId = _appendBotMessage('_Пишу тексты..._');
+    _renderPreparationMessageId = _appendBotMessage(
+      '_Пишу тексты..._',
+      showLoadingAnimation: true,
+    );
     unawaited(_startRender(generatePdf: true));
   }
 
@@ -966,12 +984,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             if (_presentationStatusMessageId == null) {
               _presentationStatusMessageId = _appendBotMessage(
                 '⌛ Расклад поставлен в очередь.\nID задачи: `${job.jobId}`',
+                showLoadingAnimation: true,
               );
             } else {
               _updateMessageById(
                 _presentationStatusMessageId!,
                 text:
                     '⌛ Расклад поставлен в очередь.\nID задачи: `${job.jobId}`',
+                showLoadingAnimation: true,
               );
             }
             break;
@@ -981,11 +1001,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             if (_presentationStatusMessageId == null) {
               _presentationStatusMessageId = _appendBotMessage(
                 '⚙️ Расклад выполняется.\nID задачи: `${job.jobId}`',
+                showLoadingAnimation: true,
               );
             } else {
               _updateMessageById(
                 _presentationStatusMessageId!,
                 text: '⚙️ Расклад выполняется.\nID задачи: `${job.jobId}`',
+                showLoadingAnimation: true,
               );
             }
             break;
@@ -1511,7 +1533,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _lastBillingTimeoutPaymentId = null;
     controller.clearPayment();
     _clearBillingProgressMessage();
-    _billingProgressMessageId = _appendBotMessage('_Создаю счёт на оплату..._');
+    _billingProgressMessageId = _appendBotMessage(
+      '_Создаю счёт на оплату..._',
+      showLoadingAnimation: true,
+    );
     await controller.startCheckout(planKey: planKey, renew: renew);
     if (controller.payment == null && controller.error != null) {
       _clearBillingProgressMessage();
@@ -1580,7 +1605,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       controller.selectDesign(template.id);
       _clearRenderProgressMessages();
       _renderPreparationMessageId = _appendBotMessage(
-          '_Оплата подтверждена. Открываю карты и пишу разбор..._');
+        '_Оплата подтверждена. Открываю карты и пишу разбор..._',
+        showLoadingAnimation: true,
+      );
       await _startRender(generatePdf: false);
     } finally {
       _resumingPresentationAfterPayment = false;
@@ -1603,6 +1630,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return username;
     }
     return '[@$normalized](https://t.me/$normalized)';
+  }
+
+  String _currentSupportMaxUrl() {
+    final summaryUrl = _billingController?.summary?.supportMaxUrl.trim();
+    if (summaryUrl != null && summaryUrl.isNotEmpty) {
+      return summaryUrl;
+    }
+    return AppConfig.supportMaxUrl;
+  }
+
+  String _currentSupportMaxMarkdownLink() {
+    final raw = _currentSupportMaxUrl().trim();
+    if (raw.isEmpty) {
+      return 'не настроена';
+    }
+    final uri = Uri.tryParse(raw);
+    if (uri == null || !(uri.hasScheme && uri.hasAuthority)) {
+      return raw;
+    }
+    return '[ссылка]($raw)';
   }
 
   String _currentClientId() {
@@ -1836,7 +1883,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ],
       [
         _action(
-          '💳 Баланс / Подписка',
+          '💳 Баланс',
           () async => _showBalance(),
           actionKey: 'show_balance',
         ),
@@ -2182,6 +2229,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     List<PresentationTemplate> templatePreviewTemplates =
         const <PresentationTemplate>[],
     _MessageLinkPreview? linkPreview,
+    bool showLoadingAnimation = false,
   }) {
     final id = 'msg-${_messageCounter++}';
     setState(() {
@@ -2195,6 +2243,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           attachments: attachments,
           templatePreviewTemplates: templatePreviewTemplates,
           linkPreview: linkPreview,
+          showLoadingAnimation: showLoadingAnimation,
         ),
       );
     });
@@ -2227,6 +2276,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     List<_ChatAttachment>? attachments,
     List<PresentationTemplate>? templatePreviewTemplates,
     _MessageLinkPreview? linkPreview,
+    bool? showLoadingAnimation,
   }) {
     final index = _messages.indexWhere((message) => message.id == id);
     if (index < 0) {
@@ -2240,6 +2290,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         attachments: attachments,
         templatePreviewTemplates: templatePreviewTemplates,
         linkPreview: linkPreview,
+        showLoadingAnimation: showLoadingAnimation,
       );
     });
     unawaited(_persistTranscript());
@@ -2328,6 +2379,7 @@ class _ChatMessage {
     this.attachments = const <_ChatAttachment>[],
     this.templatePreviewTemplates = const <PresentationTemplate>[],
     this.linkPreview,
+    this.showLoadingAnimation = false,
   });
 
   final String id;
@@ -2338,6 +2390,7 @@ class _ChatMessage {
   final List<_ChatAttachment> attachments;
   final List<PresentationTemplate> templatePreviewTemplates;
   final _MessageLinkPreview? linkPreview;
+  final bool showLoadingAnimation;
 
   _ChatMessage copyWith({
     String? text,
@@ -2345,6 +2398,7 @@ class _ChatMessage {
     List<_ChatAttachment>? attachments,
     List<PresentationTemplate>? templatePreviewTemplates,
     _MessageLinkPreview? linkPreview,
+    bool? showLoadingAnimation,
   }) {
     return _ChatMessage(
       id: id,
@@ -2356,6 +2410,7 @@ class _ChatMessage {
       templatePreviewTemplates:
           templatePreviewTemplates ?? this.templatePreviewTemplates,
       linkPreview: linkPreview,
+      showLoadingAnimation: showLoadingAnimation ?? this.showLoadingAnimation,
     );
   }
 }
@@ -2700,6 +2755,11 @@ class _ChatMessageCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                        ],
+                        if (!isUser && message.showLoadingAnimation) ...[
+                          const _MagicBallLoadingIndicator(),
+                          if (message.text.trim().isNotEmpty)
+                            const SizedBox(height: 8),
                         ],
                         if (message.text.trim().isNotEmpty)
                           _MessageMarkdown(
@@ -3072,6 +3132,57 @@ class _FullscreenImagePreviewDialog extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MagicBallLoadingIndicator extends StatefulWidget {
+  const _MagicBallLoadingIndicator();
+
+  @override
+  State<_MagicBallLoadingIndicator> createState() =>
+      _MagicBallLoadingIndicatorState();
+}
+
+class _MagicBallLoadingIndicatorState extends State<_MagicBallLoadingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 0.93, end: 1.08).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOutCubic,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ScaleTransition(
+          scale: _scale,
+          child: const Text(
+            '🔮',
+            style: TextStyle(fontSize: 20),
+          ),
+        ),
+      ],
     );
   }
 }

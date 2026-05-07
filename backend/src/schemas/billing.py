@@ -38,6 +38,7 @@ class BillingSummaryResponse(BaseModel):
 
     client_id: str
     support_username: str
+    support_max_url: str
     offer_url: str
     test_mode: bool
     plans: list[BillingPlanItem]

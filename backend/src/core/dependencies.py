@@ -98,6 +98,7 @@ def get_billing_service() -> BillingService:
         gateway=get_yookassa_gateway(),
         offer_url=settings.offer_url,
         support_username=settings.support_username,
+        support_max_url=settings.support_max_url,
         return_url=settings.yookassa_return_url or settings.offer_url,
         test_mode=settings.yookassa_test_mode,
         notifier=get_admin_notifier(),

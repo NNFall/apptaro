@@ -33,6 +33,7 @@ def _summary_response(summary) -> BillingSummaryResponse:
     return BillingSummaryResponse(
         client_id=summary.client_id,
         support_username=summary.support_username,
+        support_max_url=summary.support_max_url,
         offer_url=summary.offer_url,
         test_mode=summary.test_mode,
         plans=[

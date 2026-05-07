@@ -5,6 +5,7 @@ class BillingSummary {
   const BillingSummary({
     required this.clientId,
     required this.supportUsername,
+    required this.supportMaxUrl,
     required this.offerUrl,
     required this.testMode,
     required this.plans,
@@ -14,6 +15,7 @@ class BillingSummary {
 
   final String clientId;
   final String supportUsername;
+  final String supportMaxUrl;
   final String offerUrl;
   final bool testMode;
   final List<BillingPlan> plans;
@@ -33,6 +35,7 @@ class BillingSummary {
     return BillingSummary(
       clientId: json['client_id'] as String,
       supportUsername: json['support_username'] as String,
+      supportMaxUrl: json['support_max_url'] as String? ?? '',
       offerUrl: json['offer_url'] as String,
       testMode: json['test_mode'] as bool? ?? false,
       plans: rawPlans

@@ -18,6 +18,7 @@ class BillingSummary:
     client_id: str
     plans: list[BillingPlan]
     support_username: str
+    support_max_url: str
     offer_url: str
     test_mode: bool
     active_subscription: billing_repo.StoredSubscription | None
@@ -41,6 +42,7 @@ class BillingService:
         gateway: YooKassaGateway,
         offer_url: str,
         support_username: str,
+        support_max_url: str,
         return_url: str,
         test_mode: bool,
         notifier: AdminNotifier,
@@ -48,6 +50,7 @@ class BillingService:
         self._gateway = gateway
         self._offer_url = offer_url
         self._support_username = support_username
+        self._support_max_url = support_max_url
         self._return_url = return_url
         self._test_mode = test_mode
         self._notifier = notifier
@@ -65,6 +68,7 @@ class BillingService:
             client_id=client_id,
             plans=list_plans(),
             support_username=self._support_username,
+            support_max_url=self._support_max_url,
             offer_url=self._offer_url,
             test_mode=self._test_mode,
             active_subscription=active,
