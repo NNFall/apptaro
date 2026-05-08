@@ -872,6 +872,72 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     await controller.startPresentationJob();
   }
 
+  Future<void> _retryOutlineRequest(String topic, int slidesTotal) async {
+    final controller = _presentationController;
+    if (controller == null) {
+      return;
+    }
+
+    controller.resetDraft();
+    _pendingTemplateAfterPayment = null;
+    _resumingPresentationAfterPayment = false;
+    _awaitingTeaserContinuationPayment = false;
+    _autoRenderOutlineKey = null;
+    _clearOutlineProgressMessage();
+    _clearRenderProgressMessages();
+    _clearBillingProgressMessage();
+    _lastPresentationOutlineKey = null;
+    _lastPresentationTeaserKey = null;
+    _lastPresentationError = null;
+    _lastPresentationStatusKey = null;
+    _lastPresentationResultKey = null;
+    controller.setTopic(topic);
+    controller.setSlidesTotal(slidesTotal);
+    _composerMode = _ComposerMode.idle;
+    if (mounted) {
+      setState(() {});
+    }
+
+    _outlineProgressMessageId = _appendBotMessage(
+      '_Настраиваюсь на расклад и тяну карты..._',
+      showLoadingAnimation: true,
+    );
+    await controller.generateOutline();
+  }
+
+  Future<void> _retryRenderRequest(bool generatePdf) async {
+    final controller = _presentationController;
+    if (controller == null || !controller.hasOutline) {
+      return;
+    }
+
+    _lastPresentationError = null;
+    _lastPresentationStatusKey = null;
+    _lastPresentationResultKey = null;
+    _clearRenderProgressMessages();
+    _renderPreparationMessageId = _appendBotMessage(
+      '_Открываю карты и пишу разбор..._',
+      showLoadingAnimation: true,
+    );
+    await _startRender(generatePdf: generatePdf);
+  }
+
+  Future<void> _retryPresentationJobStatus() async {
+    final controller = _presentationController;
+    if (controller == null) {
+      return;
+    }
+
+    _lastPresentationError = null;
+    if (_presentationStatusMessageId == null && controller.job != null) {
+      _presentationStatusMessageId = _appendBotMessage(
+        '⚙️ Проверяю статус расклада...\nID задачи: `${controller.job!.jobId}`',
+        showLoadingAnimation: true,
+      );
+    }
+    await controller.retryCurrentJobStatus();
+  }
+
   Future<void> _startConversionFlow({
     required String sourceExtension,
     required String targetExtension,
@@ -917,12 +983,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _lastPresentationError = null;
     } else if (error != _lastPresentationError) {
       _lastPresentationError = error;
+      final failureStage = controller.lastFailureStage;
       if (controller.job == null) {
         _clearOutlineProgressMessage();
         _removeMessageById(_renderPreparationMessageId);
         _renderPreparationMessageId = null;
       }
-      _appendBotMessage('❌ $error');
+      _appendBotMessage(
+        _friendlyPresentationError(error, failureStage),
+        keyboard: _presentationRetryKeyboard(failureStage, controller),
+      );
     }
 
     if (controller.hasOutline) {
@@ -1660,6 +1730,91 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return 'загружается...';
   }
 
+  bool _isNetworkErrorMessage(String rawError) {
+    final normalized = rawError.toLowerCase();
+    return normalized.contains('clientexception') ||
+        normalized.contains('socketexception') ||
+        normalized.contains('failed host lookup') ||
+        normalized.contains('timeout') ||
+        normalized.contains('timed out') ||
+        normalized.contains('connection abort') ||
+        normalized.contains('connection closed');
+  }
+
+  String _friendlyPresentationError(
+    String rawError,
+    PresentationFailureStage stage,
+  ) {
+    if (!_isNetworkErrorMessage(rawError)) {
+      return '❌ $rawError';
+    }
+
+    return switch (stage) {
+      PresentationFailureStage.outline =>
+        '⚠️ Похоже, приложение потеряло соединение. Не удалось получить расклад. Попробуй снова.',
+      PresentationFailureStage.render =>
+        '⚠️ Не удалось продолжить создание из-за проблем со связью. Попробуй запустить генерацию ещё раз.',
+      PresentationFailureStage.jobStatus =>
+        '⚠️ Не удалось проверить статус генерации. Похоже, есть проблемы со связью. Попробуй снова.',
+      PresentationFailureStage.none =>
+        '⚠️ Возникли проблемы со связью. Попробуй снова.',
+    };
+  }
+
+  List<List<_ChatAction>> _presentationRetryKeyboard(
+    PresentationFailureStage stage,
+    PresentationController controller,
+  ) {
+    switch (stage) {
+      case PresentationFailureStage.outline:
+        return [
+          [
+            _action(
+              '🔁 Перегенерировать',
+              () => _retryOutlineRequest(
+                  controller.topic, controller.slidesTotal),
+              actionKey: 'retry_presentation_outline',
+              payload: <String, dynamic>{
+                'topic': controller.topic,
+                'slides_total': controller.slidesTotal,
+              },
+            ),
+          ],
+          _mainMenuOnlyKeyboard().first,
+        ];
+      case PresentationFailureStage.render:
+        return [
+          [
+            _action(
+              '🔁 Перегенерировать',
+              () => _retryRenderRequest(controller.generatePdf),
+              actionKey: 'retry_presentation_render',
+              payload: <String, dynamic>{
+                'generate_pdf': controller.generatePdf,
+              },
+            ),
+          ],
+          _mainMenuOnlyKeyboard().first,
+        ];
+      case PresentationFailureStage.jobStatus:
+        return [
+          [
+            _action(
+              '🔄 Проверить снова',
+              _retryPresentationJobStatus,
+              actionKey: 'retry_presentation_status',
+              payload: <String, dynamic>{
+                'job_id': controller.job?.jobId ?? '',
+              },
+            ),
+          ],
+          _mainMenuOnlyKeyboard().first,
+        ];
+      case PresentationFailureStage.none:
+        return _mainMenuOnlyKeyboard();
+    }
+  }
+
   Future<void> _launchPaymentUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) {
@@ -2144,6 +2299,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         break;
       case 'approve_outline':
         callback = () async => _approveOutline();
+        break;
+      case 'retry_presentation_outline':
+        final topic = action.payload['topic'] as String?;
+        final slidesTotal = action.payload['slides_total'] as int?;
+        if (topic == null || topic.trim().isEmpty || slidesTotal == null) {
+          return null;
+        }
+        callback = () => _retryOutlineRequest(topic, slidesTotal);
+        break;
+      case 'retry_presentation_render':
+        callback =
+            () => _retryRenderRequest(action.payload['generate_pdf'] == true);
+        break;
+      case 'retry_presentation_status':
+        callback = _retryPresentationJobStatus;
         break;
       case 'request_outline_revision':
         callback = _requestOutlineRevision;

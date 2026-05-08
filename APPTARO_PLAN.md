@@ -1,5 +1,17 @@
 # APPTARO Plan
 
+## Friendly Network Errors + Retry Flow - 2026-05-08
+
+- [x] Добавить детектор сетевых ошибок для tarot presentation flow (`ClientException`, `SocketException`, `timeout`, `connection abort`, `connection closed`).
+- [x] Заменить сырые сетевые ошибки на понятные русские тексты для этапов `outline`, `render`, `job status`.
+- [x] Добавить раздельные retry-кнопки:
+  - `🔁 Перегенерировать` для повторного запроса расклада / рендера;
+  - `🔄 Проверить снова` для повторной проверки статуса задачи.
+- [x] Сохранять retry-контекст в action payload, чтобы кнопки переживали transcript restore.
+- [x] Добавить в `PresentationController` информацию о последнем типе сбоя и публичный retry для статуса job.
+- [x] Прогнать `dart format` и `flutter analyze`.
+- [x] Закоммитить и запушить изменения.
+
 ## Start/Help UX + Waiting Animation - 2026-05-07
 
 - [x] Обновить стартовый экран под telegram-референс: `🔮 Таро Расклады ИИ` и новый вводный текст.

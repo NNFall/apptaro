@@ -12,6 +12,13 @@ import '../../domain/models/presentation_template.dart';
 import '../../domain/models/remote_job.dart';
 import '../../domain/models/saved_file_entry.dart';
 
+enum PresentationFailureStage {
+  none,
+  outline,
+  render,
+  jobStatus,
+}
+
 class PresentationController extends ChangeNotifier {
   PresentationController({
     required AppSlidesRepository repository,
@@ -45,6 +52,7 @@ class PresentationController extends ChangeNotifier {
   bool _teaserMode = false;
   String? _teaserText;
   List<JobArtifact> _teaserArtifacts = const <JobArtifact>[];
+  PresentationFailureStage _lastFailureStage = PresentationFailureStage.none;
   final Set<String> _savingArtifactIds = <String>{};
   Timer? _pollTimer;
 
@@ -64,6 +72,7 @@ class PresentationController extends ChangeNotifier {
   bool get teaserMode => _teaserMode;
   String? get teaserText => _teaserText;
   List<JobArtifact> get teaserArtifacts => _teaserArtifacts;
+  PresentationFailureStage get lastFailureStage => _lastFailureStage;
 
   bool get canGenerateOutline =>
       _topic.trim().length >= 3 && !_generatingOutline;
@@ -85,6 +94,7 @@ class PresentationController extends ChangeNotifier {
   Future<void> refreshTemplates() async {
     _loadingTemplates = true;
     _error = null;
+    _lastFailureStage = PresentationFailureStage.none;
     notifyListeners();
 
     try {
@@ -141,6 +151,7 @@ class PresentationController extends ChangeNotifier {
 
     _generatingOutline = true;
     _error = null;
+    _lastFailureStage = PresentationFailureStage.none;
     notifyListeners();
 
     try {
@@ -150,6 +161,7 @@ class PresentationController extends ChangeNotifier {
       );
       _applyOutlineResult(result);
     } catch (error) {
+      _lastFailureStage = PresentationFailureStage.outline;
       _error = _describeError(error);
     } finally {
       _generatingOutline = false;
@@ -164,6 +176,7 @@ class PresentationController extends ChangeNotifier {
 
     _revisingOutline = true;
     _error = null;
+    _lastFailureStage = PresentationFailureStage.none;
     notifyListeners();
 
     try {
@@ -176,6 +189,7 @@ class PresentationController extends ChangeNotifier {
       );
       _applyOutlineResult(result);
     } catch (error) {
+      _lastFailureStage = PresentationFailureStage.outline;
       _error = _describeError(error);
     } finally {
       _revisingOutline = false;
@@ -190,6 +204,7 @@ class PresentationController extends ChangeNotifier {
 
     _startingJob = true;
     _error = null;
+    _lastFailureStage = PresentationFailureStage.none;
     _pollTimer?.cancel();
     notifyListeners();
 
@@ -205,6 +220,7 @@ class PresentationController extends ChangeNotifier {
       _job = created;
       _startPolling(created.jobId);
     } catch (error) {
+      _lastFailureStage = PresentationFailureStage.render;
       _error = _describeError(error);
     } finally {
       _startingJob = false;
@@ -255,6 +271,7 @@ class PresentationController extends ChangeNotifier {
     _teaserMode = false;
     _teaserText = null;
     _teaserArtifacts = const <JobArtifact>[];
+    _lastFailureStage = PresentationFailureStage.none;
     _savingArtifactIds.clear();
     notifyListeners();
   }
@@ -270,6 +287,7 @@ class PresentationController extends ChangeNotifier {
 
     _savingArtifactIds.add(artifact.artifactId);
     _error = null;
+    _lastFailureStage = PresentationFailureStage.none;
     notifyListeners();
 
     try {
@@ -291,6 +309,21 @@ class PresentationController extends ChangeNotifier {
     } finally {
       _savingArtifactIds.remove(artifact.artifactId);
       notifyListeners();
+    }
+  }
+
+  Future<void> retryCurrentJobStatus() async {
+    final currentJob = _job;
+    if (currentJob == null) {
+      return;
+    }
+
+    _error = null;
+    _lastFailureStage = PresentationFailureStage.none;
+    notifyListeners();
+    await _refreshJob(currentJob.jobId);
+    if (_job != null && !_job!.isFinished) {
+      _startPolling(currentJob.jobId);
     }
   }
 
@@ -325,6 +358,7 @@ class PresentationController extends ChangeNotifier {
 
   Future<void> _refreshJob(String jobId) async {
     try {
+      _error = null;
       final refreshed = await _repository.getPresentationJob(jobId);
       _job = refreshed;
       _historyRepository.upsertPresentationJob(
@@ -345,6 +379,7 @@ class PresentationController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (error) {
+      _lastFailureStage = PresentationFailureStage.jobStatus;
       _error = _describeError(error);
       _pollTimer?.cancel();
       notifyListeners();
