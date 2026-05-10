@@ -5,6 +5,7 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_scope.dart';
@@ -2895,7 +2896,8 @@ class _ChatMessageCard extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
                 if (message.text.trim().isNotEmpty ||
-                    message.attachments.isNotEmpty)
+                    message.attachments.isNotEmpty ||
+                    message.showLoadingAnimation)
                   Container(
                     decoration: BoxDecoration(
                       color: isUser ? const Color(0xFFEFFFF0) : Colors.white,
@@ -3306,53 +3308,22 @@ class _FullscreenImagePreviewDialog extends StatelessWidget {
   }
 }
 
-class _MagicBallLoadingIndicator extends StatefulWidget {
+class _MagicBallLoadingIndicator extends StatelessWidget {
   const _MagicBallLoadingIndicator();
 
   @override
-  State<_MagicBallLoadingIndicator> createState() =>
-      _MagicBallLoadingIndicatorState();
-}
-
-class _MagicBallLoadingIndicatorState extends State<_MagicBallLoadingIndicator>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1300),
-    )..repeat(reverse: true);
-    _scale = Tween<double>(begin: 0.93, end: 1.08).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOutCubic,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ScaleTransition(
-          scale: _scale,
-          child: const Text(
-            '🔮',
-            style: TextStyle(fontSize: 20),
-          ),
+    return Center(
+      child: SizedBox(
+        width: 88,
+        height: 88,
+        child: Lottie.asset(
+          'assets/media/loading/telegram_loader.json',
+          repeat: true,
+          animate: true,
+          fit: BoxFit.contain,
         ),
-      ],
+      ),
     );
   }
 }

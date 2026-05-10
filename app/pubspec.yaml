@@ -18,6 +18,7 @@ dependencies:
   path_provider: ^2.1.5
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.2
+  lottie: ^3.3.3
 
 dev_dependencies:
   flutter_lints: ^6.0.0
@@ -26,3 +27,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/media/loading/

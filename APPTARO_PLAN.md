@@ -1,5 +1,15 @@
 # APPTARO Plan
 
+## Telegram Loader Sticker - 2026-05-10
+
+- [x] Взять Telegram sticker `AnimatedSticker.tgs`, скопировать в Flutter assets.
+- [x] Распаковать `.tgs` в lottie-compatible `.json` для рендера внутри приложения.
+- [x] Подключить Flutter dependency `lottie`.
+- [x] Заменить текущий пульсирующий `🔮` loader на sticker animation.
+- [x] Сохранить механику временного bot progress-message с последующим удалением по `messageId`.
+- [x] Разрешить render loader bubble даже без текста, чтобы можно было показывать sticker отдельным сообщением.
+- [x] Прогнать `flutter analyze` по изменённому chat screen.
+
 ## Admin Bot Polling Recovery - 2026-05-10
 
 - [x] Проверить текущую причину "команды не доходят": контейнер жив, но polling к Telegram не контролируется отдельным health-механизмом.
