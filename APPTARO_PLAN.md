@@ -9,8 +9,8 @@
 - [x] Добавить docker healthcheck по возрасту heartbeat.
 - [x] Добавить host-side cron watchdog, который перезапускает `apptaro_admin_bot`, если heartbeat stale.
 - [x] Прогнать локальные проверки admin-бота и deploy-скрипта.
-- [ ] Закоммитить и запушить изменения.
-- [ ] Выкатить на сервер и проверить watchdog/health.
+- [x] Закоммитить и запушить изменения.
+- [x] Выкатить на сервер и проверить watchdog/health.
 
 ## Friendly Network Errors + Retry Flow - 2026-05-08
 
