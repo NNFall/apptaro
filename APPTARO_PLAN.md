@@ -1,11 +1,23 @@
 # APPTARO Plan
 
+## Backend Push + Promo + Branding - 2026-05-10
+
+- [x] Проверить, почему admin push-уведомления приходят не в того Telegram-бота.
+- [x] Найти причину: `apptaro_backend` работал со старым `ADMIN_BOT_TOKEN`, потому что backend-контейнер не был перезапущен после обновления `.env`.
+- [x] Починить promo activation: сделать lookup промокодов case-insensitive в backend.
+- [x] Починить генерацию новых promo code в admin-боте: создавать и показывать код в upper-case.
+- [x] Переименовать приложение и chat header из `Таро бот` в `Таро Расклад`, убрать вторую строку `бот`.
+- [x] Прописать корректную ссылку Max в app defaults и backend defaults.
+- [x] Обновить remote `.env`, перезапустить backend/admin containers и проверить, что backend видит новый token + Max URL.
+- [x] Прогнать локальные проверки, production smoke promo redeem и собрать новую APK с повышенным build number.
+
 ## Telegram Loader Sticker - 2026-05-10
 
 - [x] Взять Telegram sticker `AnimatedSticker.tgs`, скопировать в Flutter assets.
 - [x] Распаковать `.tgs` в lottie-compatible `.json` для рендера внутри приложения.
 - [x] Подключить Flutter dependency `lottie`.
 - [x] Заменить текущий пульсирующий `🔮` loader на sticker animation.
+- [x] После визуальной проверки заменить `.tgs/lottie` вариант на подготовленный `gif`, потому что он отображается стабильнее.
 - [x] Сохранить механику временного bot progress-message с последующим удалением по `messageId`.
 - [x] Разрешить render loader bubble даже без текста, чтобы можно было показывать sticker отдельным сообщением.
 - [x] Прогнать `flutter analyze` по изменённому chat screen.

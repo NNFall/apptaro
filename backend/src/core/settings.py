@@ -174,7 +174,10 @@ def load_settings() -> Settings:
         font_whitelist=_split_strings(os.getenv('FONT_WHITELIST', 'Cambria,Calibri,Arial,Times New Roman')),
         fonts_dir=_resolve_path(os.getenv('FONTS_DIR', ''), default_fonts_dir),
         support_username=os.getenv('SUPPORT_USERNAME', '@your_tracksupport'),
-        support_max_url=os.getenv('SUPPORT_MAX_URL', 'https://max.ru/').strip(),
+        support_max_url=os.getenv(
+            'SUPPORT_MAX_URL',
+            'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8',
+        ).strip(),
         offer_url=os.getenv('OFFER_URL', 'https://dimonk95.github.io/slide_ai/'),
         data_dir=_resolve_path(os.getenv('DATA_DIR', ''), default_data_dir),
         database_path=_resolve_path(os.getenv('DATABASE_PATH', ''), default_database_path),

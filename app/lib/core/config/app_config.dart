@@ -1,7 +1,8 @@
 class AppConfig {
-  static const String appName = 'Таро бот';
+  static const String appName = 'Таро Расклад';
   static const String fixedBackendBaseUrl = 'http://185.171.83.116:8010';
-  static const String supportMaxUrl = 'https://max.ru/';
+  static const String supportMaxUrl =
+      'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8';
   static const String healthPath = '/v1/health';
   static const String templatesPath = '/v1/templates/presentation';
   static const String outlinePath = '/v1/presentations/outline';

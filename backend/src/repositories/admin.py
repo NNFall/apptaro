@@ -370,6 +370,7 @@ def get_all_tag_stats_full() -> list[dict[str, int | str]]:
 
 
 def create_promo_code(code: str, tokens: int, max_uses: int) -> None:
+    normalized = (code or '').strip().upper()
     with _LOCK:
         with closing(connect()) as conn:
             conn.execute(
@@ -377,7 +378,7 @@ def create_promo_code(code: str, tokens: int, max_uses: int) -> None:
                 INSERT INTO promo_codes (code, tokens, max_uses, used, is_active, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 ''',
-                (code, tokens, max_uses, 0, 1, _now()),
+                (normalized, tokens, max_uses, 0, 1, _now()),
             )
             conn.commit()
 

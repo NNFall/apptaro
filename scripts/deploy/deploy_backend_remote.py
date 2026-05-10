@@ -106,6 +106,10 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'IMAGE_GENERATION_RETRIES': local_env.get('IMAGE_GENERATION_RETRIES', '2'),
         'IMAGE_GENERATION_RETRY_DELAY_SECONDS': local_env.get('IMAGE_GENERATION_RETRY_DELAY_SECONDS', '2.0'),
         'YOOKASSA_RETURN_URL': local_env.get('YOOKASSA_RETURN_URL', 'apptaro://billing/return'),
+        'SUPPORT_MAX_URL': local_env.get(
+            'SUPPORT_MAX_URL',
+            'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8',
+        ),
         'ADMIN_BOT_HEARTBEAT_PATH': local_env.get('ADMIN_BOT_HEARTBEAT_PATH', '/tmp/admin_bot.heartbeat'),
         'ADMIN_BOT_POLLING_TIMEOUT_SECONDS': local_env.get('ADMIN_BOT_POLLING_TIMEOUT_SECONDS', '50'),
         'ADMIN_BOT_POLLING_RETRY_MAX_SECONDS': local_env.get('ADMIN_BOT_POLLING_RETRY_MAX_SECONDS', '30'),
@@ -146,6 +150,7 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'YOOKASSA_POLL_TIMEOUT',
         'YOOKASSA_TEST_MODE',
         'SUPPORT_USERNAME',
+        'SUPPORT_MAX_URL',
         'OFFER_URL',
         'AUTO_RENEW_INTERVAL',
         'ADMIN_BOT_TOKEN',

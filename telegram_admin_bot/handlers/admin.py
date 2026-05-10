@@ -272,7 +272,7 @@ async def genpromo(message: Message) -> None:
         return
     tokens = int(parts[1])
     max_uses = int(parts[2]) if len(parts) > 2 else 1
-    code = secrets.token_hex(4)
+    code = secrets.token_hex(4).upper()
     admin_repo.create_promo_code(code, tokens, max_uses)
     await message.answer(
         f'Промокод: {code}\n'

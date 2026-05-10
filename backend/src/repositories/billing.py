@@ -428,7 +428,7 @@ def redeem_promo_code(client_id: str, code: str, days: int = 3650) -> int:
                 '''
                 SELECT code, tokens, max_uses, used, is_active
                 FROM promo_codes
-                WHERE code = ?
+                WHERE UPPER(code) = ?
                 ''',
                 (normalized,),
             ).fetchone()
@@ -444,7 +444,7 @@ def redeem_promo_code(client_id: str, code: str, days: int = 3650) -> int:
                 raise ValueError('Промокод уже исчерпан')
 
             existing_use = conn.execute(
-                'SELECT 1 FROM promo_uses WHERE code = ? AND client_id = ? LIMIT 1',
+                'SELECT 1 FROM promo_uses WHERE UPPER(code) = ? AND client_id = ? LIMIT 1',
                 (normalized, client_id),
             ).fetchone()
             if existing_use is not None:
@@ -466,7 +466,7 @@ def redeem_promo_code(client_id: str, code: str, days: int = 3650) -> int:
                 UPDATE promo_codes
                 SET used = used + 1,
                     is_active = CASE WHEN used + 1 >= max_uses THEN 0 ELSE is_active END
-                WHERE code = ?
+                WHERE UPPER(code) = ?
                 ''',
                 (normalized,),
             )

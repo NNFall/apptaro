@@ -5,7 +5,6 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_scope.dart';
@@ -2729,21 +2728,13 @@ class _ChatHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
-            'Таро бот',
+            'Таро Расклад',
             style: TextStyle(
               fontSize: 13.8,
               fontWeight: FontWeight.w600,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            'бот',
-            style: TextStyle(
-              fontSize: 11,
-              color: Color(0xFF9AA1AA),
-            ),
           ),
         ],
       ),
@@ -2869,12 +2860,16 @@ class _ChatMessageCard extends StatelessWidget {
     final timeLabel = isUser
         ? '${_formatTime(message.sentAt)}  ✓✓'
         : _formatTime(message.sentAt);
+    final hasStandaloneLoading = !isUser && message.showLoadingAnimation;
     final imageAttachments = message.attachments
         .where((attachment) => attachment.kind == 'image')
         .toList(growable: false);
     final fileAttachments = message.attachments
         .where((attachment) => attachment.kind != 'image')
         .toList(growable: false);
+    final hasBubbleContent = message.text.trim().isNotEmpty ||
+        message.attachments.isNotEmpty ||
+        message.linkPreview != null;
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: LayoutBuilder(
@@ -2895,9 +2890,12 @@ class _ChatMessageCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                 ],
-                if (message.text.trim().isNotEmpty ||
-                    message.attachments.isNotEmpty ||
-                    message.showLoadingAnimation)
+                if (hasStandaloneLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6, bottom: 8),
+                    child: _MagicBallLoadingIndicator(),
+                  ),
+                if (hasBubbleContent)
                   Container(
                     decoration: BoxDecoration(
                       color: isUser ? const Color(0xFFEFFFF0) : Colors.white,
@@ -2927,11 +2925,6 @@ class _ChatMessageCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ],
-                        if (!isUser && message.showLoadingAnimation) ...[
-                          const _MagicBallLoadingIndicator(),
-                          if (message.text.trim().isNotEmpty)
-                            const SizedBox(height: 8),
                         ],
                         if (message.text.trim().isNotEmpty)
                           _MessageMarkdown(
@@ -3313,16 +3306,12 @@ class _MagicBallLoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 88,
-        height: 88,
-        child: Lottie.asset(
-          'assets/media/loading/telegram_loader.json',
-          repeat: true,
-          animate: true,
-          fit: BoxFit.contain,
-        ),
+    return SizedBox(
+      width: 88,
+      height: 88,
+      child: Image.asset(
+        'assets/media/loading/telegram_loader.gif',
+        fit: BoxFit.contain,
       ),
     );
   }

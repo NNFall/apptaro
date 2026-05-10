@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/config/app_config.dart';
 import 'app_scope.dart';
 import 'shell.dart';
 import 'theme.dart';
@@ -10,7 +11,7 @@ class AppSlidesApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Таро бот',
+      title: AppConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       home: const AppScope(
