@@ -28,7 +28,14 @@ services:
       ADMIN_DATABASE_PATH: /data/appslides.db
       ADMIN_TEMPLATES_DIR: /templates
       ADMIN_TEMP_DIR: /temp
+      ADMIN_BOT_HEARTBEAT_PATH: /tmp/admin_bot.heartbeat
     volumes:
       - ./data:/data
       - ./templates:/templates
       - ./temp:/temp
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/admin_bot.heartbeat && [ $$(($$(date +%s)-$$(stat -c %Y /tmp/admin_bot.heartbeat))) -lt 180 ]"]
+      interval: 60s
+      timeout: 10s
+      retries: 2
+      start_period: 90s

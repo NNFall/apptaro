@@ -20,6 +20,8 @@ TEMPLATES_DIR = BACKEND_DIR / 'runtime' / 'templates'
 TAROT_DIR = BACKEND_DIR / 'runtime' / 'tarot'
 ADMIN_BOT_DIR = REPO_ROOT / 'telegram_admin_bot'
 COMPOSE_FILE = REPO_ROOT / 'docker-compose.backend.yml'
+WATCHDOG_SCRIPT_NAME = 'apptaro_admin_bot_watchdog.sh'
+WATCHDOG_CRON_NAME = 'apptaro_admin_bot_watchdog'
 
 BACKEND_SKIP_PARTS = {
     '.venv',
@@ -104,6 +106,10 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'IMAGE_GENERATION_RETRIES': local_env.get('IMAGE_GENERATION_RETRIES', '2'),
         'IMAGE_GENERATION_RETRY_DELAY_SECONDS': local_env.get('IMAGE_GENERATION_RETRY_DELAY_SECONDS', '2.0'),
         'YOOKASSA_RETURN_URL': local_env.get('YOOKASSA_RETURN_URL', 'apptaro://billing/return'),
+        'ADMIN_BOT_HEARTBEAT_PATH': local_env.get('ADMIN_BOT_HEARTBEAT_PATH', '/tmp/admin_bot.heartbeat'),
+        'ADMIN_BOT_POLLING_TIMEOUT_SECONDS': local_env.get('ADMIN_BOT_POLLING_TIMEOUT_SECONDS', '50'),
+        'ADMIN_BOT_POLLING_RETRY_MAX_SECONDS': local_env.get('ADMIN_BOT_POLLING_RETRY_MAX_SECONDS', '30'),
+        'ADMIN_BOT_WATCHDOG_MAX_AGE_SECONDS': local_env.get('ADMIN_BOT_WATCHDOG_MAX_AGE_SECONDS', '180'),
         'TZ': 'Europe/Samara',
     }
 
@@ -147,6 +153,10 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'ADMIN_IDS',
         'APP_SHARE_URL',
         'MAILER_TEMPLATE_INDEX',
+        'ADMIN_BOT_HEARTBEAT_PATH',
+        'ADMIN_BOT_POLLING_TIMEOUT_SECONDS',
+        'ADMIN_BOT_POLLING_RETRY_MAX_SECONDS',
+        'ADMIN_BOT_WATCHDOG_MAX_AGE_SECONDS',
     )
     for key in passthrough_keys:
         value = local_env.get(key)
@@ -243,6 +253,65 @@ def ensure_remote_docker(remote: RemoteHost) -> None:
     remote.run('systemctl enable --now docker')
 
 
+def ensure_remote_cron(remote: RemoteHost) -> None:
+    exit_code, _, _ = remote.run('command -v cron >/dev/null 2>&1', check=False)
+    if exit_code != 0:
+        remote.run('apt-get update && apt-get install -y cron')
+    remote.run('systemctl enable --now cron')
+
+
+def _watchdog_script(remote_dir: str, heartbeat_path: str, max_age_seconds: int) -> str:
+    return f"""#!/bin/sh
+set -eu
+
+REMOTE_DIR="{remote_dir}"
+CONTAINER_NAME="apptaro_admin_bot"
+HEARTBEAT_PATH="{heartbeat_path}"
+MAX_AGE_SECONDS="{max_age_seconds}"
+
+if ! docker ps --format '{{{{.Names}}}}' | grep -qx "$CONTAINER_NAME"; then
+  exit 0
+fi
+
+AGE="$(docker exec "$CONTAINER_NAME" sh -lc '
+if [ -f "$1" ]; then
+  now=$(date +%s)
+  hb=$(stat -c %Y "$1")
+  echo $((now-hb))
+else
+  echo 999999
+fi
+' -- "$HEARTBEAT_PATH" 2>/dev/null || echo 999999)"
+
+if [ "$AGE" -gt "$MAX_AGE_SECONDS" ]; then
+  cd "$REMOTE_DIR"
+  docker compose restart apptaro_admin_bot >/dev/null 2>&1 || true
+fi
+"""
+
+
+def install_admin_bot_watchdog(
+    remote: RemoteHost,
+    remote_dir: str,
+    *,
+    heartbeat_path: str,
+    max_age_seconds: int,
+) -> None:
+    script_remote_path = posixpath.join(remote_dir, WATCHDOG_SCRIPT_NAME)
+    cron_remote_path = f'/etc/cron.d/{WATCHDOG_CRON_NAME}'
+    remote.upload_text(
+        _watchdog_script(remote_dir, heartbeat_path, max_age_seconds),
+        script_remote_path,
+    )
+    remote.run(f"chmod +x '{script_remote_path}'")
+    cron_content = (
+        f"*/2 * * * * root {script_remote_path} >> /var/log/{WATCHDOG_CRON_NAME}.log 2>&1\n"
+    )
+    remote.upload_text(cron_content, cron_remote_path)
+    remote.run(f"chmod 644 '{cron_remote_path}'")
+    remote.run('systemctl restart cron')
+
+
 def deploy(remote: RemoteHost, remote_dir: str, remote_env: str) -> None:
     backend_remote = posixpath.join(remote_dir, 'backend')
     admin_bot_remote = posixpath.join(remote_dir, 'telegram_admin_bot')
@@ -335,9 +404,16 @@ def main() -> int:
     remote = RemoteHost(args.host, args.user, args.password, args.port)
     try:
         ensure_remote_docker(remote)
+        ensure_remote_cron(remote)
         host_port = choose_host_port(remote)
         remote_env = build_remote_env(local_env, host_port)
         deploy(remote, args.remote_dir, remote_env)
+        install_admin_bot_watchdog(
+            remote,
+            args.remote_dir,
+            heartbeat_path=local_env.get('ADMIN_BOT_HEARTBEAT_PATH', '/tmp/admin_bot.heartbeat'),
+            max_age_seconds=int(local_env.get('ADMIN_BOT_WATCHDOG_MAX_AGE_SECONDS', '180') or 180),
+        )
         health_payload = wait_for_health(remote, args.remote_dir, host_port)
         _, ps_out, _ = remote.run(f"cd '{args.remote_dir}' && docker compose ps")
         print(f'Host port: {host_port}')

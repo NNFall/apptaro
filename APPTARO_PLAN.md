@@ -1,5 +1,17 @@
 # APPTARO Plan
 
+## Admin Bot Polling Recovery - 2026-05-10
+
+- [x] Проверить текущую причину "команды не доходят": контейнер жив, но polling к Telegram не контролируется отдельным health-механизмом.
+- [x] Добавить в admin-бот `delete_webhook(drop_pending_updates=False)` перед polling.
+- [x] Заменить `dp.start_polling(bot)` на managed `get_updates` loop с retry/backoff и `dp.feed_update(...)`.
+- [x] Добавить heartbeat-файл после успешного ответа Telegram API.
+- [x] Добавить docker healthcheck по возрасту heartbeat.
+- [x] Добавить host-side cron watchdog, который перезапускает `apptaro_admin_bot`, если heartbeat stale.
+- [x] Прогнать локальные проверки admin-бота и deploy-скрипта.
+- [ ] Закоммитить и запушить изменения.
+- [ ] Выкатить на сервер и проверить watchdog/health.
+
 ## Friendly Network Errors + Retry Flow - 2026-05-08
 
 - [x] Добавить детектор сетевых ошибок для tarot presentation flow (`ClientException`, `SocketException`, `timeout`, `connection abort`, `connection closed`).

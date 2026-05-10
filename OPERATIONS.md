@@ -57,6 +57,7 @@ The deploy script:
 - uploads `backend/`, `telegram_admin_bot/`, tarot runtime assets, `docker-compose.yml` and `.env`
 - keeps persistent data outside the container
 - rebuilds and restarts Docker Compose
+- installs host-side cron watchdog for `apptaro_admin_bot`
 - expects the public port to remain `8010`
 
 ## Local Validation Before Push
@@ -94,3 +95,4 @@ python -c "import telegram_admin_bot.main; print('admin bot import ok')"
 - Successful payment should now be reflected both on app resume and on later summary/generation checks because the backend auto-syncs unfinished payments.
 - The separate `telegram_admin_bot/` works against the same SQLite database as the backend and uses `client_id` for subscription commands.
 - The production compose stack now includes both `apptaro_backend` and `apptaro_admin_bot`.
+- The admin bot now writes heartbeat file `/tmp/admin_bot.heartbeat` after successful `getUpdates`; server cron restarts the container if heartbeat gets stale.

@@ -39,6 +39,9 @@ class AdminBotConfig:
     bot_username: str
     app_share_url: str
     mailer_template_index: int
+    heartbeat_path: Path
+    polling_timeout_seconds: int
+    polling_retry_max_seconds: int
 
 
 def load_config() -> AdminBotConfig:
@@ -57,6 +60,7 @@ def load_config() -> AdminBotConfig:
         'TEMP_DIR',
         str(default_temp_dir),
     )
+    heartbeat_path = os.getenv('ADMIN_BOT_HEARTBEAT_PATH', '/tmp/admin_bot.heartbeat').strip()
     return AdminBotConfig(
         bot_token=os.getenv('ADMIN_BOT_TOKEN', '').strip(),
         admin_ids=_split_ints(os.getenv('ADMIN_IDS', '')),
@@ -66,4 +70,7 @@ def load_config() -> AdminBotConfig:
         bot_username=os.getenv('ADMIN_BOT_USERNAME', '').strip(),
         app_share_url=os.getenv('APP_SHARE_URL', '').strip(),
         mailer_template_index=int(os.getenv('MAILER_TEMPLATE_INDEX', '5') or 5),
+        heartbeat_path=Path(heartbeat_path),
+        polling_timeout_seconds=int(os.getenv('ADMIN_BOT_POLLING_TIMEOUT_SECONDS', '50') or 50),
+        polling_retry_max_seconds=int(os.getenv('ADMIN_BOT_POLLING_RETRY_MAX_SECONDS', '30') or 30),
     )
