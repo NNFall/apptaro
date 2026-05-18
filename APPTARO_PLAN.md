@@ -1,5 +1,13 @@
 # APPTARO Plan
 
+## RuStore YooKassa + Offer - 2026-05-18
+
+- [x] Обновить RuStore YooKassa shop id в локальном env и production env.
+- [x] Обновить YooKassa live secret в локальном env и production env без коммита секрета в git.
+- [x] Заменить offer URL на `https://dimonk95.github.io/tarobotrustore/`.
+- [x] Выкатить backend на сервер и проверить `/v1/billing/summary`.
+- [x] Проверить production env внутри backend container: shop id корректный, secret совпадает, offer URL корректный.
+
 ## Backend Push + Promo + Branding - 2026-05-10
 
 - [x] Проверить, почему admin push-уведомления приходят не в того Telegram-бота.
