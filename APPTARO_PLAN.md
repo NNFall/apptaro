@@ -1,5 +1,17 @@
 # APPTARO Plan
 
+## Production DB Reset - 2026-05-31
+
+- [x] Created production SQLite backup before launch cleanup.
+- [x] Backup path: `/root/apptaro/backups/db/20260531-182741/appslides.db`.
+- [x] Saved backup manifest, integrity check, checksums, table list, and pre-reset table counts.
+- [x] Preserved old production DB on server as `/root/apptaro/data/appslides.db.before-clean-20260531-182741`.
+- [x] Started a new clean SQLite DB at `/root/apptaro/data/appslides.db`.
+- [x] Verified clean DB schema exists and product/statistics tables are empty.
+- [x] Restarted only `apptaro_backend` and `apptaro_admin_bot`.
+- [x] Verified backend health: `GET /v1/health` returns `status=ok`.
+- [x] Verified Docker status: `apptaro_backend` is up, `apptaro_admin_bot` is up and healthy.
+
 ## RuStore YooKassa + Offer - 2026-05-18
 
 - [x] Обновить RuStore YooKassa shop id в локальном env и production env.
