@@ -55,6 +55,14 @@ def parse_args() -> argparse.Namespace:
             f'<remote-dir>/data/{GOOGLE_PLAY_SERVICE_ACCOUNT_FILENAME}.'
         ),
     )
+    parser.add_argument(
+        '--backend-only',
+        action='store_true',
+        help=(
+            'Deploy and restart only pmapptaro_backend. Use this while the Google Play '
+            'admin bot does not have a unique Telegram token yet.'
+        ),
+    )
     return parser.parse_args()
 
 
@@ -479,6 +487,34 @@ def deploy(
     remote.run(f"cd '{remote_dir}' && docker compose up -d --build --remove-orphans")
 
 
+def deploy_backend_only(
+    remote: RemoteHost,
+    remote_dir: str,
+    remote_env: str,
+    google_play_service_account_file: Path | None = None,
+) -> None:
+    backend_remote = posixpath.join(remote_dir, 'backend')
+    templates_remote = posixpath.join(remote_dir, 'templates')
+    tarot_remote = posixpath.join(remote_dir, 'tarot')
+    remote.ensure_dir(remote_dir)
+    for name in ('data', 'temp', 'logs', 'templates', 'tarot'):
+        remote.ensure_dir(posixpath.join(remote_dir, name))
+
+    upload_google_play_service_account(remote, remote_dir, google_play_service_account_file)
+
+    for path in (backend_remote, templates_remote, tarot_remote):
+        remote.remove_tree(path)
+
+    remote.upload_tree(BACKEND_DIR, backend_remote, skip_backend_filters=True)
+    remote.ensure_dir(templates_remote)
+    remote.upload_tree(TEMPLATES_DIR, templates_remote)
+    remote.upload_tree(TAROT_DIR, tarot_remote)
+    remote.upload_file(COMPOSE_FILE, posixpath.join(remote_dir, 'docker-compose.yml'))
+    remote.upload_text(remote_env, posixpath.join(remote_dir, '.env'))
+
+    remote.run(f"cd '{remote_dir}' && docker compose up -d --build {BACKEND_SERVICE_NAME}")
+
+
 def wait_for_health(remote: RemoteHost, remote_dir: str, host_port: int, timeout_seconds: int = 180) -> str:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
@@ -531,17 +567,20 @@ def main() -> int:
     remote = RemoteHost(args.host, args.user, args.password, args.port)
     try:
         ensure_remote_docker(remote)
-        ensure_remote_cron(remote)
         host_port = choose_host_port(remote)
         remote_env = build_remote_env(local_env, host_port)
-        ensure_remote_admin_bot_token_is_unique(remote, args.remote_dir, remote_env)
-        deploy(remote, args.remote_dir, remote_env, google_play_service_account_file)
-        install_admin_bot_watchdog(
-            remote,
-            args.remote_dir,
-            heartbeat_path=local_env.get('ADMIN_BOT_HEARTBEAT_PATH', '/tmp/admin_bot.heartbeat'),
-            max_age_seconds=int(local_env.get('ADMIN_BOT_WATCHDOG_MAX_AGE_SECONDS', '180') or 180),
-        )
+        if args.backend_only:
+            deploy_backend_only(remote, args.remote_dir, remote_env, google_play_service_account_file)
+        else:
+            ensure_remote_cron(remote)
+            ensure_remote_admin_bot_token_is_unique(remote, args.remote_dir, remote_env)
+            deploy(remote, args.remote_dir, remote_env, google_play_service_account_file)
+            install_admin_bot_watchdog(
+                remote,
+                args.remote_dir,
+                heartbeat_path=local_env.get('ADMIN_BOT_HEARTBEAT_PATH', '/tmp/admin_bot.heartbeat'),
+                max_age_seconds=int(local_env.get('ADMIN_BOT_WATCHDOG_MAX_AGE_SECONDS', '180') or 180),
+            )
         health_payload = wait_for_health(remote, args.remote_dir, host_port)
         _, ps_out, _ = remote.run(f"cd '{args.remote_dir}' && docker compose ps")
         print(f'Host port: {host_port}')

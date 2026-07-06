@@ -70,6 +70,20 @@ Conflict: terminated by other getUpdates request
 
 The deploy script checks `/root/*/.env` and stops deployment if the same admin bot token is already used by another project.
 
+If the Google Play backend must be updated before a separate admin bot token is ready, use backend-only deploy. It does not start or restart `pmapptaro_admin_bot`, does not install the watchdog, and only rebuilds `pmapptaro_backend`:
+
+```powershell
+python scripts/deploy/deploy_backend_remote.py `
+  --host 185.171.83.116 `
+  --user root `
+  --password "<server-password>" `
+  --remote-dir /root/PMapptaro `
+  --google-play-service-account-file "C:\path\to\service-account.json" `
+  --backend-only
+```
+
+This mode is temporary. Full Google Play stack completion still requires a unique `ADMIN_BOT_TOKEN` and a normal deploy without `--backend-only`.
+
 ## Deploy
 
 From the project root:

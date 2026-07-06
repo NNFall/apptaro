@@ -61,6 +61,23 @@ The deploy script:
 - installs host-side cron watchdog for `pmapptaro_admin_bot`
 - expects the public port to remain `8022`
 
+## Backend-Only Deploy
+
+Use this only while the Google Play admin bot does not have a unique Telegram token yet, or when intentionally updating only the API service:
+
+```powershell
+python scripts\deploy\deploy_backend_remote.py `
+  --host 185.171.83.116 `
+  --user root `
+  --password <SERVER_PASSWORD> `
+  --port 22 `
+  --remote-dir /root/PMapptaro `
+  --google-play-service-account-file <GOOGLE_PLAY_SERVICE_ACCOUNT_JSON> `
+  --backend-only
+```
+
+This uploads backend/runtime assets, writes `/root/PMapptaro/.env`, uploads the Google Play service-account JSON when provided, rebuilds only `pmapptaro_backend`, and checks `/v1/health`. It does not start `pmapptaro_admin_bot` and does not install or update the admin-bot watchdog.
+
 ## Local Validation Before Push
 
 ### Backend
