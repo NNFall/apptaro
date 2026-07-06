@@ -1,5 +1,5 @@
-import 'package:appslides/data/repositories/language_repository.dart';
-import 'package:appslides/l10n/app_language.dart';
+import 'package:apptaro/data/repositories/language_repository.dart';
+import 'package:apptaro/l10n/app_language.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

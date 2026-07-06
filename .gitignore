@@ -36,6 +36,10 @@ app/.flutter-plugins
 app/.flutter-plugins-dependencies
 app/build/
 app/android/.kotlin/
+app/android/key.properties
+app/android/app/upload-keystore.jks
+*.jks
+*.keystore
 app/.pub/
 
 emulator-apptaro-*.log

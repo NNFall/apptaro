@@ -1,5 +1,5 @@
-import 'package:appslides/l10n/app_language.dart';
-import 'package:appslides/l10n/app_localizations.dart';
+import 'package:apptaro/l10n/app_language.dart';
+import 'package:apptaro/l10n/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

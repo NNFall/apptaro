@@ -16,7 +16,7 @@
 - Working directory: `D:\papka for all\work\PMapptaro`.
 - Repository: `https://github.com/NNFall/apptaro.git`.
 - Android package: `com.apptaro.app`.
-- Flutter version: `0.1.0+6`.
+- Flutter version: `0.1.0+7`.
 - Current backend URL: `http://185.171.83.116:8022`.
 - Current billing: Google Play Billing in Flutter with backend token verification.
 - Current release signing: debug signing config.
@@ -633,7 +633,7 @@ Container path:
 - Create: `app/android/key.properties.example`
 - Create: `GOOGLE_PLAY_RELEASE_CHECKLIST.md`
 
-- [ ] **Step 1: Add release signing config**
+- [x] **Step 1: Add release signing config**
 
 Gradle should read `key.properties`:
 
@@ -645,7 +645,7 @@ if (keystorePropertiesFile.exists()) {
 }
 ```
 
-- [ ] **Step 2: Keep secrets ignored**
+- [x] **Step 2: Keep secrets ignored**
 
 Ensure ignored:
 
@@ -656,7 +656,7 @@ app/android/app/upload-keystore.jks
 *.keystore
 ```
 
-- [ ] **Step 3: Build AAB**
+- [x] **Step 3: Build AAB**
 
 Run:
 

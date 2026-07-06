@@ -1,4 +1,4 @@
-import 'package:appslides/features/home/home_screen.dart';
+import 'package:apptaro/features/home/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
