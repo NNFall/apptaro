@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../../core/config/app_config.dart';
-import '../../domain/models/billing_payment.dart';
 import '../../domain/models/billing_summary.dart';
 import '../../domain/models/outline_result.dart';
 import '../../domain/models/presentation_template.dart';
@@ -174,25 +173,6 @@ class AppSlidesApiClient {
   Future<BillingSummary> fetchBillingSummary() async {
     final payload = await _getJsonMap(AppConfig.billingSummaryPath);
     return BillingSummary.fromJson(payload);
-  }
-
-  Future<BillingPayment> createBillingPayment({
-    required String planKey,
-    bool renew = false,
-  }) async {
-    final payload = await _postJson(
-      path: AppConfig.billingPaymentsPath,
-      body: <String, Object>{
-        'plan_key': planKey,
-        'context': renew ? 'renew' : 'new',
-      },
-    );
-    return BillingPayment.fromJson(payload);
-  }
-
-  Future<BillingPayment> getBillingPayment(String paymentId) async {
-    final payload = await _getJsonMap(AppConfig.billingPaymentPath(paymentId));
-    return BillingPayment.fromJson(payload);
   }
 
   Future<BillingSummary> cancelBillingSubscription() async {

@@ -11,7 +11,6 @@ class AppConfig {
   static const String presentationJobsPath = '/v1/presentations/jobs';
   static const String conversionJobsPath = '/v1/conversions/jobs';
   static const String billingSummaryPath = '/v1/billing/summary';
-  static const String billingPaymentsPath = '/v1/billing/payments';
   static const String billingGooglePlayVerifyPath =
       '/v1/billing/google-play/verify';
   static const String billingPromoRedeemPath = '/v1/billing/promo/redeem';
@@ -29,9 +28,6 @@ class AppConfig {
 
   static String conversionDownloadPath(String jobId) =>
       '${conversionJobPath(jobId)}/download';
-
-  static String billingPaymentPath(String paymentId) =>
-      '$billingPaymentsPath/$paymentId';
 
   static String get defaultBackendBaseUrl => fixedBackendBaseUrl;
 

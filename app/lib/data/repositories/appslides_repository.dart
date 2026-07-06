@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import '../../domain/models/billing_payment.dart';
 import '../../domain/models/billing_summary.dart';
 import '../../domain/models/outline_result.dart';
 import '../../domain/models/presentation_template.dart';
@@ -106,20 +105,6 @@ class AppSlidesRepository {
   }
 
   Future<BillingSummary> fetchBillingSummary() => _api.fetchBillingSummary();
-
-  Future<BillingPayment> createBillingPayment({
-    required String planKey,
-    bool renew = false,
-  }) {
-    return _api.createBillingPayment(
-      planKey: planKey,
-      renew: renew,
-    );
-  }
-
-  Future<BillingPayment> getBillingPayment(String paymentId) {
-    return _api.getBillingPayment(paymentId);
-  }
 
   Future<BillingSummary> cancelBillingSubscription() {
     return _api.cancelBillingSubscription();

@@ -25,8 +25,6 @@ class BillingController extends ChangeNotifier {
   bool _creatingPayment = false;
   bool _canceling = false;
   String? _error;
-  bool _pollingInFlight = false;
-  bool _paymentPollingTimedOut = false;
 
   BillingSummary? get summary => _summary;
   BillingPayment? get payment => _payment;
@@ -34,7 +32,6 @@ class BillingController extends ChangeNotifier {
   bool get creatingPayment => _creatingPayment;
   bool get canceling => _canceling;
   String? get error => _error;
-  bool get paymentPollingTimedOut => _paymentPollingTimedOut;
 
   Future<void> initialize() async {
     if (_summary != null || _loadingSummary) {
@@ -91,28 +88,6 @@ class BillingController extends ChangeNotifier {
     } finally {
       _creatingPayment = false;
       notifyListeners();
-    }
-  }
-
-  Future<void> pollPayment(String paymentId) async {
-    if (_pollingInFlight) {
-      return;
-    }
-
-    _pollingInFlight = true;
-    try {
-      final payment = await _repository.getBillingPayment(paymentId);
-      _payment = payment;
-      _summary = payment.summary;
-      if (payment.isFinished) {
-        _paymentPollingTimedOut = false;
-      }
-      notifyListeners();
-    } catch (error) {
-      _error = _describeError(error);
-      notifyListeners();
-    } finally {
-      _pollingInFlight = false;
     }
   }
 
@@ -180,21 +155,14 @@ class BillingController extends ChangeNotifier {
   }
 
   void clearPayment() {
-    _resetPollingState();
     _payment = null;
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _resetPollingState();
     unawaited(_googlePlayBillingService.dispose());
     super.dispose();
-  }
-
-  void _resetPollingState() {
-    _pollingInFlight = false;
-    _paymentPollingTimedOut = false;
   }
 
   String _describeError(Object error) {

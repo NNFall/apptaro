@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -14,7 +13,6 @@ import '../../data/repositories/chat_transcript_repository.dart';
 import '../../data/repositories/client_session_repository.dart';
 import '../../data/repositories/local_history_repository.dart';
 import '../../data/repositories/saved_files_repository.dart';
-import '../../domain/models/billing_payment.dart';
 import '../../domain/models/billing_plan.dart';
 import '../../domain/models/billing_summary.dart';
 import '../../domain/models/chat_transcript_entry.dart';
@@ -54,11 +52,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   _ComposerMode _composerMode = _ComposerMode.idle;
   bool _didSeedConversation = false;
   bool _didRestoreTranscript = false;
-  bool _didInitializeDeepLinks = false;
-  bool _billingReturnInFlight = false;
   int _messageCounter = 0;
-  StreamSubscription<Uri>? _deepLinkSubscription;
-  String? _lastHandledBillingReturnKey;
   String? _lastPresentationOutlineKey;
   String? _lastPresentationTeaserKey;
   String? _lastPresentationError;
@@ -68,7 +62,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _lastConverterStatusKey;
   String? _lastConverterResultKey;
   String? _lastBillingPaymentStatusKey;
-  String? _lastBillingTimeoutPaymentId;
   String? _outlineProgressMessageId;
   String? _renderPreparationMessageId;
   String? _presentationStatusMessageId;
@@ -155,11 +148,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _historyRepository!.addListener(_handleExternalStateChanged);
     _savedFilesRepository!.addListener(_handleExternalStateChanged);
 
-    if (!_didInitializeDeepLinks) {
-      _didInitializeDeepLinks = true;
-      unawaited(_initializeIncomingLinks());
-    }
-
     unawaited(_restoreTranscript());
   }
 
@@ -176,7 +164,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chatTranscriptRepository?.removeListener(_handleExternalStateChanged);
     _historyRepository?.removeListener(_handleExternalStateChanged);
     _savedFilesRepository?.removeListener(_handleExternalStateChanged);
-    _deepLinkSubscription?.cancel();
     _composerController.dispose();
     _composerFocusNode.dispose();
     _scrollController.dispose();
@@ -334,12 +321,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
-    final payment = billingController.payment;
-    if (payment != null && !payment.isFinished) {
-      await billingController.pollPayment(payment.paymentId);
-      return;
-    }
-
     if (_pendingTemplateAfterPayment == null) {
       return;
     }
@@ -348,91 +329,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final summary = billingController.summary;
     if (summary != null && summary.remainingGenerations > 0) {
       await _resumePendingPresentationAfterPayment();
-    }
-  }
-
-  Future<void> _initializeIncomingLinks() async {
-    if (kIsWeb) {
-      return;
-    }
-
-    final appLinks = AppLinks();
-    try {
-      final initialLink = await appLinks.getInitialLink();
-      if (initialLink != null) {
-        await _handleIncomingUri(initialLink);
-      }
-    } catch (_) {}
-
-    _deepLinkSubscription = appLinks.uriLinkStream.listen(
-      (uri) => unawaited(_handleIncomingUri(uri)),
-      onError: (_) {},
-    );
-  }
-
-  Future<void> _handleIncomingUri(Uri uri) async {
-    if (!_isBillingReturnUri(uri)) {
-      return;
-    }
-
-    final uriKey = uri.toString();
-    if (_billingReturnInFlight || _lastHandledBillingReturnKey == uriKey) {
-      return;
-    }
-
-    _billingReturnInFlight = true;
-    _lastHandledBillingReturnKey = uriKey;
-    try {
-      await _handleBillingReturn();
-    } finally {
-      _billingReturnInFlight = false;
-    }
-  }
-
-  bool _isBillingReturnUri(Uri uri) {
-    if (uri.scheme != 'apptaro' && uri.scheme != 'appslides') {
-      return false;
-    }
-    if (uri.host != 'billing') {
-      return false;
-    }
-    return uri.path == '/return' ||
-        uri.path == '/return/' ||
-        uri.path.startsWith('/return/');
-  }
-
-  Future<void> _handleBillingReturn() async {
-    final billingController = _billingController;
-    if (billingController == null) {
-      return;
-    }
-
-    final payment = billingController.payment;
-    if (payment != null && !payment.isFinished) {
-      await billingController.pollPayment(payment.paymentId);
-      return;
-    }
-
-    await billingController.refreshSummary();
-    final summary = billingController.summary;
-    if (summary == null) {
-      return;
-    }
-
-    if (_pendingTemplateAfterPayment != null &&
-        summary.remainingGenerations > 0) {
-      await _resumePendingPresentationAfterPayment();
-      return;
-    }
-
-    if (summary.remainingGenerations > 0) {
-      _appendBotMessage(
-        _copy(
-          en: '✅ **Payment return completed**\nYour subscription status has been updated.',
-          ru: '✅ **Возврат из YooKassa выполнен**\nСтатус подписки обновлён.',
-        ),
-        keyboard: _mainMenuOnlyKeyboard(),
-      );
     }
   }
 
@@ -1392,22 +1288,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     final payment = controller.payment;
-    if (payment != null &&
-        controller.paymentPollingTimedOut &&
-        !payment.isFinished &&
-        payment.paymentId != _lastBillingTimeoutPaymentId) {
-      _lastBillingTimeoutPaymentId = payment.paymentId;
-      _appendBotMessage(
-        _copy(
-          en: '⌛ **Payment is not confirmed yet**\n'
-              'I will keep checking the payment status automatically.',
-          ru: '⌛ **Оплата ещё не подтверждена**\n'
-              'Я продолжаю автоматически проверять статус оплаты.',
-        ),
-        keyboard: _buildPendingPaymentKeyboard(payment),
-      );
-    }
-
     if (payment != null) {
       final statusKey = '${payment.paymentId}:${payment.status}';
       if (statusKey != _lastBillingPaymentStatusKey) {
@@ -1415,20 +1295,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         switch (payment.status) {
           case 'pending':
           case 'waiting_for_capture':
-            _clearBillingProgressMessage();
-            _appendBotMessage(
-              _copy(
-                en: '💳 **Payment created**\nOpen the payment page and complete the purchase. Status will update automatically.',
-                ru: '💳 **Счёт создан**\nОткрой YooKassa и оплати тариф. Статус обновится автоматически.',
-              ),
-              keyboard: _buildPendingPaymentKeyboard(payment),
-            );
-            if (payment.confirmationUrl case final confirmationUrl?) {
-              unawaited(_launchPaymentUrl(confirmationUrl));
-            }
             break;
           case 'paid':
-            _lastBillingTimeoutPaymentId = null;
             _clearBillingProgressMessage();
             _appendBotMessage(
               _buildPaymentSuccessText(payment.summary),
@@ -1448,7 +1316,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             }
             break;
           case 'canceled':
-            _lastBillingTimeoutPaymentId = null;
             _clearBillingProgressMessage();
             _appendBotMessage(
               _copy(en: '❌ Payment canceled.', ru: '❌ Оплата отменена.'),
@@ -1472,7 +1339,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             );
             break;
           case 'failed':
-            _lastBillingTimeoutPaymentId = null;
             _clearBillingProgressMessage();
             _appendBotMessage(
               _copy(
@@ -1539,11 +1405,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           active.autoRenew
               ? _copy(
                   en: 'Auto-renewal is enabled.',
-                  ru: 'Автопродление через YooKassa включено.',
+                  ru: 'Автопродление включено.',
                 )
               : _copy(
                   en: 'Auto-renewal is disabled.',
-                  ru: 'Автопродление через YooKassa отключено.',
+                  ru: 'Автопродление отключено.',
                 ),
         );
       }
@@ -1591,7 +1457,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       buffer.writeln();
       buffer.writeln(_copy(
         en: '_Payment test mode is enabled._',
-        ru: '_Тестовый режим YooKassa включён._',
+        ru: '_Тестовый режим оплаты включён._',
       ));
     }
 
@@ -1628,31 +1494,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ]);
     }
 
-    rows.add([
-      _action(
-        _mainMenuLabel,
-        _showMainMenu,
-        actionKey: 'show_main_menu',
-        echoAsUser: false,
-      ),
-    ]);
-    return rows;
-  }
-
-  List<List<_ChatAction>> _buildPendingPaymentKeyboard(BillingPayment payment) {
-    final rows = <List<_ChatAction>>[];
-    if (payment.confirmationUrl != null) {
-      rows.add([
-        _action(
-          _copy(en: '💳 Pay', ru: '💳 Оплатить'),
-          () async => _launchPaymentUrl(payment.confirmationUrl!),
-          actionKey: 'launch_payment_url',
-          payload: <String, dynamic>{
-            'url': payment.confirmationUrl!,
-          },
-        ),
-      ]);
-    }
     rows.add([
       _action(
         _mainMenuLabel,
@@ -1862,13 +1703,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     _lastBillingPaymentStatusKey = null;
-    _lastBillingTimeoutPaymentId = null;
     controller.clearPayment();
     _clearBillingProgressMessage();
     _billingProgressMessageId = _appendBotMessage(
       _copy(
         en: '_Opening Google Play checkout..._',
-        ru: '_Создаю счёт на оплату..._',
+        ru: '_Открываю оплату Google Play..._',
       ),
       showLoadingAnimation: true,
     );
@@ -1877,14 +1717,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _clearBillingProgressMessage();
       _appendBotMessage('❌ ${controller.error!}');
     }
-  }
-
-  Future<void> _checkBillingPayment(String paymentId) async {
-    final controller = _billingController;
-    if (controller == null) {
-      return;
-    }
-    await controller.pollPayment(paymentId);
   }
 
   Future<void> _cancelBillingSubscription() async {
@@ -2091,27 +1923,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ];
       case PresentationFailureStage.none:
         return _mainMenuOnlyKeyboard();
-    }
-  }
-
-  Future<void> _launchPaymentUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      _appendBotMessage(_copy(
-        en: 'Payment link:\n$url',
-        ru: 'Ссылка на оплату:\n$url',
-      ));
-      return;
-    }
-
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!launched) {
-      _appendBotMessage(
-        _copy(
-          en: 'Could not open the link automatically.\nOpen it manually:\n$url',
-          ru: 'Не удалось открыть ссылку автоматически.\nОткрой её вручную:\n$url',
-        ),
-      );
     }
   }
 
@@ -2723,20 +2534,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         break;
       case 'cancel_billing_subscription':
         callback = _cancelBillingSubscription;
-        break;
-      case 'launch_payment_url':
-        final url = action.payload['url'] as String?;
-        if (url == null || url.isEmpty) {
-          return null;
-        }
-        callback = () => _launchPaymentUrl(url);
-        break;
-      case 'check_billing_payment':
-        final paymentId = action.payload['payment_id'] as String?;
-        if (paymentId == null || paymentId.isEmpty) {
-          return null;
-        }
-        callback = () => _checkBillingPayment(paymentId);
         break;
       default:
         return null;
