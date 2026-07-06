@@ -47,7 +47,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             SectionCard(
               title: 'Saved files',
               subtitle: savedEntries.isEmpty
-                  ? 'Saved JPG, TXT, PDF, DOCX, or PPTX results will appear here.'
+                  ? 'Saved tarot images and text readings will appear here.'
                   : 'Files are stored in the app sandbox and stay available without another backend request.',
             ),
             const SizedBox(height: 16),
@@ -63,8 +63,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             else if (savedEntries.isEmpty)
               const SectionCard(
                 title: 'No local files yet',
-                subtitle:
-                    'Save a reading or conversion result to show it here.',
+                subtitle: 'Save a tarot reading result to show it here.',
               )
             else
               ...savedEntries.map(
@@ -97,7 +96,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SectionCard(
                 title: 'History is empty',
                 subtitle:
-                    'Ask a question, generate a reading, or start a conversion job to create records.',
+                    'Ask a question or generate a reading to create records.',
               )
             else
               ...entries.map(
@@ -225,14 +224,14 @@ class _SavedFileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final sourceLabel = switch (entry.sourceType) {
-      SavedFileSourceType.presentationArtifact => 'presentation',
-      SavedFileSourceType.conversionArtifact => 'conversion',
+      SavedFileSourceType.presentationArtifact => 'tarot reading',
+      SavedFileSourceType.conversionArtifact => 'saved file',
     };
 
     return SectionCard(
       title: entry.filename,
       subtitle:
-          '${entry.kind.toUpperCase()} · ${_formatFileSize(entry.sizeBytes)} · $sourceLabel',
+          '${entry.kind.toUpperCase()} - ${_formatFileSize(entry.sizeBytes)} - $sourceLabel',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
