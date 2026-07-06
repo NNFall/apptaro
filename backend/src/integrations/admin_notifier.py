@@ -125,6 +125,26 @@ class AdminNotifier:
             f"{_bold('Тариф:')} {html.escape(plan_title)}"
         )
 
+    async def notify_google_play_purchase(
+        self,
+        *,
+        client_id: str,
+        plan_key: str,
+        plan_title: str,
+        tokens: int,
+        product_id: str,
+        order_id: str,
+        restored: bool,
+    ) -> None:
+        title = 'Google Play restore' if restored else 'Google Play purchase'
+        await self.notify(
+            f"{_bold(title)}\n"
+            f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
+            f"{_bold('Plan:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} readings)\n"
+            f"{_bold('Product ID:')} {_code(product_id)}\n"
+            f"{_bold('Order ID:')} {_code(order_id or '-')}"
+        )
+
     async def notify_promo_redeemed(self, *, client_id: str, promo_code: str, tokens: int) -> None:
         await self.notify(
             f"{_bold('🎁 Промокод активирован')}\n"

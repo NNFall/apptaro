@@ -128,6 +128,10 @@ class Settings:
     yookassa_payment_mode: str
     yookassa_test_mode: bool
     auto_renew_interval: int
+    google_play_package_name: str
+    google_play_service_account_file: str
+    google_play_service_account_json: str
+    google_play_test_mode: bool
     admin_bot_token: str
     admin_ids: list[str]
 
@@ -203,6 +207,10 @@ def load_settings() -> Settings:
         yookassa_payment_mode=os.getenv('YOOKASSA_PAYMENT_MODE', 'full_prepayment') or 'full_prepayment',
         yookassa_test_mode=os.getenv('YOOKASSA_TEST_MODE', '1') == '1',
         auto_renew_interval=int(os.getenv('AUTO_RENEW_INTERVAL', '60')),
+        google_play_package_name=os.getenv('GOOGLE_PLAY_PACKAGE_NAME', 'com.apptaro.app').strip(),
+        google_play_service_account_file=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_FILE', '').strip(),
+        google_play_service_account_json=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', '').strip(),
+        google_play_test_mode=os.getenv('GOOGLE_PLAY_TEST_MODE', '0') == '1',
         admin_bot_token=os.getenv('ADMIN_BOT_TOKEN', '').strip(),
         admin_ids=_split_strings(os.getenv('ADMIN_IDS', '')),
     )

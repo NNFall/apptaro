@@ -1597,7 +1597,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     buffer.writeln();
     buffer.writeln(_copy(
-      en: 'By continuing to payment, you agree to the [terms](${summary.offerUrl}).',
+      en: 'Payment is handled securely by Google Play. By continuing, you agree to the [terms](${summary.offerUrl}).',
       ru: 'Переходя к оплате, вы соглашаетесь с [офертой](${summary.offerUrl}).',
     ));
     return buffer.toString().trim();
@@ -1607,7 +1607,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final rows = <List<_ChatAction>>[];
     final active = summary.activeSubscription;
 
-    if (active != null && active.isActive && active.autoRenew) {
+    if (active != null &&
+        active.isActive &&
+        active.autoRenew &&
+        active.provider == 'yookassa') {
       rows.add([
         _action(
           _copy(en: '❌ Cancel subscription', ru: '❌ Отключить подписку'),
@@ -1864,7 +1867,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _clearBillingProgressMessage();
     _billingProgressMessageId = _appendBotMessage(
       _copy(
-        en: '_Creating payment..._',
+        en: '_Opening Google Play checkout..._',
         ru: '_Создаю счёт на оплату..._',
       ),
       showLoadingAnimation: true,
@@ -2128,7 +2131,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'one10' => '⭐ ${_planTariffLine(plan)}',
       'one40' => '⭐ ${_planTariffLine(plan)}',
       _ => _copy(
-          en: '${plan.priceRub} ₽ — ${plan.limit} readings',
+          en: '${plan.limit} readings',
           ru: '${plan.priceRub} ₽ — ${plan.limit} раскладов',
         ),
     };
@@ -2137,23 +2140,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _planTariffLine(BillingPlan plan) {
     return switch (plan.key) {
       'week' => _copy(
-          en: '${plan.priceRub} ₽ / week — ${plan.limit} readings',
+          en: 'Weekly plan - ${plan.limit} readings',
           ru: '${plan.priceRub} ₽ / неделя — ${plan.limit} раскладов',
         ),
       'month' => _copy(
-          en: '${plan.priceRub} ₽ / month — ${plan.limit} readings',
+          en: 'Monthly plan - ${plan.limit} readings',
           ru: '${plan.priceRub} ₽ / месяц — ${plan.limit} раскладов',
         ),
       'one10' => _copy(
-          en: '${plan.priceRub} ₽ — ${plan.limit} readings',
+          en: '${plan.limit} readings',
           ru: '${plan.priceRub} ₽ — ${plan.limit} раскладов',
         ),
       'one40' => _copy(
-          en: '${plan.priceRub} ₽ — ${plan.limit} readings',
+          en: '${plan.limit} readings',
           ru: '${plan.priceRub} ₽ — ${plan.limit} раскладов',
         ),
       _ => _copy(
-          en: '${plan.priceRub} ₽ — ${plan.limit} readings',
+          en: '${plan.limit} readings',
           ru: '${plan.priceRub} ₽ — ${plan.limit} раскладов',
         ),
     };

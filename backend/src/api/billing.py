@@ -8,6 +8,7 @@ from src.schemas.billing import (
     BillingPaymentResponse,
     BillingSummaryResponse,
     CreateBillingPaymentRequest,
+    GooglePlayVerifyRequest,
     RedeemPromoCodeRequest,
     RedeemPromoCodeResponse,
 )
@@ -44,6 +45,7 @@ def _summary_response(summary) -> BillingSummaryResponse:
                 'limit': plan.limit,
                 'days': plan.days,
                 'recurring': plan.recurring,
+                'google_product_id': plan.google_product_id,
             }
             for plan in summary.plans
         ],
@@ -87,6 +89,27 @@ async def create_billing_payment(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _payment_response(result)
+
+
+@router.post('/google-play/verify', response_model=BillingSummaryResponse)
+async def verify_google_play_purchase(
+    payload: GooglePlayVerifyRequest,
+    client_id: str = Depends(get_known_client_id),
+    service: BillingService = Depends(get_billing_service),
+) -> BillingSummaryResponse:
+    try:
+        summary = await service.verify_google_play_purchase(
+            client_id=client_id,
+            product_id=payload.product_id,
+            purchase_token=payload.purchase_token,
+            package_name=payload.package_name,
+            restored=payload.restored,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return _summary_response(summary)
 
 
 @router.get('/payments/{payment_id}', response_model=BillingPaymentResponse)

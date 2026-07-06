@@ -6,16 +6,18 @@ import '../../data/api/appslides_api_client.dart';
 import '../../data/repositories/appslides_repository.dart';
 import '../../domain/models/billing_payment.dart';
 import '../../domain/models/billing_summary.dart';
+import 'google_play_billing_service.dart';
 
 class BillingController extends ChangeNotifier {
   BillingController({
     required AppSlidesRepository repository,
-  }) : _repository = repository;
-
-  static const Duration _paymentPollInterval = Duration(seconds: 20);
-  static const Duration _paymentPollTimeout = Duration(minutes: 30);
+    GooglePlayBillingService? googlePlayBillingService,
+  })  : _repository = repository,
+        _googlePlayBillingService = googlePlayBillingService ??
+            GooglePlayBillingService(repository: repository);
 
   final AppSlidesRepository _repository;
+  final GooglePlayBillingService _googlePlayBillingService;
 
   BillingSummary? _summary;
   BillingPayment? _payment;
@@ -23,8 +25,6 @@ class BillingController extends ChangeNotifier {
   bool _creatingPayment = false;
   bool _canceling = false;
   String? _error;
-  Timer? _pollTimer;
-  DateTime? _pollingStartedAt;
   bool _pollingInFlight = false;
   bool _paymentPollingTimedOut = false;
 
@@ -40,7 +40,9 @@ class BillingController extends ChangeNotifier {
     if (_summary != null || _loadingSummary) {
       return;
     }
+    await _googlePlayBillingService.initialize();
     await refreshSummary();
+    unawaited(restoreGooglePlayPurchases(silent: true));
   }
 
   Future<void> refreshSummary() async {
@@ -67,15 +69,23 @@ class BillingController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final payment = await _repository.createBillingPayment(
-        planKey: planKey,
-        renew: renew,
+      final currentSummary =
+          _summary ?? await _repository.fetchBillingSummary();
+      final plan = currentSummary.plans.firstWhere(
+        (item) => item.key == planKey,
+        orElse: () => throw StateError('Billing plan was not found: $planKey'),
       );
-      _payment = payment;
-      _summary = payment.summary;
-      if (!payment.isFinished) {
-        _startPolling(payment.paymentId);
-      }
+      final summary = await _googlePlayBillingService.purchasePlan(plan);
+      _summary = summary;
+      _payment = BillingPayment(
+        paymentId:
+            'google_play:${GooglePlayBillingService.productIdForPlan(plan)}',
+        status: 'paid',
+        confirmationUrl: null,
+        testMode: false,
+        summary: summary,
+        plan: plan,
+      );
     } catch (error) {
       _error = _describeError(error);
     } finally {
@@ -95,8 +105,6 @@ class BillingController extends ChangeNotifier {
       _payment = payment;
       _summary = payment.summary;
       if (payment.isFinished) {
-        _stopPolling();
-      } else if (_pollingStartedAt != null) {
         _paymentPollingTimedOut = false;
       }
       notifyListeners();
@@ -123,6 +131,40 @@ class BillingController extends ChangeNotifier {
     }
   }
 
+  Future<void> restoreGooglePlayPurchases({bool silent = false}) async {
+    if (!silent) {
+      _loadingSummary = true;
+      _error = null;
+      notifyListeners();
+    }
+
+    try {
+      final restoredSummary =
+          await _googlePlayBillingService.restorePurchases();
+      if (restoredSummary != null) {
+        _summary = restoredSummary;
+        _payment = BillingPayment(
+          paymentId: 'google_play:restore',
+          status: 'paid',
+          confirmationUrl: null,
+          testMode: false,
+          summary: restoredSummary,
+        );
+      }
+    } catch (error) {
+      if (!silent) {
+        _error = _describeError(error);
+      }
+    } finally {
+      if (!silent) {
+        _loadingSummary = false;
+        notifyListeners();
+      } else if (_payment != null) {
+        notifyListeners();
+      }
+    }
+  }
+
   Future<void> redeemPromoCode(String code) async {
     _error = null;
     notifyListeners();
@@ -138,43 +180,21 @@ class BillingController extends ChangeNotifier {
   }
 
   void clearPayment() {
-    _stopPolling();
+    _resetPollingState();
     _payment = null;
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _stopPolling();
+    _resetPollingState();
+    unawaited(_googlePlayBillingService.dispose());
     super.dispose();
   }
 
-  void _startPolling(String paymentId) {
-    _stopPolling();
-    _pollingStartedAt = DateTime.now();
-    _paymentPollingTimedOut = false;
-    _pollTimer = Timer.periodic(_paymentPollInterval, (_) async {
-      if (_pollingStartedAt == null ||
-          DateTime.now().difference(_pollingStartedAt!) >=
-              _paymentPollTimeout) {
-        _paymentPollingTimedOut = true;
-        _stopPolling(resetTimeout: false);
-        notifyListeners();
-        return;
-      }
-      await pollPayment(paymentId);
-    });
-    unawaited(pollPayment(paymentId));
-  }
-
-  void _stopPolling({bool resetTimeout = true}) {
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    _pollingStartedAt = null;
+  void _resetPollingState() {
     _pollingInFlight = false;
-    if (resetTimeout) {
-      _paymentPollingTimedOut = false;
-    }
+    _paymentPollingTimedOut = false;
   }
 
   String _describeError(Object error) {

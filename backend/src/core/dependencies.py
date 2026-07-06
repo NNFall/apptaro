@@ -10,6 +10,7 @@ from src.domain.conversion_service import ConversionService
 from src.domain.presentation_outline_service import PresentationOutlineService
 from src.domain.presentation_render_service import PresentationRenderService
 from src.integrations.admin_notifier import AdminNotifier
+from src.integrations.google_play_gateway import GooglePlayGateway
 from src.integrations.yookassa_gateway import YooKassaGateway
 from src.integrations.text_generation import PresentationGenerationClient
 from src.repositories import billing as billing_repo
@@ -92,10 +93,22 @@ def get_yookassa_gateway() -> YooKassaGateway:
 
 
 @lru_cache(maxsize=1)
+def get_google_play_gateway() -> GooglePlayGateway:
+    settings = get_settings()
+    return GooglePlayGateway(
+        package_name=settings.google_play_package_name,
+        service_account_file=settings.google_play_service_account_file,
+        service_account_json=settings.google_play_service_account_json,
+        test_mode=settings.google_play_test_mode,
+    )
+
+
+@lru_cache(maxsize=1)
 def get_billing_service() -> BillingService:
     settings = get_settings()
     return BillingService(
         gateway=get_yookassa_gateway(),
+        google_play_gateway=get_google_play_gateway(),
         offer_url=settings.offer_url,
         support_username=settings.support_username,
         support_max_url=settings.support_max_url,

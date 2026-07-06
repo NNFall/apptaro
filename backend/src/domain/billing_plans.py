@@ -11,6 +11,7 @@ class BillingPlan:
     limit: int
     days: int
     recurring: bool
+    google_product_id: str
 
 
 PLANS: dict[str, BillingPlan] = {
@@ -21,6 +22,7 @@ PLANS: dict[str, BillingPlan] = {
         limit=15,
         days=7,
         recurring=True,
+        google_product_id='weekly_readings',
     ),
     'month': BillingPlan(
         key='month',
@@ -29,6 +31,7 @@ PLANS: dict[str, BillingPlan] = {
         limit=100,
         days=30,
         recurring=True,
+        google_product_id='monthly_readings',
     ),
     'one10': BillingPlan(
         key='one10',
@@ -37,6 +40,7 @@ PLANS: dict[str, BillingPlan] = {
         limit=10,
         days=7,
         recurring=False,
+        google_product_id='one10_readings',
     ),
     'one40': BillingPlan(
         key='one40',
@@ -45,6 +49,7 @@ PLANS: dict[str, BillingPlan] = {
         limit=50,
         days=7,
         recurring=False,
+        google_product_id='one40_readings',
     ),
 }
 
@@ -58,3 +63,11 @@ def get_plan(plan_key: str) -> BillingPlan:
 
 def list_plans() -> list[BillingPlan]:
     return list(PLANS.values())
+
+
+def get_plan_by_google_product_id(product_id: str) -> BillingPlan:
+    normalized = product_id.strip()
+    for plan in PLANS.values():
+        if plan.google_product_id == normalized:
+            return plan
+    raise ValueError(f'Unknown Google Play product: {product_id}')

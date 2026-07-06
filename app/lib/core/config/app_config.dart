@@ -12,9 +12,12 @@ class AppConfig {
   static const String conversionJobsPath = '/v1/conversions/jobs';
   static const String billingSummaryPath = '/v1/billing/summary';
   static const String billingPaymentsPath = '/v1/billing/payments';
+  static const String billingGooglePlayVerifyPath =
+      '/v1/billing/google-play/verify';
   static const String billingPromoRedeemPath = '/v1/billing/promo/redeem';
   static const String billingCancelSubscriptionPath =
       '/v1/billing/subscription/cancel';
+  static const String androidPackageName = 'com.apptaro.app';
 
   static String presentationJobPath(String jobId) =>
       '$presentationJobsPath/$jobId';

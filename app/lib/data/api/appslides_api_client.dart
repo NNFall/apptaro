@@ -206,6 +206,24 @@ class AppSlidesApiClient {
     return BillingSummary.fromJson(payload);
   }
 
+  Future<BillingSummary> verifyGooglePlayPurchase({
+    required String productId,
+    required String purchaseToken,
+    required String packageName,
+    bool restored = false,
+  }) async {
+    final payload = await _postJson(
+      path: AppConfig.billingGooglePlayVerifyPath,
+      body: <String, Object>{
+        'product_id': productId,
+        'purchase_token': purchaseToken,
+        'package_name': packageName,
+        'restored': restored,
+      },
+    );
+    return BillingSummary.fromJson(payload);
+  }
+
   Future<BillingSummary> redeemPromoCode(String code) async {
     final payload = await _postJson(
       path: AppConfig.billingPromoRedeemPath,

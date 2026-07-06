@@ -348,6 +348,8 @@ rg -n "[А-Яа-яЁё]" app/lib app/android
 
 Expected: only Russian localization values and admin/dev-only strings remain.
 
+Actual: scan still finds Russian strings in legacy technical screens (`presentation`, `converter`, `history`, `home`, `subscription`) and Russian localization branches. Keep this as a separate cleanup task after billing.
+
 ## Task 5: Backend Language-Aware Requests
 
 **Files:**
@@ -357,7 +359,7 @@ Expected: only Russian localization values and admin/dev-only strings remain.
 - Modify: `backend/src/api/presentations.py`
 - Modify: `backend/src/schemas/presentation.py`
 
-- [ ] **Step 1: Send language in client headers**
+- [x] **Step 1: Send language in client headers**
 
 Add request header:
 
@@ -367,7 +369,7 @@ Add request header:
 
 Expected: every backend request can identify the language.
 
-- [ ] **Step 2: Add backend dependency for language**
+- [x] **Step 2: Add backend dependency for language**
 
 Add dependency in `backend/src/core/dependencies.py`:
 
@@ -377,11 +379,13 @@ def get_request_language(x_apptaro_language: str | None = Header(default=None, a
     return value if value in {'en', 'ru'} else 'en'
 ```
 
-- [ ] **Step 3: Pass language into presentation flow**
+- [x] **Step 3: Pass language into presentation flow**
 
 Modify outline/render endpoints to pass `language` into prompt generation and service calls.
 
 Expected: backend can generate English or Russian responses from the same API.
+
+Actual: Flutter sends `X-Apptaro-Language`; backend resolves it through `get_request_language`; outline/render/text-generation calls receive the resolved language.
 
 ## Task 6: Backend Prompt Localization
 
@@ -389,7 +393,7 @@ Expected: backend can generate English or Russian responses from the same API.
 - Modify: `backend/src/domain/presentation_prompts.py`
 - Test: `backend/tests/test_prompt_localization.py`
 
-- [ ] **Step 1: Add tests for English prompts**
+- [x] **Step 1: Add tests for English prompts**
 
 Create `backend/tests/test_prompt_localization.py`:
 
@@ -420,7 +424,7 @@ class PromptLocalizationTests(unittest.TestCase):
         self.assertIn('Отвечай только на русском языке', prompt)
 ```
 
-- [ ] **Step 2: Update prompt signatures**
+- [x] **Step 2: Update prompt signatures**
 
 Change public prompt functions to accept:
 
@@ -430,7 +434,7 @@ language: str = 'en'
 
 Expected: old callers still work, new callers can request English.
 
-- [ ] **Step 3: Implement English prompt copy**
+- [x] **Step 3: Implement English prompt copy**
 
 Use core instruction:
 
@@ -438,7 +442,7 @@ Use core instruction:
 You are an experienced tarot reader. Answer only in English. Return the answer in Telegram legacy Markdown. Do not use HTML tags or markdown headings. Use only the cards and orientations provided by the user. Do not replace cards, add new cards, or change orientation.
 ```
 
-- [ ] **Step 4: Run prompt tests**
+- [x] **Step 4: Run prompt tests**
 
 Run:
 
@@ -447,6 +451,8 @@ python -m unittest backend.tests.test_prompt_localization -v
 ```
 
 Expected: pass.
+
+Actual: covered by `python -m unittest discover -s backend/tests -v`.
 
 ## Task 7: Google Play Billing Client
 
@@ -457,16 +463,16 @@ Expected: pass.
 - Modify: `app/lib/features/chat/chat_screen.dart`
 - Test: `app/test/google_play_billing_service_test.dart`
 
-- [ ] **Step 1: Add billing dependency**
+- [x] **Step 1: Add billing dependency**
 
 Add:
 
 ```yaml
 dependencies:
-  in_app_purchase: ^3.2.3
+  in_app_purchase: ^3.3.0
 ```
 
-- [ ] **Step 2: Define product IDs**
+- [x] **Step 2: Define product IDs**
 
 Use default Google Play products:
 
@@ -479,7 +485,7 @@ one40_readings
 
 Expected: backend maps these to existing plan keys `week`, `month`, `one10`, `one40`.
 
-- [ ] **Step 3: Implement purchase stream**
+- [x] **Step 3: Implement purchase stream**
 
 Google Play service must:
 
@@ -489,6 +495,8 @@ Google Play service must:
 - send purchased/restored token to backend;
 - complete purchase only after backend accepts or after safe failure handling;
 - silently restore owned purchases when user opens billing or taps a tariff.
+
+Actual: implemented in `app/lib/features/billing/google_play_billing_service.dart`; `BillingController` routes checkout through Google Play and silently restores purchases on initialization.
 
 ## Task 8: Google Play Billing Backend
 
@@ -503,7 +511,7 @@ Google Play service must:
 - Modify: `backend/src/repositories/billing.py`
 - Test: `backend/tests/test_google_play_billing.py`
 
-- [ ] **Step 1: Add Google auth dependency**
+- [x] **Step 1: Add Google auth dependency**
 
 Add to `backend/requirements.txt`:
 
@@ -512,7 +520,7 @@ google-auth>=2.35.0
 requests>=2.32.0
 ```
 
-- [ ] **Step 2: Add settings**
+- [x] **Step 2: Add settings**
 
 Add settings:
 
@@ -523,7 +531,7 @@ google_play_service_account_json: str
 google_play_test_mode: bool
 ```
 
-- [ ] **Step 3: Add verify endpoint**
+- [x] **Step 3: Add verify endpoint**
 
 Endpoint:
 
@@ -544,11 +552,11 @@ Request fields:
 
 Expected: response returns updated `BillingSummaryResponse`.
 
-- [ ] **Step 4: Make verification idempotent**
+- [x] **Step 4: Make verification idempotent**
 
 Same token sent twice must not double-grant readings.
 
-- [ ] **Step 5: Add tests**
+- [x] **Step 5: Add tests**
 
 Test cases:
 
@@ -556,6 +564,8 @@ Test cases:
 - restored valid subscription grants entitlement and sends restore notification;
 - invalid token returns 400/503 without granting;
 - repeated token does not double grant.
+
+Actual: `backend/tests/test_google_play_billing.py` covers valid purchase, failed purchase without entitlement, repeated token, depleted repeated token, and restore to a new local client.
 
 ## Task 9: Separate PM Backend Deployment
 

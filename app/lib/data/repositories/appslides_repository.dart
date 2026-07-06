@@ -125,6 +125,20 @@ class AppSlidesRepository {
     return _api.cancelBillingSubscription();
   }
 
+  Future<BillingSummary> verifyGooglePlayPurchase({
+    required String productId,
+    required String purchaseToken,
+    required String packageName,
+    bool restored = false,
+  }) {
+    return _api.verifyGooglePlayPurchase(
+      productId: productId,
+      purchaseToken: purchaseToken,
+      packageName: packageName,
+      restored: restored,
+    );
+  }
+
   Future<BillingSummary> redeemPromoCode(String code) {
     return _api.redeemPromoCode(code);
   }

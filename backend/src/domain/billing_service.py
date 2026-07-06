@@ -4,8 +4,9 @@ import asyncio
 from dataclasses import dataclass
 from typing import Literal
 
-from src.domain.billing_plans import BillingPlan, get_plan, list_plans
+from src.domain.billing_plans import BillingPlan, get_plan, get_plan_by_google_product_id, list_plans
 from src.integrations.admin_notifier import AdminNotifier
+from src.integrations.google_play_gateway import GooglePlayGateway
 from src.integrations.yookassa_gateway import YooKassaGateway, YooKassaPaymentInfo
 from src.repositories import billing as billing_repo
 
@@ -40,6 +41,7 @@ class BillingService:
         self,
         *,
         gateway: YooKassaGateway,
+        google_play_gateway: GooglePlayGateway | None = None,
         offer_url: str,
         support_username: str,
         support_max_url: str,
@@ -48,6 +50,7 @@ class BillingService:
         notifier: AdminNotifier,
     ) -> None:
         self._gateway = gateway
+        self._google_play_gateway = google_play_gateway
         self._offer_url = offer_url
         self._support_username = support_username
         self._support_max_url = support_max_url
@@ -258,6 +261,98 @@ class BillingService:
         summary = await self.get_summary(client_id)
         return summary, tokens
 
+    async def verify_google_play_purchase(
+        self,
+        *,
+        client_id: str,
+        product_id: str,
+        purchase_token: str,
+        package_name: str,
+        restored: bool = False,
+    ) -> BillingSummary:
+        if self._google_play_gateway is None or not self._google_play_gateway.is_configured:
+            raise RuntimeError('Google Play Billing is not configured')
+
+        billing_repo.touch_client(client_id)
+        plan = get_plan_by_google_product_id(product_id)
+        purchase = await asyncio.to_thread(
+            self._google_play_gateway.verify_purchase,
+            package_name=package_name,
+            product_id=product_id,
+            purchase_token=purchase_token,
+            recurring=plan.recurring,
+        )
+        if purchase.status != 'paid':
+            raise ValueError(f'Google Play purchase is not active: {purchase.raw_state}')
+
+        external_payment_id = _google_play_external_payment_id(purchase.purchase_token)
+        existing = billing_repo.get_payment(external_payment_id)
+        if existing and existing.status in {'paid', 'succeeded'}:
+            needs_restore = (
+                existing.client_id != client_id
+                and billing_repo.get_subscription_for_use(client_id) is None
+            )
+            if needs_restore:
+                billing_repo.create_subscription(
+                    client_id=client_id,
+                    plan_key=plan.key,
+                    limit=plan.limit,
+                    days=plan.days,
+                    provider='google_play',
+                    auto_renew=1 if plan.recurring and purchase.auto_renewing else 0,
+                    payment_method_id=purchase.purchase_token,
+                )
+            if needs_restore:
+                await self._notifier.notify_google_play_purchase(
+                    client_id=client_id,
+                    plan_key=plan.key,
+                    plan_title=plan.title,
+                    tokens=plan.limit,
+                    product_id=product_id,
+                    order_id=purchase.order_id,
+                    restored=True,
+                )
+            return await self.get_summary(client_id)
+
+        if existing is None:
+            billing_repo.create_payment(
+                client_id=client_id,
+                provider='google_play',
+                amount=0,
+                currency='GOOGLE_PLAY',
+                plan_key=plan.key,
+                external_payment_id=external_payment_id,
+                status='paid',
+                payment_method_id=purchase.purchase_token,
+                confirmation_url=None,
+            )
+        else:
+            billing_repo.update_payment_status(
+                external_payment_id,
+                'paid',
+                payment_method_id=purchase.purchase_token,
+            )
+
+        billing_repo.create_subscription(
+            client_id=client_id,
+            plan_key=plan.key,
+            limit=plan.limit,
+            days=plan.days,
+            provider='google_play',
+            auto_renew=1 if plan.recurring and purchase.auto_renewing else 0,
+            payment_method_id=purchase.purchase_token,
+        )
+        await self._notifier.notify_google_play_purchase(
+            client_id=client_id,
+            plan_key=plan.key,
+            plan_title=plan.title,
+            tokens=plan.limit,
+            product_id=product_id,
+            order_id=purchase.order_id,
+            restored=restored,
+        )
+        return await self.get_summary(client_id)
+
     async def process_due_auto_renewals_once(self) -> int:
         if not self.is_configured:
             return 0
@@ -425,3 +520,7 @@ class BillingService:
             confirmation_url=remote.confirmation_url,
         )
         return remote.status
+
+
+def _google_play_external_payment_id(purchase_token: str) -> str:
+    return f'google_play:{purchase_token.strip()}'
