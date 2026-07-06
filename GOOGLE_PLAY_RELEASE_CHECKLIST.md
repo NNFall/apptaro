@@ -118,5 +118,5 @@ Check:
 ## Google Play Product Behavior
 
 - `weekly_readings` and `monthly_readings` are subscription products and are restored silently through Google Play purchase restore.
-- `one10_readings` and `one40_readings` are consumable one-time packs. The app verifies the purchase token on the backend first, then consumes the Google Play purchase so the same pack can be bought again.
+- `one10_readings` and `one40_readings` are consumable one-time packs. They grant 10 and 40 readings respectively. The app verifies the purchase token on the backend first, then consumes the Google Play purchase so the same pack can be bought again.
 - Consumed one-time packs are not discoverable through Google Play restore after app data is cleared. This is a Google Play Billing limitation for consumables without a user account.

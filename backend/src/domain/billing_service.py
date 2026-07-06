@@ -291,7 +291,8 @@ class BillingService:
         existing = billing_repo.get_payment(external_payment_id)
         if existing and existing.status in {'paid', 'succeeded'}:
             needs_restore = (
-                existing.client_id != client_id
+                plan.recurring
+                and existing.client_id != client_id
                 and billing_repo.get_subscription_for_use(client_id) is None
             )
             if needs_restore:

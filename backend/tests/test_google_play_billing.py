@@ -11,6 +11,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from src.domain.billing_service import BillingService  # noqa: E402
+from src.domain.billing_plans import get_plan  # noqa: E402
 from src.integrations.google_play_gateway import GooglePlayPurchaseInfo  # noqa: E402
 from src.repositories import billing as billing_repo  # noqa: E402
 from src.repositories.storage import init_storage  # noqa: E402
@@ -110,6 +111,24 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(summary.active_subscription.auto_renew, 1)
         self.assertEqual(len(self.notifier.google_events), 1)
 
+    async def test_one40_consumable_grants_40_readings(self) -> None:
+        plan = get_plan('one40')
+        self.assertEqual(plan.google_product_id, 'one40_readings')
+        self.assertEqual(plan.limit, 40)
+
+        summary = await self.service.verify_google_play_purchase(
+            client_id='client_google_one40',
+            product_id='one40_readings',
+            purchase_token='token_one40',
+            package_name='com.apptaro.app',
+        )
+
+        self.assertIsNotNone(summary.active_subscription)
+        self.assertEqual(summary.active_subscription.remaining, 40)
+        self.assertEqual(summary.active_subscription.provider, 'google_play')
+        self.assertEqual(summary.active_subscription.auto_renew, 0)
+        self.assertEqual(self.notifier.google_events[-1]['tokens'], 40)
+
     async def test_repeated_google_play_token_does_not_double_grant(self) -> None:
         await self.service.verify_google_play_purchase(
             client_id='client_google_2',
@@ -127,6 +146,25 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
         active = billing_repo.get_active_subscription('client_google_2')
         self.assertIsNotNone(active)
         self.assertEqual(active.remaining, 15)
+        self.assertEqual(len(self.notifier.google_events), 1)
+
+    async def test_replayed_consumable_token_does_not_restore_new_client(self) -> None:
+        await self.service.verify_google_play_purchase(
+            client_id='client_google_pack_old',
+            product_id='one10_readings',
+            purchase_token='token_pack_replay',
+            package_name='com.apptaro.app',
+        )
+        summary = await self.service.verify_google_play_purchase(
+            client_id='client_google_pack_new',
+            product_id='one10_readings',
+            purchase_token='token_pack_replay',
+            package_name='com.apptaro.app',
+            restored=True,
+        )
+
+        self.assertIsNone(summary.active_subscription)
+        self.assertIsNone(summary.latest_valid_subscription)
         self.assertEqual(len(self.notifier.google_events), 1)
 
     async def test_repeated_depleted_google_play_token_does_not_restore_same_client(self) -> None:
