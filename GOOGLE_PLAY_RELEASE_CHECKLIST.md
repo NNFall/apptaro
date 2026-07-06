@@ -6,7 +6,7 @@ This checklist is for the Google Play version of PMapptaro.
 
 - Android package: `com.apptaro.app`
 - Flutter version source: `app/pubspec.yaml`
-- Current version: `0.1.0+8`
+- Current version: `0.1.0+9`
 - Increase the build number after every new Google Play upload.
 
 Google Play rejects builds with a `versionCode` that was already uploaded.
@@ -27,6 +27,8 @@ app/android/key.properties.example
 ```
 
 If the local signing files are lost, Google Play uploads from this machine will stop working until the upload key is restored or reset in Play Console.
+
+Release builds no longer fall back to debug signing. `app/android/key.properties` and `app/android/app/upload-keystore.jks` must exist locally before `flutter build appbundle --release`.
 
 ## Build Commands
 

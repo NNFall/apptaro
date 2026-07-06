@@ -52,7 +52,9 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName(if (hasReleaseKeystore) "release" else "debug")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }
