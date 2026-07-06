@@ -23,7 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SectionCard(
           title: 'Backend endpoint',
           subtitle:
-              'Приложение всегда подключается к удаленному серверу apptaro. Локальное переключение URL отключено.',
+              'The app always connects to the remote apptaro backend. Local URL switching is disabled.',
         ),
         const SizedBox(height: 16),
         SectionCard(
@@ -35,7 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               OutlinedButton(
                 onPressed: _testing ? null : _testConnection,
-                child: Text(_testing ? 'Проверка...' : 'Проверить /v1/health'),
+                child: Text(_testing ? 'Checking...' : 'Check /v1/health'),
               ),
             ],
           ),
@@ -43,7 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (_message case final message?) ...[
           const SizedBox(height: 16),
           SectionCard(
-            title: 'Результат',
+            title: 'Result',
             subtitle: message,
           ),
         ],
@@ -61,8 +61,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final healthy = await AppScope.repositoryOf(context).healthcheck();
       setState(() {
         _message = healthy
-            ? 'Backend ответил: /v1/health -> ok'
-            : 'Backend ответил, но статус не ok';
+            ? 'Backend responded: /v1/health -> ok'
+            : 'Backend responded, but status is not ok';
       });
     } catch (error) {
       setState(() {

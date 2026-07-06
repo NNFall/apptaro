@@ -25,7 +25,8 @@ class SavedFilesRepository extends ChangeNotifier {
   bool _isLoaded = false;
   bool _isRestoring = false;
 
-  List<SavedFileEntry> get entries => List<SavedFileEntry>.unmodifiable(_entries);
+  List<SavedFileEntry> get entries =>
+      List<SavedFileEntry>.unmodifiable(_entries);
   bool get isLoaded => _isLoaded;
   bool get isRestoring => _isRestoring;
 
@@ -117,7 +118,7 @@ class SavedFilesRepository extends ChangeNotifier {
 
   Future<String?> openEntry(SavedFileEntry entry) async {
     if (!await _fileStore.exists(entry.localPath)) {
-      return 'Файл больше не найден на устройстве.';
+      return 'The file is no longer available on this device.';
     }
 
     final result = await OpenFilex.open(entry.localPath);
@@ -127,7 +128,7 @@ class SavedFilesRepository extends ChangeNotifier {
 
     final message = result.message.trim();
     if (message.isEmpty) {
-      return 'Не удалось открыть файл.';
+      return 'Could not open the file.';
     }
     return message;
   }
@@ -146,7 +147,8 @@ class SavedFilesRepository extends ChangeNotifier {
   }
 
   void _upsert(SavedFileEntry entry) {
-    final index = _entries.indexWhere((item) => item.artifactId == entry.artifactId);
+    final index =
+        _entries.indexWhere((item) => item.artifactId == entry.artifactId);
     if (index >= 0) {
       _entries.removeAt(index);
     }

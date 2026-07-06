@@ -34,7 +34,8 @@ class ChatTranscriptEntry {
       'text': text,
       'sent_at': sentAt.toIso8601String(),
       'keyboard': keyboard
-          .map((row) => row.map((item) => item.toJson()).toList(growable: false))
+          .map(
+              (row) => row.map((item) => item.toJson()).toList(growable: false))
           .toList(growable: false),
       'attachments': attachments.map((item) => item.toJson()).toList(),
       'template_preview_templates': templatePreviewTemplates
@@ -56,7 +57,8 @@ class ChatTranscriptEntry {
           .map(
             (row) => row
                 .whereType<Map>()
-                .map((item) => ChatTranscriptAction.fromJson(item.cast<String, dynamic>()))
+                .map((item) =>
+                    ChatTranscriptAction.fromJson(item.cast<String, dynamic>()))
                 .toList(growable: false),
           )
           .toList(growable: false),
@@ -273,7 +275,7 @@ class ChatTranscriptAttachment {
       mediaType: json['media_type'] as String? ?? 'application/octet-stream',
       remoteUrl: json['remote_url'] as String? ?? '',
       sourceType: _parseSourceType(json['source_type'] as String?),
-      caption: json['caption'] as String? ?? 'Файл',
+      caption: json['caption'] as String? ?? 'File',
     );
   }
 

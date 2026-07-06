@@ -46,26 +46,27 @@ class _ConverterScreenState extends State<ConverterScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             const SectionCard(
-              title: 'Поддерживаемые направления',
+              title: 'Supported conversions',
               subtitle: 'PDF -> DOCX, DOCX -> PDF, PPTX -> PDF.',
             ),
             const SizedBox(height: 16),
             SectionCard(
-              title: 'Выбор файла',
+              title: 'File selection',
               subtitle:
-                  'Экран уже работает поверх conversion jobs: открывает системный picker, загружает байты файла и запускает backend job.',
+                  'This screen uses conversion jobs: it opens the system picker, reads the file, and starts a backend job.',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FilledButton.icon(
-                    onPressed: controller.pickingFile ? null : controller.pickFile,
+                    onPressed:
+                        controller.pickingFile ? null : controller.pickFile,
                     icon: controller.pickingFile
                         ? const SizedBox.square(
                             dimension: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.upload_file_rounded),
-                    label: const Text('Выбрать файл'),
+                    label: const Text('Choose file'),
                   ),
                   const SizedBox(height: 16),
                   if (controller.selectedFile case final file?)
@@ -74,7 +75,8 @@ class _ConverterScreenState extends State<ConverterScreen> {
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                        border:
+                            Border.all(color: theme.colorScheme.outlineVariant),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,7 +89,7 @@ class _ConverterScreenState extends State<ConverterScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Формат: ${file.extension.toUpperCase()} · ${_formatFileSize(file.size)}',
+                            'Format: ${file.extension.toUpperCase()} · ${_formatFileSize(file.size)}',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -97,7 +99,8 @@ class _ConverterScreenState extends State<ConverterScreen> {
                     )
                   else
                     const _ConverterHint(
-                      text: 'Выбери локальный PDF, DOCX или PPTX через системный picker.',
+                      text:
+                          'Choose a local PDF, DOCX, or PPTX through the system picker.',
                     ),
                 ],
               ),
@@ -105,7 +108,7 @@ class _ConverterScreenState extends State<ConverterScreen> {
             if (controller.error case final error?) ...[
               const SizedBox(height: 16),
               SectionCard(
-                title: 'Ошибка',
+                title: 'Error',
                 subtitle: error,
                 trailing: Icon(
                   Icons.error_outline_rounded,
@@ -115,13 +118,13 @@ class _ConverterScreenState extends State<ConverterScreen> {
             ],
             const SizedBox(height: 16),
             SectionCard(
-              title: 'Целевой формат',
+              title: 'Target format',
               subtitle: controller.selectedFile == null
-                  ? 'Сначала выбери исходный файл. После этого приложение покажет допустимый формат конвертации.'
-                  : 'Доступные направления строятся автоматически по расширению выбранного файла.',
+                  ? 'Choose the source file first. The app will then show available conversion targets.'
+                  : 'Available targets are selected automatically from the source file extension.',
               child: controller.availableTargets.isEmpty
                   ? const _ConverterHint(
-                      text: 'Пока нет доступных направлений конвертации.',
+                      text: 'No conversion targets are available yet.',
                     )
                   : DropdownButtonFormField<String>(
                       key: ValueKey(
@@ -129,7 +132,7 @@ class _ConverterScreenState extends State<ConverterScreen> {
                       ),
                       initialValue: controller.targetFormat,
                       decoration: const InputDecoration(
-                        labelText: 'Конвертировать в',
+                        labelText: 'Convert to',
                       ),
                       items: controller.availableTargets
                           .map(
@@ -144,18 +147,20 @@ class _ConverterScreenState extends State<ConverterScreen> {
             ),
             const SizedBox(height: 16),
             SectionCard(
-              title: 'Запуск conversion job',
+              title: 'Start conversion job',
               subtitle:
-                  'После старта клиент опрашивает backend и показывает итоговый файл через download URL.',
+                  'After start, the client polls the backend and shows the final file through a download URL.',
               child: FilledButton.icon(
-                onPressed: controller.canStartJob ? controller.startConversionJob : null,
+                onPressed: controller.canStartJob
+                    ? controller.startConversionJob
+                    : null,
                 icon: controller.startingJob
                     ? const SizedBox.square(
                         dimension: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.play_arrow_rounded),
-                label: const Text('Запустить конвертацию'),
+                label: const Text('Start conversion'),
               ),
             ),
             const SizedBox(height: 16),
@@ -183,7 +188,7 @@ class _ConversionJobCard extends StatelessWidget {
       return const SectionCard(
         title: 'Conversion job',
         subtitle:
-            'После запуска здесь появится статус `queued/running/succeeded/failed` и ссылка на итоговый файл.',
+            'After start, this card will show the `queued/running/succeeded/failed` status and the final file link.',
       );
     }
 
@@ -212,7 +217,7 @@ class _ConversionJobCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Обновлено: ${job!.updatedAt}',
+            'Updated: ${job!.updatedAt}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -316,7 +321,7 @@ class _ConversionArtifactTile extends StatelessWidget {
                             ? Icons.download_rounded
                             : Icons.check_circle_rounded,
                       ),
-                label: Text(savedPath == null ? 'Сохранить локально' : 'Сохранено'),
+                label: Text(savedPath == null ? 'Save locally' : 'Saved'),
               ),
               if (savedPath case final path?)
                 Text(

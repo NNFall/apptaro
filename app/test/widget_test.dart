@@ -13,6 +13,6 @@ void main() {
     );
 
     expect(find.text('apptaro'), findsOneWidget);
-    expect(find.textContaining('3 карты в раскладе'), findsOneWidget);
+    expect(find.textContaining('3-card spreads'), findsOneWidget);
   });
 }

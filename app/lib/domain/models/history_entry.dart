@@ -54,12 +54,15 @@ class HistoryEntry {
       id: json['id'] as String? ?? '',
       type: _parseType(json['type'] as String?),
       status: _parseStatus(json['status'] as String?),
-      title: json['title'] as String? ?? 'Без названия',
+      title: json['title'] as String? ?? 'Untitled',
       subtitle: json['subtitle'] as String? ?? '',
       details: json['details'] as String? ?? '',
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? '') ?? DateTime.now(),
-      links: (json['links'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? '') ??
+          DateTime.now(),
+      links:
+          (json['links'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
     );
   }
 

@@ -33,7 +33,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Мобильный чат для раскладов таро: вопрос, три карты, текстовый разбор и сохранённый результат.',
+                'A mobile tarot chat: ask a question, receive a three-card reading, and keep the result on your device.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: Colors.white.withValues(alpha: 0.9),
                   height: 1.45,
@@ -44,9 +44,9 @@ class HomeScreen extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: const [
-                  _StatChip(label: 'Чатовый UX сохранён'),
-                  _StatChip(label: '3 карты в раскладе'),
-                  _StatChip(label: 'JPG/TXT результат'),
+                  _StatChip(label: 'Chat-first UX'),
+                  _StatChip(label: '3-card spreads'),
+                  _StatChip(label: 'JPG/TXT results'),
                 ],
               ),
             ],
@@ -54,15 +54,15 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const SectionCard(
-          title: 'Как работает',
+          title: 'How it works',
           subtitle:
-              'Напиши вопрос в чат, подтверди предложенные карты или перетяни расклад заново. Backend выполнит разбор и вернёт файлы для локального сохранения.',
+              'Ask a question in chat, review the cards, or redraw the spread. The backend prepares the reading and returns files you can save locally.',
         ),
         const SizedBox(height: 16),
         const SectionCard(
-          title: 'Платформа',
+          title: 'Platform',
           subtitle:
-              'Архитектура Flutter-клиента, billing через YooKassa, локальная история, backend API и отдельный Telegram admin bot сохранены.',
+              'Flutter client, Google Play Billing, local history, backend API, and a separate Telegram admin bot are kept as separate layers.',
         ),
       ],
     );

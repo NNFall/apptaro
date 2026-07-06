@@ -32,7 +32,7 @@ class BackendConfigRepository extends ChangeNotifier {
     final normalized = normalize(value);
     if (normalized == null || normalized != AppConfig.defaultBackendBaseUrl) {
       throw UnsupportedError(
-        'Backend endpoint зафиксирован на сервере apptaro и не меняется из приложения.',
+        'Backend endpoint is fixed to the apptaro server and cannot be changed in the app.',
       );
     }
   }

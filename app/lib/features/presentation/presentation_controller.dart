@@ -363,7 +363,7 @@ class PresentationController extends ChangeNotifier {
       _job = refreshed;
       _historyRepository.upsertPresentationJob(
         jobId: refreshed.jobId,
-        title: _title.trim().isEmpty ? 'Без названия' : _title.trim(),
+        title: _title.trim().isEmpty ? 'Untitled' : _title.trim(),
         designId: _selectedDesignId,
         status: refreshed.status,
         updatedAtRaw: refreshed.updatedAt,

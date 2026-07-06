@@ -74,7 +74,7 @@ class LocalHistoryRepository extends ChangeNotifier {
         status: HistoryEntryStatus.info,
         title: title,
         subtitle: topic,
-        details: 'Карт: 3, пунктов расклада: $outlineItems',
+        details: 'Cards: 3, reading items: $outlineItems',
         createdAt: now,
         updatedAt: now,
       ),
@@ -286,16 +286,16 @@ class LocalHistoryRepository extends ChangeNotifier {
   }) {
     final buffer = StringBuffer();
     if (designId != null) {
-      buffer.write('Дизайн: $designId. ');
+      buffer.write('Design: $designId. ');
     }
-    buffer.write('Статус: ${status.name}. ');
+    buffer.write('Status: ${status.name}. ');
     buffer.write('Backend updated_at: $updatedAtRaw.');
     if (artifacts.isNotEmpty) {
       buffer.write(
-          ' Файлы: ${artifacts.map((item) => item.filename).join(', ')}.');
+          ' Files: ${artifacts.map((item) => item.filename).join(', ')}.');
     }
     if (error != null && error.isNotEmpty) {
-      buffer.write(' Ошибка: $error');
+      buffer.write(' Error: $error');
     }
     return buffer.toString();
   }
@@ -311,13 +311,13 @@ class LocalHistoryRepository extends ChangeNotifier {
     final buffer = StringBuffer();
     buffer.write(
         '${sourceFormat.toUpperCase()} -> ${targetFormat.toUpperCase()}. ');
-    buffer.write('Статус: ${status.name}. ');
+    buffer.write('Status: ${status.name}. ');
     buffer.write('Backend updated_at: $updatedAtRaw.');
     if (artifact != null) {
-      buffer.write(' Результат: ${artifact.filename}.');
+      buffer.write(' Result: ${artifact.filename}.');
     }
     if (error != null && error.isNotEmpty) {
-      buffer.write(' Ошибка: $error');
+      buffer.write(' Error: $error');
     }
     return buffer.toString();
   }

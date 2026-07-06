@@ -2310,12 +2310,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (deleted) {
         history.detachLocalFile(existing.localPath);
         _appendBotMessage(
-            '🗑 Файл `${existing.filename}` удалён из локального хранилища.');
+          _copy(
+            en: '🗑 File `${existing.filename}` was removed from local storage.',
+            ru: '🗑 Файл `${existing.filename}` удалён из локального хранилища.',
+          ),
+        );
       } else {
-        _appendBotMessage('❌ Не удалось удалить `${existing.filename}`.');
+        _appendBotMessage(
+          _copy(
+            en: '❌ Could not delete `${existing.filename}`.',
+            ru: '❌ Не удалось удалить `${existing.filename}`.',
+          ),
+        );
       }
     } catch (error) {
-      _appendBotMessage('❌ Ошибка при удалении файла.\n$error');
+      _appendBotMessage(
+        _copy(
+          en: '❌ File deletion failed.\n$error',
+          ru: '❌ Ошибка при удалении файла.\n$error',
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -3666,7 +3680,7 @@ class _FullscreenImagePreviewDialog extends StatelessWidget {
                 top: 8,
                 right: 8,
                 child: IconButton(
-                  tooltip: 'Закрыть',
+                  tooltip: 'Close',
                   onPressed: () => Navigator.of(context).pop(),
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0x66000000),

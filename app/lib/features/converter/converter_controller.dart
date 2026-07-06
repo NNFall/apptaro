@@ -26,7 +26,8 @@ class ConverterController extends ChangeNotifier {
   final LocalHistoryRepository _historyRepository;
   final SavedFilesRepository _savedFilesRepository;
 
-  static const Map<String, List<String>> _targetsBySource = <String, List<String>>{
+  static const Map<String, List<String>> _targetsBySource =
+      <String, List<String>>{
     'pdf': <String>['docx'],
     'docx': <String>['pdf'],
     'pptx': <String>['pdf'],
@@ -66,7 +67,8 @@ class ConverterController extends ChangeNotifier {
 
   bool get _isJobActive =>
       _job != null &&
-      (_job!.status == RemoteJobStatus.queued || _job!.status == RemoteJobStatus.running);
+      (_job!.status == RemoteJobStatus.queued ||
+          _job!.status == RemoteJobStatus.running);
 
   void reset() {
     _pollTimer?.cancel();
@@ -103,14 +105,15 @@ class ConverterController extends ChangeNotifier {
       }
 
       final file = result.files.single;
-      final extension = (file.extension ?? _extensionFromName(file.name))?.toLowerCase();
+      final extension =
+          (file.extension ?? _extensionFromName(file.name))?.toLowerCase();
       final bytes = file.bytes;
       if (extension == null || !_targetsBySource.containsKey(extension)) {
-        _error = 'Поддерживаются только PDF, DOCX и PPTX.';
+        _error = 'Only PDF, DOCX, and PPTX files are supported.';
         return;
       }
       if (bytes == null || bytes.isEmpty) {
-        _error = 'Не удалось прочитать файл в память.';
+        _error = 'Could not read the file into memory.';
         return;
       }
 
@@ -166,7 +169,10 @@ class ConverterController extends ChangeNotifier {
         artifact: created.artifact,
         links: created.artifact == null
             ? const <String>[]
-            : <String>[downloadUrlFor(created.artifact!) ?? created.artifact!.downloadUrl],
+            : <String>[
+                downloadUrlFor(created.artifact!) ??
+                    created.artifact!.downloadUrl
+              ],
       );
       _startPolling(created.jobId);
     } catch (error) {
@@ -185,7 +191,8 @@ class ConverterController extends ChangeNotifier {
     return _repository.conversionDownloadUri(currentJob.jobId).toString();
   }
 
-  bool isSavingArtifact(String artifactId) => _savingArtifactIds.contains(artifactId);
+  bool isSavingArtifact(String artifactId) =>
+      _savingArtifactIds.contains(artifactId);
 
   String? savedPathFor(String artifactId) {
     return _savedFilesRepository.findByArtifactId(artifactId)?.localPath;
@@ -193,7 +200,8 @@ class ConverterController extends ChangeNotifier {
 
   Future<void> saveArtifact(JobArtifact artifact) async {
     final currentJob = _job;
-    if (currentJob == null || _savingArtifactIds.contains(artifact.artifactId)) {
+    if (currentJob == null ||
+        _savingArtifactIds.contains(artifact.artifactId)) {
       return;
     }
 
@@ -246,7 +254,7 @@ class ConverterController extends ChangeNotifier {
       final file = _selectedFile;
       _historyRepository.upsertConversionJob(
         jobId: refreshed.jobId,
-        sourceFilename: file?.name ?? 'Файл',
+        sourceFilename: file?.name ?? 'File',
         sourceFormat: file?.extension ?? 'unknown',
         targetFormat: _targetFormat ?? 'unknown',
         status: refreshed.status,
@@ -255,7 +263,10 @@ class ConverterController extends ChangeNotifier {
         artifact: refreshed.artifact,
         links: refreshed.artifact == null
             ? const <String>[]
-            : <String>[downloadUrlFor(refreshed.artifact!) ?? refreshed.artifact!.downloadUrl],
+            : <String>[
+                downloadUrlFor(refreshed.artifact!) ??
+                    refreshed.artifact!.downloadUrl
+              ],
       );
       if (refreshed.isFinished) {
         _pollTimer?.cancel();

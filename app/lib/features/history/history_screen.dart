@@ -28,32 +28,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
         final entries = history.entries;
         final savedEntries = savedFiles.entries;
         final restoringHistory = history.isRestoring && !history.isLoaded;
-        final restoringSavedFiles = savedFiles.isRestoring && !savedFiles.isLoaded;
+        final restoringSavedFiles =
+            savedFiles.isRestoring && !savedFiles.isLoaded;
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             SectionCard(
-              title: 'Локальная история',
+              title: 'Local history',
               subtitle:
-                  'История запросов и job-событий хранится локально на устройстве и переживает перезапуск приложения.',
+                  'Requests and job events are stored locally on this device and survive app restarts.',
               trailing: OutlinedButton(
                 onPressed: entries.isEmpty ? null : () async => history.clear(),
-                child: const Text('Очистить'),
+                child: const Text('Clear'),
               ),
             ),
             const SizedBox(height: 16),
             SectionCard(
-              title: 'Сохраненные файлы',
+              title: 'Saved files',
               subtitle: savedEntries.isEmpty
-                  ? 'После сохранения PPTX, PDF или DOCX сюда попадут локальные копии результатов.'
-                  : 'Файлы лежат в sandbox приложения и доступны без повторного запроса к backend.',
+                  ? 'Saved JPG, TXT, PDF, DOCX, or PPTX results will appear here.'
+                  : 'Files are stored in the app sandbox and stay available without another backend request.',
             ),
             const SizedBox(height: 16),
             if (restoringSavedFiles)
               const SectionCard(
-                title: 'Загрузка файлового индекса',
-                subtitle: 'Приложение восстанавливает список локально сохраненных результатов.',
+                title: 'Loading file index',
+                subtitle: 'The app is restoring locally saved results.',
                 child: Padding(
                   padding: EdgeInsets.only(top: 16),
                   child: LinearProgressIndicator(),
@@ -61,8 +62,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               )
             else if (savedEntries.isEmpty)
               const SectionCard(
-                title: 'Локальных файлов пока нет',
-                subtitle: 'Сохрани результат из Presentation или Converter, чтобы он появился в этом разделе.',
+                title: 'No local files yet',
+                subtitle:
+                    'Save a reading or conversion result to show it here.',
               )
             else
               ...savedEntries.map(
@@ -83,8 +85,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
             const SizedBox(height: 16),
             if (restoringHistory)
               const SectionCard(
-                title: 'Загрузка истории',
-                subtitle: 'Приложение восстанавливает локальные записи из persistent storage.',
+                title: 'Loading history',
+                subtitle:
+                    'The app is restoring local records from persistent storage.',
                 child: Padding(
                   padding: EdgeInsets.only(top: 16),
                   child: LinearProgressIndicator(),
@@ -92,9 +95,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               )
             else if (entries.isEmpty)
               const SectionCard(
-                title: 'История пуста',
+                title: 'History is empty',
                 subtitle:
-                    'Сгенерируй outline, запусти render job или conversion job, чтобы здесь появились записи.',
+                    'Ask a question, generate a reading, or start a conversion job to create records.',
               )
             else
               ...entries.map(
@@ -136,18 +139,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Удалить локальный файл?'),
+          title: const Text('Delete local file?'),
           content: Text(
-            'Файл `${entry.filename}` будет удален из локального хранилища приложения.',
+            'File `${entry.filename}` will be removed from local app storage.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Отмена'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Удалить'),
+              child: const Text('Delete'),
             ),
           ],
         );
@@ -169,13 +172,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
         if (deleted) {
           history.detachLocalFile(entry.localPath);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Удален ${entry.filename}')),
+            SnackBar(content: Text('Deleted ${entry.filename}')),
           );
           return;
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось удалить файл.')),
+          const SnackBar(content: Text('Could not delete the file.')),
         );
       },
     );
@@ -228,7 +231,8 @@ class _SavedFileCard extends StatelessWidget {
 
     return SectionCard(
       title: entry.filename,
-      subtitle: '${entry.kind.toUpperCase()} · ${_formatFileSize(entry.sizeBytes)} · $sourceLabel',
+      subtitle:
+          '${entry.kind.toUpperCase()} · ${_formatFileSize(entry.sizeBytes)} · $sourceLabel',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -248,7 +252,7 @@ class _SavedFileCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Сохранено: ${entry.savedAt.toLocal()}',
+            'Saved: ${entry.savedAt.toLocal()}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -266,12 +270,12 @@ class _SavedFileCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.open_in_new_rounded),
-                label: const Text('Открыть'),
+                label: const Text('Open'),
               ),
               OutlinedButton.icon(
                 onPressed: busy ? null : () => onDelete(),
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('Удалить'),
+                label: const Text('Delete'),
               ),
             ],
           ),
@@ -307,7 +311,7 @@ class _HistoryEntryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Обновлено: ${entry.updatedAt.toLocal()}',
+            'Updated: ${entry.updatedAt.toLocal()}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

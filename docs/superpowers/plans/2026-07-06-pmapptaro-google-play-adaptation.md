@@ -338,7 +338,7 @@ Expected: selected language is saved locally and survives app restart.
 
 Actual: chat menu includes `Language`, `set_language` is restorable from persisted chat actions, and selected language is stored in `LanguageRepository`.
 
-- [ ] **Step 5: Run UI string scan again**
+- [x] **Step 5: Run UI string scan again**
 
 Run:
 
@@ -348,7 +348,7 @@ rg -n "[А-Яа-яЁё]" app/lib app/android
 
 Expected: only Russian localization values and admin/dev-only strings remain.
 
-Actual: scan still finds Russian strings in legacy technical screens (`presentation`, `converter`, `history`, `home`, `subscription`) and Russian localization branches. Keep this as a separate cleanup task after billing.
+Actual: legacy technical screens (`presentation`, `converter`, `history`, `home`, `settings`, `subscription`) now use English user-facing copy. The scan still finds Russian strings only in explicit Russian localization branches (`ru:` / `isRussian`) and language labels.
 
 ## Task 5: Backend Language-Aware Requests
 

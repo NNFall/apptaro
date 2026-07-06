@@ -66,9 +66,9 @@ class _PresentationScreenState extends State<PresentationScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             SectionCard(
-              title: 'Новая презентация',
+              title: 'New reading deck',
               subtitle:
-                  'Экран уже работает поверх backend API: получает шаблоны, строит outline, правит его и запускает render job.',
+                  'This legacy screen works through the backend API: it loads templates, builds an outline, edits it, and starts a render job.',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -78,8 +78,8 @@ class _PresentationScreenState extends State<PresentationScreen> {
                     maxLines: 4,
                     textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
-                      labelText: 'Тема презентации',
-                      hintText: 'Например: Почему Марс интересен для будущих миссий',
+                      labelText: 'Reading topic',
+                      hintText: 'Example: What should I focus on this month?',
                     ),
                     onChanged: controller.setTopic,
                   ),
@@ -88,13 +88,13 @@ class _PresentationScreenState extends State<PresentationScreen> {
                     key: ValueKey('slides-total-${controller.slidesTotal}'),
                     initialValue: controller.slidesTotal,
                     decoration: const InputDecoration(
-                      labelText: 'Количество слайдов',
+                      labelText: 'Number of cards/slides',
                     ),
                     items: controller.slideOptions
                         .map(
                           (value) => DropdownMenuItem<int>(
                             value: value,
-                            child: Text('$value слайдов'),
+                            child: Text('$value slides'),
                           ),
                         )
                         .toList(),
@@ -116,17 +116,18 @@ class _PresentationScreenState extends State<PresentationScreen> {
                         icon: controller.generatingOutline
                             ? const SizedBox.square(
                                 dimension: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.auto_awesome_rounded),
-                        label: const Text('Сгенерировать outline'),
+                        label: const Text('Generate outline'),
                       ),
                       OutlinedButton.icon(
                         onPressed: controller.loadingTemplates
                             ? null
                             : controller.refreshTemplates,
                         icon: const Icon(Icons.grid_view_rounded),
-                        label: const Text('Обновить шаблоны'),
+                        label: const Text('Refresh templates'),
                       ),
                     ],
                   ),
@@ -136,7 +137,7 @@ class _PresentationScreenState extends State<PresentationScreen> {
             if (controller.error case final error?) ...[
               const SizedBox(height: 16),
               SectionCard(
-                title: 'Ошибка',
+                title: 'Error',
                 subtitle: error,
                 trailing: Icon(
                   Icons.error_outline_rounded,
@@ -146,10 +147,10 @@ class _PresentationScreenState extends State<PresentationScreen> {
             ],
             const SizedBox(height: 16),
             SectionCard(
-              title: 'План и заголовок',
+              title: 'Outline and title',
               subtitle: controller.hasOutline
-                  ? 'Можно вручную поправить заголовок и отдельные пункты outline перед запуском рендера.'
-                  : 'Сначала сгенерируй outline по теме. После этого здесь появится редактируемый план.',
+                  ? 'You can manually adjust the title and outline before starting render.'
+                  : 'Generate an outline first. An editable plan will appear here.',
               child: controller.hasOutline
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,19 +158,23 @@ class _PresentationScreenState extends State<PresentationScreen> {
                         TextField(
                           controller: _titleController,
                           decoration: const InputDecoration(
-                            labelText: 'Заголовок презентации',
+                            labelText: 'Title',
                           ),
                           onChanged: controller.setTitle,
                         ),
                         const SizedBox(height: 16),
-                        for (var index = 0; index < controller.outline.length; index++) ...[
+                        for (var index = 0;
+                            index < controller.outline.length;
+                            index++) ...[
                           TextFormField(
-                            key: ValueKey('outline-$index-${controller.outline[index]}'),
+                            key: ValueKey(
+                                'outline-$index-${controller.outline[index]}'),
                             initialValue: controller.outline[index],
                             decoration: InputDecoration(
-                              labelText: 'Слайд ${index + 1}',
+                              labelText: 'Slide ${index + 1}',
                             ),
-                            onChanged: (value) => controller.updateOutlineItem(index, value),
+                            onChanged: (value) =>
+                                controller.updateOutlineItem(index, value),
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -179,8 +184,9 @@ class _PresentationScreenState extends State<PresentationScreen> {
                           minLines: 2,
                           maxLines: 3,
                           decoration: const InputDecoration(
-                            labelText: 'Комментарий для пересборки outline',
-                            hintText: 'Например: сделай акцент на практических выводах и убери общий вводный слайд',
+                            labelText: 'Outline revision comment',
+                            hintText:
+                                'Example: focus on practical guidance and remove generic intro.',
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -194,23 +200,25 @@ class _PresentationScreenState extends State<PresentationScreen> {
                           icon: controller.revisingOutline
                               ? const SizedBox.square(
                                   dimension: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.tune_rounded),
-                          label: const Text('Пересобрать outline'),
+                          label: const Text('Revise outline'),
                         ),
                       ],
                     )
                   : const _EmptyState(
                       icon: Icons.notes_rounded,
-                      text: 'План пока пуст. Сгенерируй outline, чтобы открыть редактор.',
+                      text:
+                          'The plan is empty. Generate an outline to open the editor.',
                     ),
             ),
             const SizedBox(height: 16),
             SectionCard(
-              title: 'Дизайн и render',
+              title: 'Design and render',
               subtitle:
-                  'Выбери шаблон и формат результата. Пока файл ещё не сохраняется на устройство, но job и download URLs уже работают.',
+                  'Choose a template and result format. Render jobs and download URLs are already available.',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -223,21 +231,24 @@ class _PresentationScreenState extends State<PresentationScreen> {
                   const SizedBox(height: 16),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Сразу собирать PDF'),
-                    subtitle: const Text('Если выключить, backend отдаст только PPTX.'),
+                    title: const Text('Generate PDF immediately'),
+                    subtitle: const Text(
+                        'If disabled, the backend returns only PPTX.'),
                     value: controller.generatePdf,
                     onChanged: controller.setGeneratePdf,
                   ),
                   const SizedBox(height: 8),
                   FilledButton.icon(
-                    onPressed: controller.canStartJob ? controller.startPresentationJob : null,
+                    onPressed: controller.canStartJob
+                        ? controller.startPresentationJob
+                        : null,
                     icon: controller.startingJob
                         ? const SizedBox.square(
                             dimension: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Запустить render job'),
+                    label: const Text('Start render job'),
                   ),
                 ],
               ),
@@ -289,7 +300,7 @@ class _TemplatesStrip extends StatelessWidget {
     if (templates.isEmpty) {
       return const _EmptyState(
         icon: Icons.grid_view_rounded,
-        text: 'Каталог шаблонов пока не загружен.',
+        text: 'The template catalog has not been loaded yet.',
       );
     }
 
@@ -302,7 +313,9 @@ class _TemplatesStrip extends StatelessWidget {
             padding: const EdgeInsets.only(right: 12),
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
-              onTap: template.templateAvailable ? () => onSelected(template.id) : null,
+              onTap: template.templateAvailable
+                  ? () => onSelected(template.id)
+                  : null,
               child: Ink(
                 width: 212,
                 padding: const EdgeInsets.all(16),
@@ -341,15 +354,15 @@ class _TemplatesStrip extends StatelessWidget {
                     const SizedBox(height: 12),
                     Text(
                       template.templateAvailable
-                          ? 'Шаблон доступен'
-                          : 'Файл шаблона недоступен',
+                          ? 'Template is available'
+                          : 'Template file is unavailable',
                       style: theme.textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       template.previewAvailable
-                          ? 'Preview найден на backend'
-                          : 'Preview пока отсутствует',
+                          ? 'Preview found on backend'
+                          : 'Preview is not available yet',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -371,7 +384,8 @@ class _TemplatesStrip extends StatelessWidget {
                       child: Icon(
                         Icons.slideshow_rounded,
                         size: 34,
-                        color: selected ? Colors.white : theme.colorScheme.primary,
+                        color:
+                            selected ? Colors.white : theme.colorScheme.primary,
                       ),
                     ),
                   ],
@@ -401,7 +415,7 @@ class _JobCard extends StatelessWidget {
       return const SectionCard(
         title: 'Render job',
         subtitle:
-            'После запуска здесь появится статус `queued/running/succeeded/failed` и ссылки на итоговые файлы.',
+            'After start, this card will show the `queued/running/succeeded/failed` status and final file links.',
       );
     }
 
@@ -430,7 +444,7 @@ class _JobCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Обновлено: ${job!.updatedAt}',
+            'Updated: ${job!.updatedAt}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -539,7 +553,7 @@ class _ArtifactTile extends StatelessWidget {
                             ? Icons.download_rounded
                             : Icons.check_circle_rounded,
                       ),
-                label: Text(savedPath == null ? 'Сохранить локально' : 'Сохранено'),
+                label: Text(savedPath == null ? 'Save locally' : 'Saved'),
               ),
               if (savedPath case final path?)
                 Text(
