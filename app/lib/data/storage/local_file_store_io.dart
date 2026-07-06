@@ -27,7 +27,7 @@ class StoredLocalFile {
 LocalFileStore createLocalFileStore() => _IoLocalFileStore();
 
 class _IoLocalFileStore implements LocalFileStore {
-  static const String _directoryName = 'appslides_files';
+  static const String _directoryName = 'apptaro_files';
 
   @override
   Future<bool> exists(String path) async {

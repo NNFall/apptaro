@@ -26,13 +26,15 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
   })  : _storageKey = storageKey,
         _legacyStorageKeys = legacyStorageKeys;
 
-  static const String _directoryName = 'appslides_state';
+  static const String _directoryName = 'apptaro_state';
+  static const String _legacyDirectoryName = 'appslides_state';
   static const String _filename = 'chat_transcript.json';
 
   final String _storageKey;
   final List<String> _legacyStorageKeys;
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   Future<File>? _fileFuture;
+  Future<File>? _legacyFileFuture;
 
   @override
   Future<String?> read() async {
@@ -40,6 +42,19 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
     if (file.existsSync()) {
       final raw = file.readAsStringSync();
       if (raw.isNotEmpty) {
+        return raw;
+      }
+    }
+
+    final legacyFile = await _resolveLegacyFile();
+    if (legacyFile.existsSync()) {
+      final raw = legacyFile.readAsStringSync();
+      if (raw.isNotEmpty) {
+        try {
+          file.parent.createSync(recursive: true);
+          file.writeAsStringSync(raw, flush: true);
+          legacyFile.deleteSync();
+        } catch (_) {}
         return raw;
       }
     }
@@ -81,6 +96,10 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
     if (file.existsSync()) {
       file.deleteSync();
     }
+    final legacyFile = await _resolveLegacyFile();
+    if (legacyFile.existsSync()) {
+      legacyFile.deleteSync();
+    }
 
     final prefs = await _prefs;
     await prefs.remove(_storageKey);
@@ -98,12 +117,24 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
   }
 
   Future<File> _resolveFileImpl() async {
+    return _resolveFileInDirectory(_directoryName);
+  }
+
+  Future<File> _resolveLegacyFile() async {
+    if (_legacyFileFuture != null) {
+      return _legacyFileFuture!;
+    }
+    _legacyFileFuture = _resolveFileInDirectory(_legacyDirectoryName);
+    return _legacyFileFuture!;
+  }
+
+  Future<File> _resolveFileInDirectory(String directoryName) async {
     final baseDir = Platform.isAndroid
         ? await getExternalStorageDirectory() ??
             await getApplicationDocumentsDirectory()
         : await getApplicationDocumentsDirectory();
     final targetDir = Directory(
-      '${baseDir.path}${Platform.pathSeparator}$_directoryName',
+      '${baseDir.path}${Platform.pathSeparator}$directoryName',
     );
     return File('${targetDir.path}${Platform.pathSeparator}$_filename');
   }
