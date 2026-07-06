@@ -420,7 +420,7 @@ def cancel_subscription(client_id: str) -> bool:
 def redeem_promo_code(client_id: str, code: str, days: int = 3650) -> int:
     normalized = code.strip().upper()
     if len(normalized) < 4:
-        raise ValueError('Некорректный промокод')
+        raise ValueError('Invalid promo code')
 
     with _LOCK:
         with closing(connect()) as conn:
@@ -433,26 +433,26 @@ def redeem_promo_code(client_id: str, code: str, days: int = 3650) -> int:
                 (normalized,),
             ).fetchone()
             if row is None:
-                raise LookupError('Промокод не найден')
-
-            if int(row['is_active']) != 1:
-                raise ValueError('Промокод неактивен')
-
-            max_uses = int(row['max_uses'])
-            used = int(row['used'])
-            if used >= max_uses:
-                raise ValueError('Промокод уже исчерпан')
+                raise LookupError('Promo code was not found')
 
             existing_use = conn.execute(
                 'SELECT 1 FROM promo_uses WHERE UPPER(code) = ? AND client_id = ? LIMIT 1',
                 (normalized, client_id),
             ).fetchone()
             if existing_use is not None:
-                raise ValueError('Этот промокод уже был активирован на данном пользователе')
+                raise ValueError('This promo code was already activated for this user')
+
+            if int(row['is_active']) != 1:
+                raise ValueError('Promo code is inactive')
+
+            max_uses = int(row['max_uses'])
+            used = int(row['used'])
+            if used >= max_uses:
+                raise ValueError('Promo code has already been used')
 
             tokens = int(row['tokens'])
             if tokens <= 0:
-                raise ValueError('Промокод не содержит раскладов')
+                raise ValueError('Promo code does not contain readings')
 
             conn.execute(
                 '''
