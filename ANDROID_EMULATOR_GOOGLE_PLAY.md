@@ -45,6 +45,12 @@ apptaro_smoke
 flutter devices
 ```
 
+На этой машине `adb` может быть не добавлен в `PATH`, поэтому в командах выше используется полный путь:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe"
+```
+
 Проверить, что Play Store установлен:
 
 ```powershell
@@ -106,4 +112,24 @@ Smoke screenshots:
 ```text
 docs/screenshots/android/google-play/home-release-clean.png
 docs/screenshots/android/google-play/ask-flow-release.png
+```
+
+## Current Billing Cleanup Smoke
+
+Verified on `2026-07-06` after removing old redirect/YooKassa billing remnants:
+
+- active AVD: `apptaro_google_play`;
+- connected device: `emulator-5554`;
+- Android version: `15`;
+- Play Store package exists: `com.android.vending`;
+- Google Play Services package exists: `com.google.android.gms`;
+- release APK installed successfully from `app/build/app/outputs/flutter-apk/app-release.apk`;
+- package launched successfully as `com.apptaro.app`;
+- UI dump contains English startup copy and no Russian/YooKassa/redirect billing strings.
+
+Artifacts:
+
+```text
+docs/screenshots/android/google-play/home-release-after-billing-cleanup.png
+docs/screenshots/android/google-play/window-home-release-after-billing-cleanup.xml
 ```
