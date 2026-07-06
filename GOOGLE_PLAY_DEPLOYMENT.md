@@ -39,6 +39,18 @@ GOOGLE_PLAY_TEST_MODE=0
 
 `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` can be used instead of a file, but the file path is preferred for production.
 
+## Admin Bot Token
+
+`ADMIN_BOT_TOKEN` must belong to a separate Telegram bot for this Google Play stack.
+
+Do not reuse a token from `/root/apptaro`, `/root/appslides`, `/root/PMappslides`, or any other server project. Telegram allows only one active `getUpdates` polling loop per bot token; if two containers use the same token, the admin bot logs will show:
+
+```text
+Conflict: terminated by other getUpdates request
+```
+
+The deploy script checks `/root/*/.env` and stops deployment if the same admin bot token is already used by another project.
+
 ## Deploy
 
 From the project root:

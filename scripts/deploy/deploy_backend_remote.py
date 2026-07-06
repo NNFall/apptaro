@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import posixpath
 import time
@@ -191,6 +192,68 @@ def _format_env_value(value: str) -> str:
     if any(ch.isspace() for ch in value) or any(ch in value for ch in '#"\'') or value[:1] in {'{', '['}:
         return json.dumps(value, ensure_ascii=False)
     return value
+
+
+def _env_value(content: str, key: str) -> str:
+    prefix = f'{key}='
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or not line.startswith(prefix):
+            continue
+        return _strip_env_value(line.split('=', 1)[1].strip())
+    return ''
+
+
+def ensure_remote_admin_bot_token_is_unique(
+    remote: 'RemoteHost',
+    remote_dir: str,
+    remote_env: str,
+) -> None:
+    admin_token = _env_value(remote_env, 'ADMIN_BOT_TOKEN')
+    if not admin_token:
+        return
+
+    token_hash = hashlib.sha256(admin_token.encode('utf-8')).hexdigest()
+    remote_dir_norm = posixpath.normpath(remote_dir).rstrip('/')
+    command = f"""
+python3 - <<'PY'
+from pathlib import Path
+import hashlib
+
+target_hash = {json.dumps(token_hash)}
+current_dir = {json.dumps(remote_dir_norm)}
+conflicts = []
+
+for path in sorted(Path('/root').glob('*')):
+    env_path = path / '.env'
+    if not env_path.exists():
+        continue
+    env_dir = str(path)
+    if env_dir == current_dir or env_dir.startswith(current_dir + '/'):
+        continue
+    token = ''
+    for line in env_path.read_text(errors='ignore').splitlines():
+        if line.startswith('ADMIN_BOT_TOKEN='):
+            token = line.split('=', 1)[1].strip().strip('"\\'')
+            break
+    if token and hashlib.sha256(token.encode('utf-8')).hexdigest() == target_hash:
+        conflicts.append(str(env_path))
+
+if conflicts:
+    print('\\n'.join(conflicts))
+    raise SystemExit(2)
+PY
+"""
+    exit_code, out, err = remote.run(command, check=False)
+    if exit_code == 2:
+        conflict_paths = ', '.join(item.strip() for item in out.splitlines() if item.strip())
+        raise RuntimeError(
+            'ADMIN_BOT_TOKEN is already used by another remote project: '
+            f'{conflict_paths}. Create a separate Telegram admin bot token for PMapptaro '
+            'or stop the old conflicting admin bot before deploying.'
+        )
+    if exit_code != 0:
+        raise RuntimeError(f'Failed to check remote admin bot token uniqueness.\nSTDOUT:\n{out}\nSTDERR:\n{err}')
 
 
 class RemoteHost:
@@ -406,6 +469,7 @@ def main() -> int:
         ensure_remote_cron(remote)
         host_port = choose_host_port(remote)
         remote_env = build_remote_env(local_env, host_port)
+        ensure_remote_admin_bot_token_is_unique(remote, args.remote_dir, remote_env)
         deploy(remote, args.remote_dir, remote_env)
         install_admin_bot_watchdog(
             remote,
