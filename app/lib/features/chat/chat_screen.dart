@@ -23,7 +23,6 @@ import '../../domain/models/saved_file_entry.dart';
 import '../../l10n/app_language.dart';
 import '../../l10n/app_localizations.dart';
 import '../billing/billing_controller.dart';
-import '../converter/converter_controller.dart';
 import '../presentation/presentation_controller.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -41,7 +40,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final Set<String> _savingAttachmentIds = <String>{};
 
   PresentationController? _presentationController;
-  ConverterController? _converterController;
   BillingController? _billingController;
   BackendConfigRepository? _backendConfigRepository;
   ChatTranscriptRepository? _chatTranscriptRepository;
@@ -58,9 +56,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _lastPresentationError;
   String? _lastPresentationStatusKey;
   String? _lastPresentationResultKey;
-  String? _lastConverterError;
-  String? _lastConverterStatusKey;
-  String? _lastConverterResultKey;
   String? _lastBillingPaymentStatusKey;
   String? _outlineProgressMessageId;
   String? _renderPreparationMessageId;
@@ -131,17 +126,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       historyRepository: _historyRepository!,
       savedFilesRepository: _savedFilesRepository!,
     )..initialize();
-    _converterController = ConverterController(
-      repository: AppScope.repositoryOf(context),
-      historyRepository: _historyRepository!,
-      savedFilesRepository: _savedFilesRepository!,
-    );
     _billingController = BillingController(
       repository: AppScope.repositoryOf(context),
     )..initialize();
 
     _presentationController!.addListener(_handlePresentationUpdates);
-    _converterController!.addListener(_handleConverterUpdates);
     _billingController!.addListener(_handleBillingUpdates);
     _backendConfigRepository!.addListener(_handleExternalStateChanged);
     _chatTranscriptRepository!.addListener(_handleExternalStateChanged);
@@ -156,8 +145,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _presentationController?.removeListener(_handlePresentationUpdates);
     _presentationController?.dispose();
-    _converterController?.removeListener(_handleConverterUpdates);
-    _converterController?.dispose();
     _billingController?.removeListener(_handleBillingUpdates);
     _billingController?.dispose();
     _backendConfigRepository?.removeListener(_handleExternalStateChanged);
@@ -188,7 +175,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_presentationController == null || _converterController == null) {
+    if (_presentationController == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -1151,95 +1138,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _handleConverterUpdates() {
-    final controller = _converterController;
-    if (controller == null) {
-      return;
-    }
-
-    final error = controller.error?.trim();
-    if (error == null || error.isEmpty) {
-      _lastConverterError = null;
-    } else if (error != _lastConverterError) {
-      _lastConverterError = error;
-      _appendBotMessage('❌ $error');
-    }
-
-    final job = controller.job;
-    if (job != null) {
-      final statusKey = '${job.jobId}:${job.status.name}';
-      if (statusKey != _lastConverterStatusKey) {
-        _lastConverterStatusKey = statusKey;
-        switch (job.status) {
-          case RemoteJobStatus.queued:
-            _appendBotMessage(_copy(
-              en: '⌛ File conversion is queued.',
-              ru: '⌛ Файл поставлен в очередь на конвертацию.',
-            ));
-            break;
-          case RemoteJobStatus.running:
-            _appendBotMessage(_copy(
-              en: '⚙️ Conversion is running...',
-              ru: '⚙️ Конвертация идёт...',
-            ));
-            break;
-          case RemoteJobStatus.failed:
-            _appendBotMessage(
-              _copy(
-                en: '❌ Conversion failed.\n${job.error ?? 'Try again.'}',
-                ru: '❌ Конвертация завершилась с ошибкой.\n${job.error ?? 'Попробуй ещё раз.'}',
-              ),
-              keyboard: [
-                [
-                  _action(
-                    _mainMenuLabel,
-                    _showMainMenu,
-                    actionKey: 'show_main_menu',
-                    echoAsUser: false,
-                  ),
-                ],
-              ],
-            );
-            break;
-          case RemoteJobStatus.succeeded:
-          case RemoteJobStatus.unknown:
-            break;
-        }
-      }
-
-      final artifact = job.artifact;
-      if (job.isSuccessful && artifact != null) {
-        final resultKey = '${job.jobId}:${artifact.artifactId}';
-        if (resultKey != _lastConverterResultKey) {
-          _lastConverterResultKey = resultKey;
-          _appendBotMessage(
-            _copy(
-              en: '✅ Conversion is ready\nThe file is available below.',
-              ru: '✅ Конвертация готова\nФайл доступен ниже.',
-            ),
-            attachments: <_ChatAttachment>[
-              _buildConversionAttachment(job.jobId, artifact),
-            ],
-            keyboard: [
-              [
-                _action(
-                  _mainMenuLabel,
-                  _showMainMenu,
-                  actionKey: 'show_main_menu',
-                  echoAsUser: false,
-                ),
-              ],
-            ],
-          );
-        }
-      }
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   void _handleBillingUpdates() {
     final controller = _billingController;
     if (controller == null) {
@@ -2181,25 +2079,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final base = Uri.parse(
         _backendConfigRepository?.baseUrl ?? AppConfig.defaultBackendBaseUrl);
     return base.resolveUri(parsed);
-  }
-
-  _ChatAttachment _buildConversionAttachment(
-    String jobId,
-    JobArtifact artifact,
-  ) {
-    return _ChatAttachment(
-      jobId: jobId,
-      artifactId: artifact.artifactId,
-      filename: artifact.filename,
-      kind: artifact.kind,
-      mediaType: artifact.mediaType,
-      remoteUri: AppScope.repositoryOf(context).conversionDownloadUri(jobId),
-      sourceType: SavedFileSourceType.conversionArtifact,
-      icon: artifact.kind == 'docx'
-          ? Icons.description_rounded
-          : Icons.picture_as_pdf_rounded,
-      caption: _copy(en: 'Conversion result', ru: 'Результат конвертации'),
-    );
   }
 
   _ChatMessage _messageFromTranscript(ChatTranscriptEntry entry) {

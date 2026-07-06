@@ -13,5 +13,9 @@ void main() {
     expect(source, isNot(contains("'File (PPTX)'")));
     expect(source, isNot(contains("'Document (DOCX)'")));
     expect(source, isNot(contains('callback = () => _startConversionFlow')));
+    expect(source, isNot(contains('ConverterController')));
+    expect(source, isNot(contains('_handleConverterUpdates')));
+    expect(source, isNot(contains('File conversion is queued')));
+    expect(source, isNot(contains('Conversion result')));
   });
 }
