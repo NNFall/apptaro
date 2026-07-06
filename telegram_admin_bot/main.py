@@ -39,8 +39,6 @@ async def _set_commands(bot: Bot, admin_ids: list[int]) -> None:
         BotCommand(command='admin_add', description='Добавить админа'),
         BotCommand(command='admin_del', description='Удалить админа'),
         BotCommand(command='admin_list', description='Список админов'),
-        BotCommand(command='templates', description='Показать файлы шаблонов'),
-        BotCommand(command='template_set', description='Заменить файл шаблона'),
     ]
     await bot.set_my_commands(commands)
     for admin_id in admin_ids:

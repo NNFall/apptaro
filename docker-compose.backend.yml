@@ -26,13 +26,9 @@ services:
       - ./.env
     environment:
       ADMIN_DATABASE_PATH: /data/pmapptaro.db
-      ADMIN_TEMPLATES_DIR: /templates
-      ADMIN_TEMP_DIR: /temp
       ADMIN_BOT_HEARTBEAT_PATH: /tmp/admin_bot.heartbeat
     volumes:
       - ./data:/data
-      - ./templates:/templates
-      - ./temp:/temp
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/admin_bot.heartbeat && [ $$(($$(date +%s)-$$(stat -c %Y /tmp/admin_bot.heartbeat))) -lt 180 ]"]
       interval: 60s

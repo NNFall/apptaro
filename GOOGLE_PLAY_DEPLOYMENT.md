@@ -96,7 +96,7 @@ python scripts/deploy/deploy_backend_remote.py `
   --remote-dir /root/PMapptaro
 ```
 
-The script uploads backend, admin bot, templates, tarot runtime assets, generates remote `.env`, runs Docker Compose, installs an admin-bot heartbeat watchdog, and checks `/v1/health`.
+The script uploads backend, admin bot, compatibility templates, tarot runtime assets, generates remote `.env`, runs Docker Compose, installs an admin-bot heartbeat watchdog, and checks `/v1/health`.
 
 ## Health Check
 

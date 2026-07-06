@@ -1,15 +1,8 @@
-from __future__ import annotations
-
-import os
 import secrets
-import shutil
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
-from aiogram.types.input_file import FSInputFile
 
 from telegram_admin_bot.config import load_config
 
@@ -18,10 +11,6 @@ from src.repositories import admin as admin_repo
 
 router = Router()
 config = load_config()
-
-
-class AdminTemplateStates(StatesGroup):
-    waiting_template_file = State()
 
 
 PLANS = {
@@ -318,105 +307,3 @@ async def admin_list_cmd(message: Message) -> None:
     extra_admins = admin_repo.list_admins()
     all_admins = sorted(set(config.admin_ids + extra_admins))
     await message.answer('Админы: ' + ', '.join(str(item) for item in all_admins))
-
-
-@router.message(Command('templates'))
-async def templates_list(message: Message) -> None:
-    if not await _is_admin(message.from_user.id):
-        await message.answer('Команда доступна только администратору.')
-        return
-    sent_any = False
-    for idx in range(1, 5):
-        path = config.templates_dir / f'design_{idx}.pptx'
-        if path.exists():
-            await message.answer_document(FSInputFile(path), caption=f'Шаблон {idx}')
-            sent_any = True
-        else:
-            await message.answer(f'Шаблон {idx} не найден.')
-
-    mailer_path = config.templates_dir / f'design_{config.mailer_template_index}.txt'
-    if mailer_path.exists():
-        await message.answer_document(
-            FSInputFile(mailer_path),
-            caption=f'Шаблон {config.mailer_template_index} (рассылка)',
-        )
-        sent_any = True
-    else:
-        await message.answer(f'Шаблон {config.mailer_template_index} (рассылка) не найден.')
-
-    if not sent_any:
-        await message.answer('Шаблоны не найдены. Положите файлы в templates.')
-
-
-@router.message(Command('template_set'))
-async def template_set(message: Message, state: FSMContext) -> None:
-    if not await _is_admin(message.from_user.id):
-        await message.answer('Команда доступна только администратору.')
-        return
-    parts = (message.text or '').split(maxsplit=1)
-    if len(parts) < 2:
-        await message.answer('Использование: /template_set 1|2|3|4|5')
-        return
-    try:
-        idx = int(parts[1].strip())
-    except ValueError:
-        await message.answer('Укажите номер шаблона: 1, 2, 3, 4 или 5.')
-        return
-    if idx not in (1, 2, 3, 4, config.mailer_template_index):
-        await message.answer('Укажите номер шаблона: 1, 2, 3, 4 или 5.')
-        return
-    await state.update_data(template_idx=idx)
-    await state.set_state(AdminTemplateStates.waiting_template_file)
-    if idx == config.mailer_template_index:
-        await message.answer(f'Пришлите TXT файл для замены шаблона {idx} (рассылка).')
-    else:
-        await message.answer(f'Пришлите PPTX файл для замены шаблона {idx}.')
-
-
-@router.message(AdminTemplateStates.waiting_template_file, F.document)
-async def template_set_file(message: Message, state: FSMContext) -> None:
-    if not await _is_admin(message.from_user.id):
-        await message.answer('Команда доступна только администратору.')
-        await state.clear()
-        return
-    data = await state.get_data()
-    idx = data.get('template_idx')
-    if idx not in (1, 2, 3, 4, config.mailer_template_index):
-        await message.answer('Не удалось определить номер шаблона. Повторите /template_set.')
-        await state.clear()
-        return
-    filename = message.document.file_name or ''
-    if idx == config.mailer_template_index:
-        if not filename.lower().endswith('.txt'):
-            await message.answer('Нужен файл в формате TXT.')
-            return
-        ext = 'txt'
-    else:
-        if not filename.lower().endswith('.pptx'):
-            await message.answer('Нужен файл в формате PPTX.')
-            return
-        ext = 'pptx'
-
-    config.templates_dir.mkdir(parents=True, exist_ok=True)
-    config.temp_dir.mkdir(parents=True, exist_ok=True)
-    tmp_path = config.temp_dir / f'template_{idx}_{secrets.token_hex(4)}.{ext}'
-    await message.bot.download(message.document, destination=tmp_path)
-    target_path = config.templates_dir / f'design_{idx}.{ext}'
-    try:
-        os.replace(tmp_path, target_path)
-    except OSError:
-        shutil.copy2(tmp_path, target_path)
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
-    await state.clear()
-    if idx == config.mailer_template_index:
-        await message.answer(f'Шаблон {idx} (рассылка) обновлен ✅')
-    else:
-        await message.answer(f'Шаблон {idx} обновлен ✅')
-
-
-@router.message(AdminTemplateStates.waiting_template_file)
-async def template_set_file_invalid(message: Message) -> None:
-    await message.answer('Пришлите файл шаблона.')

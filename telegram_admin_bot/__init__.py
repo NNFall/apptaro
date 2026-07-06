@@ -1,2 +1,1 @@
-"""Telegram admin bot for AppSlides."""
-
+"""Telegram admin bot for PMapptaro."""

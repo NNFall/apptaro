@@ -1,2 +1,1 @@
-"""Handlers for the AppSlides admin Telegram bot."""
-
+"""Handlers for the PMapptaro admin Telegram bot."""
