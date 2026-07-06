@@ -1448,11 +1448,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ));
     }
 
-    buffer.writeln();
-    buffer.writeln(_copy(
-      en: 'Payment is handled securely by Google Play. By continuing, you agree to the [terms](${summary.offerUrl}).',
-      ru: 'Переходя к оплате, вы соглашаетесь с [офертой](${summary.offerUrl}).',
-    ));
+    final offerUrl = summary.offerUrl.trim();
+    if (offerUrl.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln(_copy(
+        en: 'Payment is handled securely by Google Play. By continuing, you agree to the [terms]($offerUrl).',
+        ru: 'Переходя к оплате, вы соглашаетесь с [офертой]($offerUrl).',
+      ));
+    }
     return buffer.toString().trim();
   }
 

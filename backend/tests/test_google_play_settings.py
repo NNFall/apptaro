@@ -37,6 +37,15 @@ class GooglePlaySettingsTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(summary.test_mode)
 
+    def test_offer_url_defaults_empty_and_trims_configured_value(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self._clear_caches()
+            self.assertEqual(get_settings().offer_url, "")
+
+        with patch.dict(os.environ, {"OFFER_URL": " https://example.com/terms "}, clear=True):
+            self._clear_caches()
+            self.assertEqual(get_settings().offer_url, "https://example.com/terms")
+
     @staticmethod
     def _clear_caches() -> None:
         get_settings.cache_clear()
