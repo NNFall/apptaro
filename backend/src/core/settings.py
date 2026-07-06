@@ -183,7 +183,7 @@ def load_settings() -> Settings:
             'SUPPORT_MAX_URL',
             'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8',
         ).strip(),
-        offer_url=os.getenv('OFFER_URL', '').strip(),
+        offer_url=os.getenv('GOOGLE_PLAY_OFFER_URL', os.getenv('OFFER_URL', '')).strip(),
         data_dir=_resolve_path(os.getenv('DATA_DIR', ''), default_data_dir),
         database_path=_resolve_path(os.getenv('DATABASE_PATH', ''), default_database_path),
         temp_dir=_resolve_path(os.getenv('TEMP_DIR', ''), default_temp_dir),

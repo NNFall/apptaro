@@ -46,6 +46,18 @@ class GooglePlaySettingsTests(unittest.IsolatedAsyncioTestCase):
             self._clear_caches()
             self.assertEqual(get_settings().offer_url, "https://example.com/terms")
 
+    def test_google_play_offer_url_overrides_legacy_offer_url(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "OFFER_URL": "https://dimonk95.github.io/tarobotrustore/",
+                "GOOGLE_PLAY_OFFER_URL": " https://example.com/google-play-terms ",
+            },
+            clear=True,
+        ):
+            self._clear_caches()
+            self.assertEqual(get_settings().offer_url, "https://example.com/google-play-terms")
+
     @staticmethod
     def _clear_caches() -> None:
         get_settings.cache_clear()
