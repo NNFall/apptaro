@@ -1,11 +1,11 @@
 {
-    "name": "appslides",
-    "short_name": "appslides",
+    "name": "AI Tarot Reading",
+    "short_name": "AppTaro",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "AI-powered tarot readings with local chat history.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
