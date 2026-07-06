@@ -20,8 +20,12 @@ TEMPLATES_DIR = BACKEND_DIR / 'runtime' / 'templates'
 TAROT_DIR = BACKEND_DIR / 'runtime' / 'tarot'
 ADMIN_BOT_DIR = REPO_ROOT / 'telegram_admin_bot'
 COMPOSE_FILE = REPO_ROOT / 'docker-compose.backend.yml'
-WATCHDOG_SCRIPT_NAME = 'apptaro_admin_bot_watchdog.sh'
-WATCHDOG_CRON_NAME = 'apptaro_admin_bot_watchdog'
+BACKEND_SERVICE_NAME = 'pmapptaro_backend'
+ADMIN_BOT_SERVICE_NAME = 'pmapptaro_admin_bot'
+DEFAULT_REMOTE_DIR = '/root/PMapptaro'
+DEFAULT_HOST_PORT = 8022
+WATCHDOG_SCRIPT_NAME = 'pmapptaro_admin_bot_watchdog.sh'
+WATCHDOG_CRON_NAME = 'pmapptaro_admin_bot_watchdog'
 
 BACKEND_SKIP_PARTS = {
     '.venv',
@@ -35,12 +39,12 @@ BACKEND_SKIP_SUFFIXES = {'.pyc', '.pyo'}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='Deploy AppSlides backend to a remote Docker host.')
+    parser = argparse.ArgumentParser(description='Deploy PMapptaro Google Play backend to a remote Docker host.')
     parser.add_argument('--host', required=True)
     parser.add_argument('--user', default='root')
     parser.add_argument('--password', required=True)
     parser.add_argument('--port', type=int, default=22)
-    parser.add_argument('--remote-dir', default='/root/appslides')
+    parser.add_argument('--remote-dir', default=DEFAULT_REMOTE_DIR)
     return parser.parse_args()
 
 
@@ -82,8 +86,12 @@ def _strip_env_value(value: str) -> str:
 
 
 def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
+    google_play_service_account_file = local_env.get('GOOGLE_PLAY_SERVICE_ACCOUNT_FILE', '').strip()
+    if not google_play_service_account_file.startswith('/'):
+        google_play_service_account_file = '/data/google-play-service-account.json'
+
     env: dict[str, str] = {
-        'APP_NAME': local_env.get('APP_NAME', 'apptaro Backend'),
+        'APP_NAME': local_env.get('APP_NAME', 'PMapptaro Backend'),
         'APP_ENV': 'production',
         'APP_VERSION': local_env.get('APP_VERSION', '0.1.0'),
         'APP_HOST': '0.0.0.0',
@@ -96,12 +104,15 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'FONT_WHITELIST': local_env.get('FONT_WHITELIST', 'Cambria,Calibri,Arial,Times New Roman'),
         'FONTS_DIR': '/usr/share/fonts',
         'DATA_DIR': '/data',
-        'DATABASE_PATH': '/data/appslides.db',
+        'DATABASE_PATH': '/data/pmapptaro.db',
         'TEMP_DIR': '/app/runtime/temp',
         'TEMPLATES_DIR': '/app/runtime/templates',
         'TAROT_CARDS_DIR': '/app/runtime/tarot/cards',
         'TAROT_BACKGROUND_PATH': '/app/runtime/tarot/backgrounds/main.png',
         'TAROT_LAYOUT_PATH': '/app/runtime/tarot/layout.json',
+        'GOOGLE_PLAY_PACKAGE_NAME': local_env.get('GOOGLE_PLAY_PACKAGE_NAME', 'com.apptaro.app'),
+        'GOOGLE_PLAY_SERVICE_ACCOUNT_FILE': google_play_service_account_file,
+        'GOOGLE_PLAY_TEST_MODE': local_env.get('GOOGLE_PLAY_TEST_MODE', '0'),
         'IMAGE_CONCURRENCY': local_env.get('IMAGE_CONCURRENCY', '5'),
         'IMAGE_GENERATION_RETRIES': local_env.get('IMAGE_GENERATION_RETRIES', '2'),
         'IMAGE_GENERATION_RETRY_DELAY_SECONDS': local_env.get('IMAGE_GENERATION_RETRY_DELAY_SECONDS', '2.0'),
@@ -162,6 +173,9 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'ADMIN_BOT_POLLING_TIMEOUT_SECONDS',
         'ADMIN_BOT_POLLING_RETRY_MAX_SECONDS',
         'ADMIN_BOT_WATCHDOG_MAX_AGE_SECONDS',
+        'GOOGLE_PLAY_PACKAGE_NAME',
+        'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
+        'GOOGLE_PLAY_TEST_MODE',
     )
     for key in passthrough_keys:
         value = local_env.get(key)
@@ -270,7 +284,7 @@ def _watchdog_script(remote_dir: str, heartbeat_path: str, max_age_seconds: int)
 set -eu
 
 REMOTE_DIR="{remote_dir}"
-CONTAINER_NAME="apptaro_admin_bot"
+CONTAINER_NAME="{ADMIN_BOT_SERVICE_NAME}"
 HEARTBEAT_PATH="{heartbeat_path}"
 MAX_AGE_SECONDS="{max_age_seconds}"
 
@@ -290,7 +304,7 @@ fi
 
 if [ "$AGE" -gt "$MAX_AGE_SECONDS" ]; then
   cd "$REMOTE_DIR"
-  docker compose restart apptaro_admin_bot >/dev/null 2>&1 || true
+  docker compose restart {ADMIN_BOT_SERVICE_NAME} >/dev/null 2>&1 || true
 fi
 """
 
@@ -338,26 +352,6 @@ def deploy(remote: RemoteHost, remote_dir: str, remote_env: str) -> None:
     remote.upload_text(remote_env, posixpath.join(remote_dir, '.env'))
 
     remote.run(f"cd '{remote_dir}' && docker compose down --remove-orphans", check=False)
-    remote.run(
-        "docker ps --filter name=appslides_backend --format '{{.Names}} {{.Ports}}' "
-        "| grep ':8010->' >/dev/null 2>&1 && docker stop appslides_backend || true",
-        check=False,
-    )
-    remote.run(
-        "docker ps -a --filter name=appslides_backend --format '{{.Names}}' "
-        "| grep '^appslides_backend$' >/dev/null 2>&1 && docker rm appslides_backend || true",
-        check=False,
-    )
-    remote.run(
-        "docker ps --filter name=appslides_admin_bot --format '{{.Names}}' "
-        "| grep '^appslides_admin_bot$' >/dev/null 2>&1 && docker stop appslides_admin_bot || true",
-        check=False,
-    )
-    remote.run(
-        "docker ps -a --filter name=appslides_admin_bot --format '{{.Names}}' "
-        "| grep '^appslides_admin_bot$' >/dev/null 2>&1 && docker rm appslides_admin_bot || true",
-        check=False,
-    )
     remote.run(f"cd '{remote_dir}' && docker compose up -d --build --remove-orphans")
 
 
@@ -379,7 +373,7 @@ def wait_for_health(remote: RemoteHost, remote_dir: str, host_port: int, timeout
     raise RuntimeError(f'Health check did not pass in time.\nLOGS:\n{logs_out}\n{logs_err}')
 
 
-def choose_host_port(remote: RemoteHost, preferred_port: int = 8010) -> int:
+def choose_host_port(remote: RemoteHost, preferred_port: int = DEFAULT_HOST_PORT) -> int:
     exit_code, out, _ = remote.run(
         f"ss -ltn '( sport = :{preferred_port} )' | sed -n '2,$p'",
         check=False,
@@ -388,14 +382,14 @@ def choose_host_port(remote: RemoteHost, preferred_port: int = 8010) -> int:
         return preferred_port
 
     exit_code, container_out, _ = remote.run(
-        "docker ps --format '{{.Names}} {{.Ports}}' | grep -E '^(apptaro_backend|appslides_backend) '",
+        f"docker ps --format '{{{{.Names}}}} {{{{.Ports}}}}' | grep -E '^({BACKEND_SERVICE_NAME}) '",
         check=False,
     )
     if exit_code == 0 and f':{preferred_port}->' in container_out:
         return preferred_port
 
     raise RuntimeError(
-        f'Host port {preferred_port} is busy. apptaro mobile client is fixed to this port, '
+        f'Host port {preferred_port} is busy. PMapptaro Google Play client is fixed to this port, '
         'so release the port or update the application configuration before redeploy.'
     )
 

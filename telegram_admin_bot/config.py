@@ -50,7 +50,7 @@ def load_config() -> AdminBotConfig:
     default_temp_dir = ROOT_DIR / 'backend' / 'runtime' / 'temp'
     database_path = os.getenv('ADMIN_DATABASE_PATH', '').strip() or os.getenv(
         'DATABASE_PATH',
-        str(default_data_dir / 'appslides.db'),
+        str(default_data_dir / 'pmapptaro.db'),
     )
     templates_dir = os.getenv('ADMIN_TEMPLATES_DIR', '').strip() or os.getenv(
         'TEMPLATES_DIR',

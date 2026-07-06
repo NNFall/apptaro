@@ -138,7 +138,7 @@ class Settings:
 
 def load_settings() -> Settings:
     default_data_dir = BACKEND_DIR / 'data'
-    default_database_path = default_data_dir / 'appslides.db'
+    default_database_path = default_data_dir / 'pmapptaro.db'
     default_temp_dir = BACKEND_DIR / 'runtime' / 'temp'
     default_templates_dir = BACKEND_DIR / 'runtime' / 'templates'
     default_tarot_dir = BACKEND_DIR / 'runtime' / 'tarot'
@@ -202,7 +202,7 @@ def load_settings() -> Settings:
         yookassa_receipt_phone=os.getenv('YOOKASSA_RECEIPT_PHONE', '').strip(),
         yookassa_tax_system_code=int(os.getenv('YOOKASSA_TAX_SYSTEM_CODE', '1') or 1),
         yookassa_vat_code=int(os.getenv('YOOKASSA_VAT_CODE', '1') or 1),
-        yookassa_item_name=os.getenv('YOOKASSA_ITEM_NAME', 'Подписка на расклады apptaro'),
+        yookassa_item_name=os.getenv('YOOKASSA_ITEM_NAME', 'AI Tarot Reading subscription'),
         yookassa_payment_subject=os.getenv('YOOKASSA_PAYMENT_SUBJECT', 'service') or 'service',
         yookassa_payment_mode=os.getenv('YOOKASSA_PAYMENT_MODE', 'full_prepayment') or 'full_prepayment',
         yookassa_test_mode=os.getenv('YOOKASSA_TEST_MODE', '1') == '1',

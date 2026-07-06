@@ -1,14 +1,14 @@
 services:
-  apptaro_backend:
+  pmapptaro_backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: apptaro_backend
+    container_name: pmapptaro_backend
     restart: unless-stopped
     env_file:
       - ./.env
     ports:
-      - "${HOST_PORT:-8000}:8000"
+      - "${HOST_PORT:-8022}:8000"
     volumes:
       - ./data:/data
       - ./templates:/app/runtime/templates
@@ -16,16 +16,16 @@ services:
       - ./temp:/app/runtime/temp
       - ./logs:/app/logs
 
-  apptaro_admin_bot:
+  pmapptaro_admin_bot:
     build:
       context: .
       dockerfile: ./telegram_admin_bot/Dockerfile
-    container_name: apptaro_admin_bot
+    container_name: pmapptaro_admin_bot
     restart: unless-stopped
     env_file:
       - ./.env
     environment:
-      ADMIN_DATABASE_PATH: /data/appslides.db
+      ADMIN_DATABASE_PATH: /data/pmapptaro.db
       ADMIN_TEMPLATES_DIR: /templates
       ADMIN_TEMP_DIR: /temp
       ADMIN_BOT_HEARTBEAT_PATH: /tmp/admin_bot.heartbeat

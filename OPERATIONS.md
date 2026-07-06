@@ -13,15 +13,16 @@ After every large or important change:
 ## GitHub Repository
 
 - Repository: `https://github.com/NNFall/apptaro`
-- Local root: `C:\Users\User\Desktop\work\apptaro`
+- Local root: `D:\papka for all\work\PMapptaro`
 
 ## Backend Runtime
 
 - Server IP: `185.171.83.116`
 - SSH user: `root`
-- Remote app dir: `/root/apptaro`
-- Public backend endpoint: `http://185.171.83.116:8010`
-- Docker service: `apptaro_backend`
+- Remote app dir: `/root/PMapptaro`
+- Public backend endpoint: `http://185.171.83.116:8022`
+- Docker services: `pmapptaro_backend`, `pmapptaro_admin_bot`
+- SQLite database: `/root/PMapptaro/data/pmapptaro.db`
 
 ## Standard Git Flow
 
@@ -49,7 +50,7 @@ python scripts\deploy\deploy_backend_remote.py `
   --user root `
   --password <SERVER_PASSWORD> `
   --port 22 `
-  --remote-dir /root/apptaro
+  --remote-dir /root/PMapptaro
 ```
 
 The deploy script:
@@ -57,8 +58,8 @@ The deploy script:
 - uploads `backend/`, `telegram_admin_bot/`, tarot runtime assets, `docker-compose.yml` and `.env`
 - keeps persistent data outside the container
 - rebuilds and restarts Docker Compose
-- installs host-side cron watchdog for `apptaro_admin_bot`
-- expects the public port to remain `8010`
+- installs host-side cron watchdog for `pmapptaro_admin_bot`
+- expects the public port to remain `8022`
 
 ## Local Validation Before Push
 
@@ -88,11 +89,11 @@ python -c "import telegram_admin_bot.main; print('admin bot import ok')"
 
 ## Notes
 
-- The mobile/web client is hard-wired to `http://185.171.83.116:8010`.
+- The mobile/web client is hard-wired to `http://185.171.83.116:8022`.
 - Local backend URL switching inside the app is intentionally disabled.
-- YooKassa is currently integrated in backend test mode and driven through the chat `/balance` flow.
-- `YOOKASSA_RETURN_URL` must point to `apptaro://billing/return` so payment confirmation returns directly into the mobile app.
-- Successful payment should now be reflected both on app resume and on later summary/generation checks because the backend auto-syncs unfinished payments.
+- Google Play Billing is the active payment provider for this branch; purchases are verified server-side through `POST /v1/billing/google-play/verify`.
+- The Google Play service-account JSON should be stored at `/root/PMapptaro/data/google-play-service-account.json`.
+- `GOOGLE_PLAY_PACKAGE_NAME` must be `com.apptaro.app`.
 - The separate `telegram_admin_bot/` works against the same SQLite database as the backend and uses `client_id` for subscription commands.
-- The production compose stack now includes both `apptaro_backend` and `apptaro_admin_bot`.
+- The production compose stack now includes both `pmapptaro_backend` and `pmapptaro_admin_bot`.
 - The admin bot now writes heartbeat file `/tmp/admin_bot.heartbeat` after successful `getUpdates`; server cron restarts the container if heartbeat gets stale.

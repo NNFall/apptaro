@@ -4,10 +4,11 @@ Backend остается FastAPI-сервисом с billing, jobs, artifacts, a
 
 ## Runtime
 
-- Production backend: `http://185.171.83.116:8010`
-- Remote app dir: `/root/apptaro`
-- SQLite: `/root/apptaro/data/appslides.db`
-- Billing: YooKassa через backend API.
+- Production backend: `http://185.171.83.116:8022`
+- Remote app dir: `/root/PMapptaro`
+- SQLite: `/root/PMapptaro/data/pmapptaro.db`
+- Billing: Google Play Billing through backend token verification.
+- Google Play service account: `/root/PMapptaro/data/google-play-service-account.json` on host, `/data/google-play-service-account.json` in Docker.
 - Admin notifications: отдельный `telegram_admin_bot/` через `ADMIN_BOT_TOKEN` и `ADMIN_IDS`.
 
 ## Product flow
@@ -74,6 +75,7 @@ Backend отправляет тематические уведомления:
 - `GET /v1/billing/summary`
 - `POST /v1/billing/payments`
 - `GET /v1/billing/payments/{payment_id}`
+- `POST /v1/billing/google-play/verify`
 - `POST /v1/billing/subscription/cancel`
 
 ## Локальный запуск

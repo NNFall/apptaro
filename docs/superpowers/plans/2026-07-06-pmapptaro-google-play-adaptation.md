@@ -17,8 +17,8 @@
 - Repository: `https://github.com/NNFall/apptaro.git`.
 - Android package: `com.apptaro.app`.
 - Flutter version: `0.1.0+6`.
-- Current backend URL: `http://185.171.83.116:8010`.
-- Current billing: YooKassa only.
+- Current backend URL: `http://185.171.83.116:8022`.
+- Current billing: Google Play Billing in Flutter with backend token verification.
 - Current release signing: debug signing config.
 - Google Play emulator: `apptaro_google_play`, verified with `com.android.vending`.
 
@@ -576,7 +576,7 @@ Actual: `backend/tests/test_google_play_billing.py` covers valid purchase, faile
 - Modify: `telegram_admin_bot/.env.example`
 - Create: `GOOGLE_PLAY_DEPLOYMENT.md`
 
-- [ ] **Step 1: Rename services for PM**
+- [x] **Step 1: Rename services for PM**
 
 Use names:
 
@@ -593,7 +593,7 @@ pmapptaro_backend
 pmapptaro_admin_bot
 ```
 
-- [ ] **Step 2: Set remote dir default**
+- [x] **Step 2: Set remote dir default**
 
 Default deploy dir for this branch:
 
@@ -601,7 +601,7 @@ Default deploy dir for this branch:
 /root/PMapptaro
 ```
 
-- [ ] **Step 3: Use separate port**
+- [x] **Step 3: Use separate port**
 
 Default host port:
 
@@ -611,7 +611,7 @@ Default host port:
 
 If port is occupied, inspect server before changing.
 
-- [ ] **Step 4: Add Google Play service account mount**
+- [x] **Step 4: Add Google Play service account mount**
 
 Store service account on server:
 
