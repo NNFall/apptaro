@@ -110,6 +110,24 @@ Expected:
 {"status":"ok"}
 ```
 
+## Current Server State
+
+Verified on 2026-07-07:
+
+- `/root/PMapptaro` exists.
+- `pmapptaro_backend` is running on `0.0.0.0:8022->8000/tcp`.
+- `/root/PMapptaro/data/pmapptaro.db` exists.
+- `/root/PMapptaro/data/google-play-service-account.json` exists.
+- `GET http://185.171.83.116:8022/v1/health` returns `PMapptaro Backend`.
+- `pmapptaro_admin_bot` is not running correctly because the configured Telegram bot token is also used by the old `apptaro_admin_bot` container.
+- The admin bot logs showed `Conflict: terminated by other getUpdates request`.
+
+Action required before full stack deploy:
+
+1. Create a separate Telegram bot token for the Google Play PMapptaro admin bot.
+2. Put that token into `telegram_admin_bot/.env` as `ADMIN_BOT_TOKEN`.
+3. Run the deploy script without `--backend-only`.
+
 ## Notes
 
 - The Flutter Google Play client is fixed to `http://185.171.83.116:8022`.

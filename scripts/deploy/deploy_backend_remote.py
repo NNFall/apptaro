@@ -305,6 +305,15 @@ PY
         raise RuntimeError(f'Failed to check remote admin bot token uniqueness.\nSTDOUT:\n{out}\nSTDERR:\n{err}')
 
 
+def ensure_admin_bot_token_is_configured(remote_env: str) -> None:
+    if _env_value(remote_env, 'ADMIN_BOT_TOKEN'):
+        return
+    raise RuntimeError(
+        'ADMIN_BOT_TOKEN is not configured for full PMapptaro deploy. '
+        'Set a unique Telegram admin bot token or use --backend-only.'
+    )
+
+
 def upload_google_play_service_account(
     remote: 'RemoteHost',
     remote_dir: str,
@@ -572,6 +581,7 @@ def main() -> int:
         if args.backend_only:
             deploy_backend_only(remote, args.remote_dir, remote_env, google_play_service_account_file)
         else:
+            ensure_admin_bot_token_is_configured(remote_env)
             ensure_remote_cron(remote)
             ensure_remote_admin_bot_token_is_unique(remote, args.remote_dir, remote_env)
             deploy(remote, args.remote_dir, remote_env, google_play_service_account_file)

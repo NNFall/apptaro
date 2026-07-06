@@ -9,7 +9,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.deploy.deploy_backend_remote import build_remote_env  # noqa: E402
+from scripts.deploy.deploy_backend_remote import (  # noqa: E402
+    build_remote_env,
+    ensure_admin_bot_token_is_configured,
+)
 
 
 class DeployEnvironmentTests(unittest.TestCase):
@@ -35,6 +38,22 @@ class DeployEnvironmentTests(unittest.TestCase):
 
         self.assertIn('OFFER_URL=https://example.com/google-play-terms\n', remote_env)
         self.assertNotIn('tarobotrustore', remote_env)
+
+    def test_full_deploy_requires_admin_bot_token(self) -> None:
+        remote_env = build_remote_env({}, host_port=8022)
+
+        with self.assertRaisesRegex(RuntimeError, 'ADMIN_BOT_TOKEN'):
+            ensure_admin_bot_token_is_configured(remote_env)
+
+    def test_full_deploy_accepts_configured_admin_bot_token(self) -> None:
+        remote_env = build_remote_env(
+            {
+                'ADMIN_BOT_TOKEN': '123456:unique-token',
+            },
+            host_port=8022,
+        )
+
+        ensure_admin_bot_token_is_configured(remote_env)
 
 
 if __name__ == '__main__':
