@@ -76,10 +76,13 @@ class PresentationOutlineService:
             cards = draw_cards(deck, count=cards_count)
             if cards_count == 1:
                 first = DrawnCard(card=cards[0].card, is_reversed=False)
-                return [card_line(1, 'First card', first)]
+                return [card_line(1, 'First card', first, language=language)]
 
             positions = ['Current situation', 'Key obstacle', 'Advice and direction']
-            return [card_line(index, positions[index - 1], card) for index, card in enumerate(cards, start=1)]
+            return [
+                card_line(index, positions[index - 1], card, language=language)
+                for index, card in enumerate(cards, start=1)
+            ]
 
         if self._cards_dir is None:
             if cards_count == 1:
@@ -95,14 +98,17 @@ class PresentationOutlineService:
         if cards_count == 1:
             # Teaser card must stay upright to match the reference UX.
             first = DrawnCard(card=cards[0].card, is_reversed=False)
-            return [card_line(1, 'Первая карта', first)]
+            return [card_line(1, 'Первая карта', first, language=language)]
 
         positions = [
             'Текущая ситуация',
             'Ключевое препятствие',
             'Совет и направление',
         ]
-        return [card_line(index, positions[index - 1], card) for index, card in enumerate(cards, start=1)]
+        return [
+            card_line(index, positions[index - 1], card, language=language)
+            for index, card in enumerate(cards, start=1)
+        ]
 
 
 def _safe_cards_count(value: int) -> int:

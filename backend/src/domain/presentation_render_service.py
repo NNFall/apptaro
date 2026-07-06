@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from PIL import Image
 
-from src.domain.tarot_deck import DrawnCard, display_card_line, draw_cards, load_deck, parse_card_lines
+from src.domain.tarot_deck import DrawnCard, display_card_line, draw_cards, load_deck, localized_card_title, parse_card_lines
 from src.domain.tarot_layout import compose_spread_image
 from src.integrations.text_generation import PresentationGenerationClient
 from src.repositories.artifacts import StoredArtifact, register_artifact
@@ -183,7 +183,7 @@ class PresentationRenderService:
         continuation_cards = draw_cards(remaining_deck, count=2)
 
         continuation_block = _cards_block(continuation_cards, start_position=2, language=language)
-        first_card_line = display_card_line(outline[0]) if outline else _single_card_display_line(first_card)
+        first_card_line = display_card_line(outline[0]) if outline else _single_card_display_line(first_card, language=language)
         reading_text = await asyncio.to_thread(
             self._generation_client.generate_tarot_continuation,
             topic,
@@ -255,14 +255,18 @@ def _cards_block(cards: list[DrawnCard], *, start_position: int = 1, language: s
         position = start_position + offset
         if language == 'en':
             orientation = 'reversed' if drawn.is_reversed else 'upright'
-            lines.append(f'{position}. {_position_label(position, language)} - {drawn.card.title} ({orientation})')
+            title = localized_card_title(drawn.card, language=language)
+            lines.append(f'{position}. {_position_label(position, language)} - {title} ({orientation})')
             continue
         orientation = 'перевернутая' if drawn.is_reversed else 'прямая'
         lines.append(f'{position}. {_position_label(position)} — {drawn.card.title} ({orientation})')
     return '\n'.join(lines)
 
 
-def _single_card_display_line(card: DrawnCard) -> str:
+def _single_card_display_line(card: DrawnCard, language: str = 'ru') -> str:
+    if language == 'en':
+        orientation = 'reversed' if card.is_reversed else 'upright'
+        return f'{localized_card_title(card.card, language=language)} ({orientation})'
     orientation = 'перевернутая' if card.is_reversed else 'прямая'
     return f'{card.card.title} ({orientation})'
 
