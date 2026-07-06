@@ -27,10 +27,10 @@ def outline_prompt(topic: str, slides: int, language: str = 'en') -> str:
             f'Number of items: {slides}\n'
         )
     return (
-        'Составь план презентации. Верни только список заголовков слайдов, '
+        'Составь короткий план таро-расклада. Верни только список заголовков позиций, '
         'по одному на строку, без нумерации.\n'
-        f'Тема: {topic}\n'
-        f'Количество слайдов: {slides}\n'
+        f'Вопрос пользователя: {topic}\n'
+        f'Количество позиций: {slides}\n'
     )
 
 
@@ -53,11 +53,11 @@ def outline_comment_prompt(
             f'User comment: {comment}\n'
         )
     return (
-        'У тебя есть текущий план презентации и комментарий пользователя. '
-        'Перегенерируй план из указанного количества слайдов с учетом комментария. '
+        'У тебя есть текущий план таро-расклада и комментарий пользователя. '
+        'Перегенерируй план из указанного количества позиций с учетом комментария. '
         'Верни только список заголовков, по одному на строку, без нумерации.\n'
-        f'Тема: {topic}\n'
-        f'Количество слайдов: {slides}\n'
+        f'Вопрос пользователя: {topic}\n'
+        f'Количество позиций: {slides}\n'
         f'Текущий план:\n{outline_text}\n'
         f'Комментарий пользователя: {comment}\n'
     )
@@ -111,7 +111,7 @@ def confirmation_text(language: str = 'en') -> str:
     return 'Задайте свой вопрос — я сразу открою карты.'
 
 
-def system_prompt(mode: str, language: str = 'ru') -> str:
+def system_prompt(mode: str, language: str = 'en') -> str:
     if language == 'en':
         common = (
             'You are an experienced tarot reader. Answer only in English. '
@@ -367,7 +367,7 @@ def tarot_reading_prompt(question: str, cards_block: str, *, mode: str = 'auto',
     else:
         user_prompt = full_user_prompt(question, cards_block)
     return (
-        f'СИСТЕМНЫЕ ИНСТРУКЦИИ:\n{system_prompt(resolved_mode)}\n\n'
+        f'СИСТЕМНЫЕ ИНСТРУКЦИИ:\n{system_prompt(resolved_mode, language="ru")}\n\n'
         f'ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n{user_prompt}'
     )
 
@@ -388,7 +388,7 @@ def tarot_followup_prompt(
         )
 
     return (
-        f'СИСТЕМНЫЕ ИНСТРУКЦИИ:\n{system_prompt("followup")}\n\n'
+        f'СИСТЕМНЫЕ ИНСТРУКЦИИ:\n{system_prompt("followup", language="ru")}\n\n'
         'ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n'
         f'{followup_user_prompt(question, followup, cards_block, last_answer, mode)}'
     )
@@ -409,7 +409,7 @@ def tarot_continuation_prompt(
         )
 
     return (
-        f'СИСТЕМНЫЕ ИНСТРУКЦИИ:\n{system_prompt("continuation")}\n\n'
+        f'СИСТЕМНЫЕ ИНСТРУКЦИИ:\n{system_prompt("continuation", language="ru")}\n\n'
         'ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n'
         f'{continuation_user_prompt(question, first_card_line, first_text, cards_block)}'
     )

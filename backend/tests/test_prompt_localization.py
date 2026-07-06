@@ -10,6 +10,8 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from src.domain.presentation_prompts import (  # noqa: E402
+    outline_prompt,
+    system_prompt,
     tarot_continuation_prompt,
     tarot_followup_prompt,
     tarot_reading_prompt,
@@ -17,6 +19,12 @@ from src.domain.presentation_prompts import (  # noqa: E402
 
 
 class PromptLocalizationTests(unittest.TestCase):
+    def test_system_prompt_defaults_to_english(self) -> None:
+        prompt = system_prompt('full')
+
+        self.assertIn('Answer only in English', prompt)
+        self.assertNotRegex(prompt, r'[А-Яа-яЁё]')
+
     def test_tarot_reading_prompt_uses_english_language_instruction(self) -> None:
         prompt = tarot_reading_prompt(
             'Will my project launch well?',
@@ -89,6 +97,15 @@ class PromptLocalizationTests(unittest.TestCase):
             self.assertNotIn('Отвечай только на русском языке', prompt)
             self.assertNotIn('СИСТЕМНЫЕ ИНСТРУКЦИИ:', prompt)
             self.assertNotIn('ЗАПРОС ПОЛЬЗОВАТЕЛЯ:', prompt)
+            self.assertNotRegex(prompt, r'[А-Яа-яЁё]')
+
+    def test_russian_outline_prompt_uses_tarot_domain_copy(self) -> None:
+        prompt = outline_prompt('Что мне важно понять?', 3, language='ru')
+
+        self.assertIn('таро-расклада', prompt)
+        self.assertIn('Количество позиций', prompt)
+        self.assertNotIn('презентации', prompt)
+        self.assertNotIn('слайдов', prompt)
 
     def test_prompt_text_has_no_mojibake_markers(self) -> None:
         prompt = '\n'.join(
