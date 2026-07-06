@@ -37,11 +37,47 @@ class AdminNotifierFormattingTests(unittest.IsolatedAsyncioTestCase):
         await notifier.notify_outline_created(
             "appslides_monhlids_f677777d2d08d0e059",
             "тема откуда берутся страхи титульный лист учреждения: Краснодарский краевой базовый медицинский колледж",
-            9,
+            3,
         )
         self.assertIn("<b>🔮 Расклад подготовлен</b>", notifier.messages[-1])
         self.assertIn("<b>User ID:</b> <code>appslides_m…d0e059</code>", notifier.messages[-1])
-        self.assertIn("<b>Карт:</b> 9", notifier.messages[-1])
+        self.assertIn("<b>Вопрос:</b> тема откуда берутся страхи", notifier.messages[-1])
+        self.assertIn("<b>Карт:</b> 3", notifier.messages[-1])
+
+    async def test_google_play_purchase_format(self) -> None:
+        notifier = CapturingNotifier()
+        await notifier.notify_google_play_purchase(
+            client_id="client-1234567890abcdef",
+            plan_key="monthly",
+            plan_title="Monthly Subscription",
+            tokens=50,
+            product_id="monthly_subscription_50",
+            order_id="GPA.1234-5678-9012-34567",
+            restored=False,
+        )
+        self.assertEqual(
+            notifier.messages[-1],
+            "<b>Google Play purchase</b>\n"
+            "<b>User ID:</b> <code>client-1234…abcdef</code>\n"
+            "<b>Тариф:</b> monthly (Monthly Subscription - 50 раскладов)\n"
+            "<b>Product ID:</b> <code>monthly_subscription_50</code>\n"
+            "<b>Order ID:</b> <code>GPA.1234-5678-9012-34567</code>",
+        )
+
+    async def test_promo_redeemed_format(self) -> None:
+        notifier = CapturingNotifier()
+        await notifier.notify_promo_redeemed(
+            client_id="client-123",
+            promo_code="abc123",
+            tokens=10,
+        )
+        self.assertEqual(
+            notifier.messages[-1],
+            "<b>🎁 Промокод активирован</b>\n"
+            "<b>User ID:</b> <code>client-123</code>\n"
+            "<b>Промокод:</b> <code>ABC123</code>\n"
+            "<b>Начислено раскладов:</b> 10",
+        )
 
     async def test_auto_renew_success_format(self) -> None:
         notifier = CapturingNotifier()

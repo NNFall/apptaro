@@ -8,6 +8,7 @@ void main() {
     final pubspec = File('pubspec.yaml').readAsStringSync();
     final manifest = File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
     final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+    final iosPlist = File('ios/Runner/Info.plist').readAsStringSync();
 
     expect(pubspec, isNot(contains('app_links')));
     expect(chatScreen, isNot(contains('AppLinks')));
@@ -21,5 +22,9 @@ void main() {
     expect(manifest, isNot(contains('android:host="billing"')));
     expect(manifest, isNot(contains('android:pathPrefix="/return"')));
     expect(gradle, isNot(contains('else "debug"')));
+    expect(iosPlist, isNot(contains('<string>billing</string>')));
+    expect(iosPlist, isNot(contains('<string>appslides</string>')));
+    expect(iosPlist, isNot(contains('<string>apptaro</string>')));
+    expect(iosPlist, isNot(contains('Таро Расклад')));
   });
 }

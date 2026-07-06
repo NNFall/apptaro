@@ -120,7 +120,7 @@ class AdminNotifier:
 
     async def notify_payment_success(self, client_id: str, plan_title: str) -> None:
         await self.notify(
-            f"{_bold('💰 Успешная покупка (YooKassa)')}\n"
+            f"{_bold('💰 Успешная покупка (legacy YooKassa)')}\n"
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
             f"{_bold('Тариф:')} {html.escape(plan_title)}"
         )
@@ -136,11 +136,11 @@ class AdminNotifier:
         order_id: str,
         restored: bool,
     ) -> None:
-        title = 'Google Play restore' if restored else 'Google Play purchase'
+        title = "Google Play restore" if restored else "Google Play purchase"
         await self.notify(
             f"{_bold(title)}\n"
             f"{_bold('User ID:')} {_code(_display_client_id(client_id))}\n"
-            f"{_bold('Plan:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} readings)\n"
+            f"{_bold('Тариф:')} {html.escape(plan_key)} ({html.escape(plan_title)} - {tokens} раскладов)\n"
             f"{_bold('Product ID:')} {_code(product_id)}\n"
             f"{_bold('Order ID:')} {_code(order_id or '-')}"
         )
@@ -279,7 +279,9 @@ class AdminNotifier:
             f"{_bold('Причина:')} {html.escape(reason)}",
         ]
         if expires_subscription:
-            lines.append(f"{_bold('Следующая попытка:')} не будет (подписка переведена в expired)")
+            lines.append(
+                f"{_bold('Следующая попытка:')} не будет (подписка переведена в expired)"
+            )
         elif next_try:
             lines.append(f"{_bold('Следующая попытка:')} {html.escape(_dt_short(next_try))}")
         await self.notify("\n".join(lines))
