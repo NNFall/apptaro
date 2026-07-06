@@ -283,7 +283,7 @@ Actual: language foundation tests pass, full `flutter test` passes, and `flutter
 - Modify: `app/lib/features/subscription/subscription_screen.dart`
 - Modify: `app/lib/data/repositories/backend_config_repository.dart`
 
-- [ ] **Step 1: Inventory remaining Russian strings**
+- [x] **Step 1: Inventory remaining Russian strings**
 
 Run:
 
@@ -293,7 +293,9 @@ rg -n "[А-Яа-яЁё]" app/lib app/android
 
 Expected: list of strings to translate.
 
-- [ ] **Step 2: Replace chat start menu copy**
+Actual: `rg -n "[А-Яа-яЁё]" app/lib app/android` used to scope remaining UI/backend-facing strings.
+
+- [x] **Step 2: Replace chat start menu copy**
 
 Use English product copy:
 
@@ -308,7 +310,7 @@ Ask a question and get a clear three-card reading in minutes.
 Choose an option below 👇
 ```
 
-- [ ] **Step 3: Replace key buttons**
+- [x] **Step 3: Replace key buttons**
 
 Use these English labels:
 
@@ -322,7 +324,7 @@ Use these English labels:
 ⬅️ Back
 ```
 
-- [ ] **Step 4: Add language switch action**
+- [x] **Step 4: Add language switch action**
 
 Add a visible compact action in chat header or menu:
 
@@ -333,6 +335,8 @@ English
 ```
 
 Expected: selected language is saved locally and survives app restart.
+
+Actual: chat menu includes `Language`, `set_language` is restorable from persisted chat actions, and selected language is stored in `LanguageRepository`.
 
 - [ ] **Step 5: Run UI string scan again**
 
