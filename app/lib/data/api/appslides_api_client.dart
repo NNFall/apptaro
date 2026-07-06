@@ -254,7 +254,6 @@ class AppSlidesApiClient {
       'Accept': 'application/json',
       'X-Apptaro-Client-Id': clientId,
       'X-Apptaro-Language': _languageRepository.current.code,
-      'X-AppSlides-Client-Id': clientId,
     };
   }
 

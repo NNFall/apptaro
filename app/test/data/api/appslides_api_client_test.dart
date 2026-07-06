@@ -26,7 +26,13 @@ void main() {
 
     await client.healthcheck();
 
+    expect(recordingClient.lastRequest?.headers['X-Apptaro-Client-Id'],
+        'at_test1234');
     expect(recordingClient.lastRequest?.headers['X-Apptaro-Language'], 'ru');
+    expect(
+        recordingClient.lastRequest?.headers
+            .containsKey('X-AppSlides-Client-Id'),
+        isFalse);
   });
 }
 
