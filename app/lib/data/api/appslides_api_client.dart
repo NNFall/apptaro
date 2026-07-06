@@ -11,19 +11,27 @@ import '../../domain/models/presentation_template.dart';
 import '../../domain/models/remote_job.dart';
 import '../repositories/backend_config_repository.dart';
 import '../repositories/client_session_repository.dart';
+import '../repositories/language_repository.dart';
 
 class AppSlidesApiClient {
   AppSlidesApiClient({
     http.Client? client,
     BackendConfigRepository? backendConfig,
     ClientSessionRepository? clientSession,
+    LanguageRepository? languageRepository,
+    Future<String> Function()? clientIdProvider,
   })  : _client = client ?? http.Client(),
         _backendConfig = backendConfig ?? BackendConfigRepository(),
-        _clientSession = clientSession ?? ClientSessionRepository();
+        _clientSession = clientSession ??
+            (clientIdProvider == null ? ClientSessionRepository() : null),
+        _languageRepository = languageRepository ?? LanguageRepository(),
+        _clientIdProvider = clientIdProvider;
 
   final http.Client _client;
   final BackendConfigRepository _backendConfig;
-  final ClientSessionRepository _clientSession;
+  final ClientSessionRepository? _clientSession;
+  final LanguageRepository _languageRepository;
+  final Future<String> Function()? _clientIdProvider;
 
   Future<bool> healthcheck() async {
     final payload = await _getJsonMap(AppConfig.healthPath);
@@ -253,10 +261,12 @@ class AppSlidesApiClient {
   }
 
   Future<Map<String, String>> _requestHeaders() async {
-    final clientId = await _clientSession.getOrCreateClientId();
+    final clientId = await (_clientIdProvider?.call() ??
+        _clientSession!.getOrCreateClientId());
     return <String, String>{
       'Accept': 'application/json',
       'X-Apptaro-Client-Id': clientId,
+      'X-Apptaro-Language': _languageRepository.current.code,
       'X-AppSlides-Client-Id': clientId,
     };
   }

@@ -127,6 +127,15 @@ def get_client_id(
     return client_id
 
 
+def get_request_language(
+    x_apptaro_language: str | None = Header(default=None, alias='X-Apptaro-Language'),
+) -> str:
+    language = (x_apptaro_language or 'en').strip().lower().split('-')[0]
+    if language in {'en', 'ru'}:
+        return language
+    return 'en'
+
+
 async def get_known_client_id(
     client_id: str = Depends(get_client_id),
     notifier: AdminNotifier = Depends(get_admin_notifier),

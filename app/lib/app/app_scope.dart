@@ -78,9 +78,13 @@ class _AppScopeState extends State<AppScope> {
       BackendConfigRepository();
   late final ClientSessionRepository _clientSessionRepository =
       ClientSessionRepository();
+  late final LanguageRepository _languageRepository =
+      widget.languageRepository ?? LanguageRepository();
+  late final bool _ownsLanguageRepository = widget.languageRepository == null;
   late final AppSlidesRepository _repository = AppSlidesRepository(
     backendConfig: _backendConfigRepository,
     clientSession: _clientSessionRepository,
+    languageRepository: _languageRepository,
   );
   late final LocalHistoryRepository _historyRepository =
       LocalHistoryRepository();
@@ -89,9 +93,6 @@ class _AppScopeState extends State<AppScope> {
   );
   late final ChatTranscriptRepository _chatTranscriptRepository =
       ChatTranscriptRepository();
-  late final LanguageRepository _languageRepository =
-      widget.languageRepository ?? LanguageRepository();
-  late final bool _ownsLanguageRepository = widget.languageRepository == null;
 
   @override
   void initState() {

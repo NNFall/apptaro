@@ -60,6 +60,7 @@ class PresentationRenderService:
         design_id: int,
         generate_pdf: bool = True,
         teaser_first_text: str | None = None,
+        language: str = 'en',
     ) -> RenderedPresentation:
         _ = generate_pdf
         presentation_id = uuid4().hex
@@ -78,6 +79,7 @@ class PresentationRenderService:
                 first_text=(teaser_first_text or '').strip(),
                 presentation_id=presentation_id,
                 job_dir=job_dir,
+                language=language,
             )
 
         cards = parsed_cards
@@ -85,12 +87,13 @@ class PresentationRenderService:
             deck = load_deck(self._tarot_cards_dir)
             cards = draw_cards(deck, count=3)
 
-        cards_block = _cards_block(cards)
+        cards_block = _cards_block(cards, language=language)
         reading_text = await asyncio.to_thread(
             self._generation_client.generate_tarot_reading,
             topic,
             cards_block,
             mode='full',
+            language=language,
         )
 
         base_name = _safe_filename(title) or 'tarot-reading'
@@ -127,6 +130,7 @@ class PresentationRenderService:
         topic: str,
         title: str,
         outline: list[str],
+        language: str = 'en',
     ) -> TeaserPreview:
         cards = parse_card_lines(self._tarot_cards_dir, outline)
         if not cards:
@@ -134,12 +138,13 @@ class PresentationRenderService:
             cards = draw_cards(deck, count=1)
             cards = [DrawnCard(card=cards[0].card, is_reversed=False)]
         first_card = cards[0]
-        cards_block = _cards_block([first_card])
+        cards_block = _cards_block([first_card], language=language)
         teaser_text = await asyncio.to_thread(
             self._generation_client.generate_tarot_reading,
             topic,
             cards_block,
             mode='teaser',
+            language=language,
         )
 
         teaser_dir = self._temp_dir / 'tarot' / 'teaser'
@@ -169,6 +174,7 @@ class PresentationRenderService:
         first_text: str,
         presentation_id: str,
         job_dir: Path,
+        language: str = 'en',
     ) -> RenderedPresentation:
         deck = load_deck(self._tarot_cards_dir)
         remaining_deck = [item for item in deck if item.slug != first_card.card.slug]
@@ -176,7 +182,7 @@ class PresentationRenderService:
             raise ValueError('Not enough tarot cards to render continuation flow')
         continuation_cards = draw_cards(remaining_deck, count=2)
 
-        continuation_block = _cards_block(continuation_cards, start_position=2)
+        continuation_block = _cards_block(continuation_cards, start_position=2, language=language)
         first_card_line = display_card_line(outline[0]) if outline else _single_card_display_line(first_card)
         reading_text = await asyncio.to_thread(
             self._generation_client.generate_tarot_continuation,
@@ -184,6 +190,7 @@ class PresentationRenderService:
             first_card_line,
             first_text,
             continuation_block,
+            language=language,
         )
 
         base_name = _safe_filename(title) or 'tarot-reading'
@@ -225,7 +232,15 @@ def _safe_filename(value: str) -> str:
     return base
 
 
-def _position_label(position: int) -> str:
+def _position_label(position: int, language: str = 'en') -> str:
+    if language == 'en':
+        mapping = {
+            1: 'Current situation around the question',
+            2: 'Key obstacle or knot',
+            3: 'Advice and direction',
+        }
+        return mapping.get(position, f'Position {position}')
+
     mapping = {
         1: 'Текущая ситуация вокруг вопроса',
         2: 'Ключевое препятствие или узел',
@@ -234,10 +249,14 @@ def _position_label(position: int) -> str:
     return mapping.get(position, f'Позиция {position}')
 
 
-def _cards_block(cards: list[DrawnCard], *, start_position: int = 1) -> str:
+def _cards_block(cards: list[DrawnCard], *, start_position: int = 1, language: str = 'en') -> str:
     lines = []
     for offset, drawn in enumerate(cards):
         position = start_position + offset
+        if language == 'en':
+            orientation = 'reversed' if drawn.is_reversed else 'upright'
+            lines.append(f'{position}. {_position_label(position, language)} - {drawn.card.title} ({orientation})')
+            continue
         orientation = 'перевернутая' if drawn.is_reversed else 'прямая'
         lines.append(f'{position}. {_position_label(position)} — {drawn.card.title} ({orientation})')
     return '\n'.join(lines)

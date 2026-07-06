@@ -285,11 +285,11 @@ class PresentationGenerationClient:
         self.image_generation_retries = max(0, int(image_generation_retries))
         self.image_generation_retry_delay_seconds = max(0.0, float(image_generation_retry_delay_seconds))
 
-    def generate_title(self, topic: str) -> str:
+    def generate_title(self, topic: str, *, language: str = 'en') -> str:
         if not self.api_key or not self.text_endpoint:
-            return _fallback_title(topic)
+            return _fallback_title(topic, language=language)
 
-        prompt = title_prompt(topic)
+        prompt = title_prompt(topic, language=language)
         payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.6}
         try:
             data = self._post(self.text_endpoint, payload)
@@ -298,7 +298,7 @@ class PresentationGenerationClient:
             replicate = self._try_replicate_title(prompt)
             if replicate:
                 return replicate
-            return _fallback_title(topic)
+            return _fallback_title(topic, language=language)
 
         content = _extract_content(data)
         err = _error_from_text(content)
@@ -307,10 +307,10 @@ class PresentationGenerationClient:
             replicate = self._try_replicate_title(prompt)
             if replicate:
                 return replicate
-            return _fallback_title(topic)
+            return _fallback_title(topic, language=language)
 
         title = _clean_title(content)
-        return title or _fallback_title(topic)
+        return title or _fallback_title(topic, language=language)
 
     def generate_outline(self, topic: str, slides: int) -> list[str]:
         if not self.api_key or not self.text_endpoint:
@@ -369,10 +369,17 @@ class PresentationGenerationClient:
             return replicate
         return self._fallback_slides(topic, outline)
 
-    def generate_tarot_reading(self, question: str, cards_block: str, *, mode: str = 'auto') -> str:
-        prompt = tarot_reading_prompt(question, cards_block, mode=mode)
+    def generate_tarot_reading(
+        self,
+        question: str,
+        cards_block: str,
+        *,
+        mode: str = 'auto',
+        language: str = 'en',
+    ) -> str:
+        prompt = tarot_reading_prompt(question, cards_block, mode=mode, language=language)
         if not self.api_key or not self.text_endpoint:
-            return _fallback_tarot_reading(question, cards_block, mode=mode)
+            return _fallback_tarot_reading(question, cards_block, mode=mode, language=language)
 
         payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.7}
         try:
@@ -386,10 +393,11 @@ class PresentationGenerationClient:
                     cards_block=cards_block,
                     question=question,
                     mode=mode,
+                    language=language,
                 )
                 if validated:
                     return validated
-            return _fallback_tarot_reading(question, cards_block, mode=mode)
+            return _fallback_tarot_reading(question, cards_block, mode=mode, language=language)
 
         content = _extract_content(data)
         err = _error_from_text(content)
@@ -402,10 +410,11 @@ class PresentationGenerationClient:
                     cards_block=cards_block,
                     question=question,
                     mode=mode,
+                    language=language,
                 )
                 if validated:
                     return validated
-            return _fallback_tarot_reading(question, cards_block, mode=mode)
+            return _fallback_tarot_reading(question, cards_block, mode=mode, language=language)
 
         text = content.strip()
         if text:
@@ -414,6 +423,7 @@ class PresentationGenerationClient:
                 cards_block=cards_block,
                 question=question,
                 mode=mode,
+                language=language,
             )
             if validated:
                 return validated
@@ -424,10 +434,11 @@ class PresentationGenerationClient:
                 cards_block=cards_block,
                 question=question,
                 mode=mode,
+                language=language,
             )
             if validated:
                 return validated
-        return _fallback_tarot_reading(question, cards_block, mode=mode)
+        return _fallback_tarot_reading(question, cards_block, mode=mode, language=language)
 
     def generate_tarot_continuation(
         self,
@@ -435,15 +446,18 @@ class PresentationGenerationClient:
         first_card_line: str,
         first_text: str,
         cards_block: str,
+        *,
+        language: str = 'en',
     ) -> str:
         prompt = tarot_continuation_prompt(
             question=question,
             first_card_line=first_card_line,
             first_text=first_text,
             cards_block=cards_block,
+            language=language,
         )
         if not self.api_key or not self.text_endpoint:
-            return _fallback_tarot_continuation(question, first_card_line, cards_block)
+            return _fallback_tarot_continuation(question, first_card_line, cards_block, language=language)
 
         payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.7}
         try:
@@ -458,10 +472,11 @@ class PresentationGenerationClient:
                     question=question,
                     mode='continuation',
                     first_card_line=first_card_line,
+                    language=language,
                 )
                 if validated:
                     return validated
-            return _fallback_tarot_continuation(question, first_card_line, cards_block)
+            return _fallback_tarot_continuation(question, first_card_line, cards_block, language=language)
 
         content = _extract_content(data)
         err = _error_from_text(content)
@@ -475,10 +490,11 @@ class PresentationGenerationClient:
                     question=question,
                     mode='continuation',
                     first_card_line=first_card_line,
+                    language=language,
                 )
                 if validated:
                     return validated
-            return _fallback_tarot_continuation(question, first_card_line, cards_block)
+            return _fallback_tarot_continuation(question, first_card_line, cards_block, language=language)
 
         text = content.strip()
         if text:
@@ -488,6 +504,7 @@ class PresentationGenerationClient:
                 question=question,
                 mode='continuation',
                 first_card_line=first_card_line,
+                language=language,
             )
             if validated:
                 return validated
@@ -499,10 +516,11 @@ class PresentationGenerationClient:
                 question=question,
                 mode='continuation',
                 first_card_line=first_card_line,
+                language=language,
             )
             if validated:
                 return validated
-        return _fallback_tarot_continuation(question, first_card_line, cards_block)
+        return _fallback_tarot_continuation(question, first_card_line, cards_block, language=language)
 
     def generate_image(self, prompt: str, out_path: str) -> str:
         output_path = Path(out_path)
@@ -836,7 +854,9 @@ def _clean_title(text: str) -> str:
     return value
 
 
-def _fallback_title(topic: str) -> str:
+def _fallback_title(topic: str, language: str = 'en') -> str:
+    if language == 'en' and (not topic or not topic.strip()):
+        return 'Tarot Reading'
     if not topic:
         return 'Расклад таро'
     value = topic.strip()
@@ -852,9 +872,27 @@ def _fallback_title(topic: str) -> str:
     return value
 
 
-def _fallback_tarot_reading(question: str, cards_block: str, *, mode: str = 'auto') -> str:
+def _fallback_tarot_reading(question: str, cards_block: str, *, mode: str = 'auto', language: str = 'en') -> str:
     cards = [line.strip() for line in cards_block.splitlines() if line.strip()]
     teaser_mode = mode == 'teaser' or (mode == 'auto' and len(cards) <= 1)
+    if language == 'en':
+        if teaser_mode:
+            first = cards[0] if cards else '1) First card - unavailable'
+            return (
+                'Let us see what the cards are saying:\n\n'
+                f'Question: {question}\n\n'
+                f'Current situation: {first}\n\n'
+                'This card shows the main direction of the question and points to what deserves your attention first.\n\n'
+                'Unlock the full reading to see the complete picture and the final advice.'
+            )
+        return (
+            'Let us see what the cards are saying:\n\n'
+            f'Question: {question}\n\n'
+            f'{cards_block}\n\n'
+            'Summary: this reading shows tendencies and support points, not a fixed future. '
+            'Move step by step, notice the signals around the situation, and choose decisions that bring you stability.'
+        )
+
     if teaser_mode:
         first = cards[0] if cards else '1) Первая карта — уточняется'
         return (
@@ -881,6 +919,7 @@ def _enforce_tarot_card_consistency(
     question: str,
     mode: str,
     first_card_line: str | None = None,
+    language: str = 'en',
 ) -> str:
     expected = _extract_expected_card_titles(cards_block)
     if not expected:
@@ -892,8 +931,8 @@ def _enforce_tarot_card_consistency(
         return text.strip()
 
     if mode == 'continuation':
-        return _fallback_tarot_continuation(question, first_card_line or expected[0], cards_block)
-    return _fallback_tarot_reading(question, cards_block, mode=mode)
+        return _fallback_tarot_continuation(question, first_card_line or expected[0], cards_block, language=language)
+    return _fallback_tarot_reading(question, cards_block, mode=mode, language=language)
 
 
 def _extract_expected_card_titles(cards_block: str) -> list[str]:
@@ -903,6 +942,10 @@ def _extract_expected_card_titles(cards_block: str) -> list[str]:
         if not line:
             continue
         match = re.search(r'—\s*(.+?)\s*\((?:прямая|перевернутая)\)', line, flags=re.IGNORECASE)
+        if match:
+            titles.append(match.group(1).strip())
+            continue
+        match = re.search(r'-\s*(.+?)\s*\((?:upright|reversed)\)', line, flags=re.IGNORECASE)
         if match:
             titles.append(match.group(1).strip())
             continue
@@ -922,10 +965,25 @@ def _normalize_ru_text(value: str) -> str:
     return lowered
 
 
-def _fallback_tarot_continuation(question: str, first_card_line: str, cards_block: str) -> str:
+def _fallback_tarot_continuation(
+    question: str,
+    first_card_line: str,
+    cards_block: str,
+    language: str = 'en',
+) -> str:
     cards = [line.strip() for line in cards_block.splitlines() if line.strip()]
     second = cards[0] if cards else '2) position card is not available'
     third = cards[1] if len(cards) > 1 else '3) position card is not available'
+    if language == 'en':
+        return (
+            'Let us see what the cards are saying:\n\n'
+            f'Question: {question}\n\n'
+            f'Connection with the first card: {first_card_line}\n\n'
+            f'*2) {second}* - This card shows the main knot or source of tension in the context of the question.\n'
+            f'*3) {third}* - This card gives practical direction and the next steps that can help balance the situation.\n\n'
+            '*Summary:* The final answer comes from looking honestly at the obstacle and following the advice of the third card step by step.'
+        )
+
     return (
         'Давайте посмотрим, что говорят карты:\n\n'
         f'Вопрос: {question}\n\n'

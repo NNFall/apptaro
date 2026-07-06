@@ -8,16 +8,19 @@ import '../../domain/models/remote_job.dart';
 import '../api/appslides_api_client.dart';
 import 'backend_config_repository.dart';
 import 'client_session_repository.dart';
+import 'language_repository.dart';
 
 class AppSlidesRepository {
   AppSlidesRepository({
     AppSlidesApiClient? api,
     BackendConfigRepository? backendConfig,
     ClientSessionRepository? clientSession,
+    LanguageRepository? languageRepository,
   }) : _api = api ??
             AppSlidesApiClient(
               backendConfig: backendConfig,
               clientSession: clientSession,
+              languageRepository: languageRepository,
             );
 
   final AppSlidesApiClient _api;

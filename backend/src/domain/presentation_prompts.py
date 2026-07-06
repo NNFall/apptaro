@@ -4,7 +4,13 @@ import re
 
 
 # Platform prompts that are kept from the shell architecture.
-def title_prompt(topic: str) -> str:
+def title_prompt(topic: str, language: str = 'en') -> str:
+    if language == 'en':
+        return (
+            'Create a short tarot reading title in English, 3-7 words. '
+            'No quotes, no final period, text only.\n'
+            f'User question: {topic}\n'
+        )
     return (
         'Сформулируй короткое название таро-расклада (3-7 слов) из вопроса пользователя. '
         'Без кавычек, без точки в конце, только текст.\n'
@@ -63,7 +69,50 @@ def confirmation_text() -> str:
     return 'Задайте свой вопрос — я сразу открою карты.'
 
 
-def system_prompt(mode: str) -> str:
+def system_prompt(mode: str, language: str = 'ru') -> str:
+    if language == 'en':
+        common = (
+            'You are an experienced tarot reader. Answer only in English. '
+            'Return the answer strictly in Telegram legacy Markdown: only *bold*, _italic_, and `mono` are allowed. '
+            'Do not use HTML tags or Markdown headings like ##. '
+            'Start with: "Let us see what the cards are saying:". '
+            'Before interpreting the cards, give 2-3 introductory sentences tied to the user question. '
+            'Use only the cards and orientations provided in the user request. '
+            'Do not replace cards, add new cards, or change orientations.'
+        )
+        safety = (
+            ' If the question touches pregnancy, health, death, legal, or medical topics, '
+            'do not make direct predictions. Reframe it gently as emotional state, relationships, resources, or support.'
+        )
+        if mode == 'teaser':
+            return (
+                common
+                + ' This is trial mode: reveal only the first card. Do not reveal cards 2 or 3. '
+                'Structure: intro, one block for the first card, short conclusion, and a soft call to unlock the full reading.'
+                + safety
+            )
+        if mode == 'followup':
+            return (
+                common
+                + ' This is a follow-up question about a previous reading. Briefly connect to the prior answer, then answer the follow-up. '
+                'Do not repeat the whole previous reading.'
+                + safety
+            )
+        if mode == 'continuation':
+            return (
+                common
+                + ' This is a continuation: the first card has already been revealed and explained. '
+                'Connect briefly to the first answer, interpret positions 2 and 3, then give a final conclusion. '
+                'Do not retell the first card in full. '
+                'Format exactly as: intro, "*2) <card name>* - <meaning>", "*3) <card name>* - <meaning>", then "*Summary:* ...".'
+                + safety
+            )
+        return (
+            common
+            + ' This is a full three-card reading. Structure: intro, three position blocks, final summary. '
+            + safety
+        )
+
     common = (
         'Ты эксперт-таролог. Отвечай только на русском языке. '
         'Верни ответ строго в Telegram Markdown (legacy): допустимы только *жирный*, _курсив_ и `моно`. '
@@ -187,9 +236,72 @@ def continuation_user_prompt(
     )
 
 
-def tarot_reading_prompt(question: str, cards_block: str, *, mode: str = 'auto') -> str:
+def _english_teaser_user_prompt(question: str, first_card_line: str) -> str:
+    return (
+        f'User question: {question}\n\n'
+        'Reading positions:\n'
+        '1) current situation around the question\n'
+        '2) key obstacle or knot\n'
+        '3) advice and direction\n\n'
+        f'Revealed card: {first_card_line}\n\n'
+        'Interpret only the first card and connect it clearly to the user question. '
+        'Do not mention cards 2 or 3. Do not replace the card or change its orientation. '
+        'End with a short call to unlock the full reading.'
+    )
+
+
+def _english_full_user_prompt(question: str, cards_block: str) -> str:
+    return (
+        f'User question: {question}\n\n'
+        'Reading positions:\n'
+        '1) current situation around the question\n'
+        '2) key obstacle or knot\n'
+        '3) advice and direction\n\n'
+        f'Cards:\n{cards_block}\n\n'
+        'Give a detailed interpretation of each position and a final summary. '
+        'Explain every card in the context of the question. '
+        'Use only the cards and orientations from the Cards block. '
+        'Do not replace card names and do not add new cards. '
+        'Phrase predictions as tendencies, not absolute guarantees.'
+    )
+
+
+def _english_continuation_user_prompt(
+    question: str,
+    first_card_line: str,
+    first_text: str,
+    cards_block: str,
+) -> str:
+    return (
+        f'Original question: {question}\n\n'
+        f'First card already revealed: {first_card_line}\n\n'
+        f'Previous answer about the first card:\n{first_text}\n\n'
+        'Reading positions:\n'
+        '2) key obstacle or knot\n'
+        '3) advice and direction\n\n'
+        f'New cards:\n{cards_block}\n\n'
+        'Continue the reading: briefly connect to the first answer, then interpret cards 2 and 3 separately. '
+        'Use only the cards from the New cards block. Do not add or replace cards.\n'
+        'Format:\n'
+        '*2) <card name>* - <2-4 sentences in the context of the question>\n'
+        '*3) <card name>* - <2-4 sentences in the context of the question>\n'
+        '*Summary:* <1-2 sentences>.'
+    )
+
+
+def tarot_reading_prompt(question: str, cards_block: str, *, mode: str = 'auto', language: str = 'en') -> str:
     resolved_mode = _resolve_mode(mode, cards_block)
     first_card_line = _first_card_line(cards_block)
+    if language == 'en':
+        if resolved_mode == 'teaser':
+            user_prompt = _english_teaser_user_prompt(question, first_card_line)
+        else:
+            user_prompt = _english_full_user_prompt(question, cards_block)
+        return (
+            f'SYSTEM INSTRUCTIONS:\n{system_prompt(resolved_mode, language=language)}\n\n'
+            f'USER REQUEST:\n{user_prompt}'
+        )
+
     if resolved_mode == 'teaser':
         user_prompt = teaser_user_prompt(question, first_card_line)
     else:
@@ -219,7 +331,15 @@ def tarot_continuation_prompt(
     first_card_line: str,
     first_text: str,
     cards_block: str,
+    language: str = 'en',
 ) -> str:
+    if language == 'en':
+        return (
+            f'SYSTEM INSTRUCTIONS:\n{system_prompt("continuation", language=language)}\n\n'
+            'USER REQUEST:\n'
+            f'{_english_continuation_user_prompt(question, first_card_line, first_text, cards_block)}'
+        )
+
     return (
         f'СИСТЕМНЫЕ ИНСТРУКЦИИ:\n{system_prompt("continuation")}\n\n'
         'ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n'

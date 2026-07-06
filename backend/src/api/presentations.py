@@ -12,6 +12,7 @@ from src.core.dependencies import (
     get_billing_service,
     get_known_client_id,
     get_outline_service,
+    get_request_language,
     get_render_service,
 )
 from src.domain.billing_service import BillingService
@@ -48,6 +49,7 @@ async def generate_outline(
     render_service: PresentationRenderService = Depends(get_render_service),
     billing_service: BillingService = Depends(get_billing_service),
     client_id: str = Depends(get_known_client_id),
+    language: str = Depends(get_request_language),
     notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> OutlineResponse:
     teaser_mode = await billing_service.should_show_trial_teaser(client_id)
@@ -57,6 +59,7 @@ async def generate_outline(
             payload.topic,
             payload.slides_total,
             cards_count=cards_count,
+            language=language,
         )
     except TextGenerationError as exc:
         await notifier.notify_text_error(client_id, str(exc))
@@ -73,6 +76,7 @@ async def generate_outline(
                 topic=payload.topic,
                 title=result.title,
                 outline=result.outline,
+                language=language,
             )
             teaser_text = teaser.text
             teaser_artifacts = [
@@ -108,6 +112,7 @@ async def revise_outline(
     render_service: PresentationRenderService = Depends(get_render_service),
     billing_service: BillingService = Depends(get_billing_service),
     client_id: str = Depends(get_known_client_id),
+    language: str = Depends(get_request_language),
     notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> OutlineResponse:
     teaser_mode = len(payload.outline) <= 1 and not await billing_service.can_start_generation(client_id)
@@ -120,6 +125,7 @@ async def revise_outline(
             comment=payload.comment,
             title=payload.title,
             cards_count=cards_count,
+            language=language,
         )
     except TextGenerationError as exc:
         await notifier.notify_text_error(client_id, str(exc))
@@ -136,6 +142,7 @@ async def revise_outline(
                 topic=payload.topic,
                 title=result.title,
                 outline=result.outline,
+                language=language,
             )
             teaser_text = teaser.text
             teaser_artifacts = [
@@ -168,6 +175,7 @@ async def render_presentation(
     service: PresentationRenderService = Depends(get_render_service),
     billing_service: BillingService = Depends(get_billing_service),
     client_id: str = Depends(get_known_client_id),
+    language: str = Depends(get_request_language),
     notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> PresentationRenderResponse:
     if not await billing_service.can_start_generation(client_id):
@@ -184,6 +192,7 @@ async def render_presentation(
             design_id=payload.design_id,
             generate_pdf=payload.generate_pdf,
             teaser_first_text=payload.teaser_first_text,
+            language=language,
         )
     except FileNotFoundError as exc:
         await notifier.notify_generation_failed(client_id, str(exc))
@@ -233,6 +242,7 @@ async def create_presentation_job(
     service: PresentationRenderService = Depends(get_render_service),
     billing_service: BillingService = Depends(get_billing_service),
     client_id: str = Depends(get_known_client_id),
+    language: str = Depends(get_request_language),
     notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> JobResponse:
     if not await billing_service.can_start_generation(client_id):
@@ -251,6 +261,7 @@ async def create_presentation_job(
             'generate_pdf': payload.generate_pdf,
             'teaser_first_text': payload.teaser_first_text,
             'client_id': client_id,
+            'language': language,
         },
     )
     task = Thread(
@@ -261,6 +272,7 @@ async def create_presentation_job(
             'payload': payload,
             'billing_service': billing_service,
             'client_id': client_id,
+            'language': language,
             'notifier': notifier,
         },
         daemon=True,
@@ -309,6 +321,7 @@ async def _run_presentation_job(
     payload: PresentationRenderRequest,
     billing_service: BillingService,
     client_id: str,
+    language: str,
     notifier: AdminNotifier,
 ) -> None:
     mark_job_running(job_id)
@@ -320,6 +333,7 @@ async def _run_presentation_job(
             design_id=payload.design_id,
             generate_pdf=payload.generate_pdf,
             teaser_first_text=payload.teaser_first_text,
+            language=language,
         )
     except Exception as exc:
         mark_job_failed(job_id, str(exc))
@@ -363,6 +377,7 @@ def _run_presentation_job_sync(
     payload: PresentationRenderRequest,
     billing_service: BillingService,
     client_id: str,
+    language: str,
     notifier: AdminNotifier,
 ) -> None:
     asyncio.run(
@@ -372,6 +387,7 @@ def _run_presentation_job_sync(
             payload=payload,
             billing_service=billing_service,
             client_id=client_id,
+            language=language,
             notifier=notifier,
         )
     )

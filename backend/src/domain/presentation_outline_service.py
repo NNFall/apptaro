@@ -26,11 +26,12 @@ class PresentationOutlineService:
         topic: str,
         slides_total: int,
         cards_count: int = 3,
+        language: str = 'en',
     ) -> OutlineResult:
         safe_count = _safe_cards_count(cards_count)
         content_slides = 1 if safe_count == 1 else 3
-        title = await asyncio.to_thread(self._text_client.generate_title, topic)
-        outline = self._draw_tarot_outline(cards_count=safe_count)
+        title = await asyncio.to_thread(self._text_client.generate_title, topic, language=language)
+        outline = self._draw_tarot_outline(cards_count=safe_count, language=language)
         return OutlineResult(
             title=title,
             outline=outline,
@@ -46,12 +47,13 @@ class PresentationOutlineService:
         comment: str,
         title: str | None = None,
         cards_count: int = 3,
+        language: str = 'en',
     ) -> OutlineResult:
         _ = outline, comment
         safe_count = _safe_cards_count(cards_count)
         content_slides = 1 if safe_count == 1 else 3
-        resolved_title = title or await asyncio.to_thread(self._text_client.generate_title, topic)
-        updated_outline = self._draw_tarot_outline(cards_count=safe_count)
+        resolved_title = title or await asyncio.to_thread(self._text_client.generate_title, topic, language=language)
+        updated_outline = self._draw_tarot_outline(cards_count=safe_count, language=language)
         return OutlineResult(
             title=resolved_title,
             outline=updated_outline,
@@ -59,7 +61,26 @@ class PresentationOutlineService:
             content_slides=content_slides,
         )
 
-    def _draw_tarot_outline(self, cards_count: int = 3) -> list[str]:
+    def _draw_tarot_outline(self, cards_count: int = 3, language: str = 'en') -> list[str]:
+        if language == 'en':
+            if self._cards_dir is None:
+                if cards_count == 1:
+                    return ['First card for the question']
+                return [
+                    'Current situation around the question',
+                    'Key obstacle or knot',
+                    'Advice and direction',
+                ]
+
+            deck = load_deck(self._cards_dir)
+            cards = draw_cards(deck, count=cards_count)
+            if cards_count == 1:
+                first = DrawnCard(card=cards[0].card, is_reversed=False)
+                return [card_line(1, 'First card', first)]
+
+            positions = ['Current situation', 'Key obstacle', 'Advice and direction']
+            return [card_line(index, positions[index - 1], card) for index, card in enumerate(cards, start=1)]
+
         if self._cards_dir is None:
             if cards_count == 1:
                 return ['Первая карта по вопросу']

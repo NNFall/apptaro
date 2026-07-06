@@ -36,7 +36,7 @@ PNG_1X1 = base64.b64decode(
 
 
 class StubGenerationClient:
-    def generate_title(self, topic: str) -> str:
+    def generate_title(self, topic: str, *, language: str = 'en') -> str:
         return f'Расклад: {topic[:40]}'
 
     def generate_outline(self, topic: str, slides: int) -> list[str]:
@@ -64,8 +64,27 @@ class StubGenerationClient:
         path.write_bytes(PNG_1X1)
         return str(path)
 
-    def generate_tarot_reading(self, question: str, cards_block: str, *, mode: str = 'auto') -> str:
+    def generate_tarot_reading(
+        self,
+        question: str,
+        cards_block: str,
+        *,
+        mode: str = 'auto',
+        language: str = 'en',
+    ) -> str:
         return f'Тестовый разбор по вопросу: {question}\n\n{cards_block}'
+
+    def generate_tarot_continuation(
+        self,
+        question: str,
+        first_card_line: str,
+        first_text: str,
+        cards_block: str,
+        *,
+        language: str = 'en',
+    ) -> str:
+        _ = first_card_line, first_text, language
+        return f'Test continuation for question: {question}\n\n{cards_block}'
 
 
 class StubConversionService(ConversionService):
