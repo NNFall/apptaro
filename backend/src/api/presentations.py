@@ -42,6 +42,26 @@ from src.schemas.presentation import (
 router = APIRouter(prefix='/v1/presentations', tags=['presentations'])
 
 
+def _localized(language: str, *, en: str, ru: str) -> str:
+    return ru if language == 'ru' else en
+
+
+def _reading_limit_error(language: str) -> str:
+    return _localized(
+        language,
+        en='Your reading limit is over. Choose a subscription to continue.',
+        ru='Лимит раскладов исчерпан. Выберите подписку, чтобы продолжить.',
+    )
+
+
+def _charge_error(language: str) -> str:
+    return _localized(
+        language,
+        en='Failed to charge one reading after successful generation.',
+        ru='Не удалось списать один расклад после успешной генерации.',
+    )
+
+
 @router.post('/outline', response_model=OutlineResponse)
 async def generate_outline(
     payload: OutlineGenerateRequest,
@@ -181,7 +201,7 @@ async def render_presentation(
     if not await billing_service.can_start_generation(client_id):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail='Your reading limit is over. Choose a subscription to continue.',
+            detail=_reading_limit_error(language),
         )
 
     try:
@@ -208,7 +228,7 @@ async def render_presentation(
         ) from exc
 
     if not await billing_service.consume_generation(client_id):
-        error_text = 'Failed to charge one reading after successful generation.'
+        error_text = _charge_error(language)
         await notifier.notify_generation_failed(client_id, error_text)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -248,7 +268,7 @@ async def create_presentation_job(
     if not await billing_service.can_start_generation(client_id):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail='Your reading limit is over. Choose a subscription to continue.',
+            detail=_reading_limit_error(language),
         )
 
     job = create_job(
@@ -341,7 +361,7 @@ async def _run_presentation_job(
         return
 
     if not await billing_service.consume_generation(client_id):
-        error_text = 'Failed to charge one reading after successful generation.'
+        error_text = _charge_error(language)
         mark_job_failed(job_id, error_text)
         await notifier.notify_generation_failed(client_id, error_text)
         return

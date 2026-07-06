@@ -45,6 +45,11 @@ class AllowBillingService:
         return
 
 
+class DenyBillingService:
+    async def can_start_generation(self, client_id: str) -> bool:
+        return False
+
+
 class BackendLanguageRoutingTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir_context = tempfile.TemporaryDirectory()
@@ -81,6 +86,39 @@ class BackendLanguageRoutingTests(unittest.TestCase):
         self.assertEqual(self.generation_client.title_languages[-1], 'ru')
         self.assertRegex(payload['outline'][0], r'\((прямая|перевернутая)\)')
 
+    def test_job_limit_error_defaults_to_english_without_language_header(self) -> None:
+        self.app.dependency_overrides[get_billing_service] = lambda: DenyBillingService()
+
+        response = self.client.post(
+            '/v1/presentations/jobs',
+            json=self._render_payload(),
+            headers={'X-Apptaro-Client-Id': 'apptaro_test_client'},
+        )
+
+        self.assertEqual(response.status_code, 402)
+        self.assertEqual(
+            response.json()['detail'],
+            'Your reading limit is over. Choose a subscription to continue.',
+        )
+
+    def test_job_limit_error_uses_russian_when_language_header_is_russian(self) -> None:
+        self.app.dependency_overrides[get_billing_service] = lambda: DenyBillingService()
+
+        response = self.client.post(
+            '/v1/presentations/jobs',
+            json=self._render_payload(),
+            headers={
+                'X-Apptaro-Client-Id': 'apptaro_test_client',
+                'X-Apptaro-Language': 'ru',
+            },
+        )
+
+        self.assertEqual(response.status_code, 402)
+        self.assertEqual(
+            response.json()['detail'],
+            'Лимит раскладов исчерпан. Выберите подписку, чтобы продолжить.',
+        )
+
     def _outline(self, *, topic: str, language: str | None = None) -> dict[str, object]:
         headers = {
             'X-Apptaro-Client-Id': 'apptaro_test_client',
@@ -97,6 +135,15 @@ class BackendLanguageRoutingTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         return response.json()
+
+    def _render_payload(self) -> dict[str, object]:
+        return {
+            'topic': 'Career focus',
+            'title': 'Reading: Career focus',
+            'outline': ['Past: The Fool (upright)'],
+            'design_id': 1,
+            'generate_pdf': True,
+        }
 
 
 if __name__ == '__main__':
