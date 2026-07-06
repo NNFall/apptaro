@@ -6,7 +6,7 @@ This checklist is for the Google Play version of PMapptaro.
 
 - Android package: `com.apptaro.app`
 - Flutter version source: `app/pubspec.yaml`
-- Current version: `0.1.0+9`
+- Current version: `0.1.0+10`
 - Increase the build number after every new Google Play upload.
 
 Google Play rejects builds with a `versionCode` that was already uploaded.
