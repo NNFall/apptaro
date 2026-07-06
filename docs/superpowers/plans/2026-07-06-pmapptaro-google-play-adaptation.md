@@ -677,7 +677,7 @@ app/build/app/outputs/bundle/release/app-release.aab
 - Create: `docs/screenshots/android/google-play/`
 - Modify: `ANDROID_EMULATOR_GOOGLE_PLAY.md`
 
-- [ ] **Step 1: Run app on emulator**
+- [x] **Step 1: Run app on emulator**
 
 Run:
 
@@ -688,7 +688,7 @@ flutter run -d emulator-5554
 
 Expected: app starts on `apptaro_google_play`.
 
-- [ ] **Step 2: Verify English UI**
+- [x] **Step 2: Verify English UI**
 
 Check:
 
@@ -699,7 +699,7 @@ Check:
 - help;
 - language switch.
 
-- [ ] **Step 3: Capture screenshots**
+- [x] **Step 3: Capture screenshots**
 
 Run:
 

@@ -89,3 +89,21 @@ Google Play Billing нельзя полноценно проверить про�
 - network errors;
 - deeplink smoke;
 - базовая проверка, что устройство Google Play совместимое.
+
+## Current Google Play Release Smoke
+
+Verified on `apptaro_google_play` / `emulator-5554`:
+
+- release APK installed from `app/build/app/outputs/flutter-apk/app-release.apk`;
+- package launched as `com.apptaro.app`;
+- backend health passed on `http://185.171.83.116:8022/v1/health`;
+- clean startup screen is fully English;
+- ask-question flow is fully English;
+- screenshots saved in `docs/screenshots/android/google-play/`.
+
+Smoke screenshots:
+
+```text
+docs/screenshots/android/google-play/home-release-clean.png
+docs/screenshots/android/google-play/ask-flow-release.png
+```
