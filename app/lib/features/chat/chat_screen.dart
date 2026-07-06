@@ -979,47 +979,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     await controller.retryCurrentJobStatus();
   }
 
-  Future<void> _startConversionFlow({
-    required String sourceExtension,
-    required String targetExtension,
-    required String label,
-  }) async {
-    final controller = _converterController;
-    if (controller == null) {
-      return;
-    }
-
-    controller.reset();
-    _lastConverterError = null;
-    _lastConverterStatusKey = null;
-    _lastConverterResultKey = null;
-
-    await controller.pickFile(
-      allowedExtensions: <String>[sourceExtension],
-    );
-    final selectedFile = controller.selectedFile;
-    if (selectedFile == null) {
-      _appendBotMessage(
-        _copy(
-          en: 'No file selected. Tap `$label` again when you are ready.',
-          ru: 'Файл не выбран. Нажми `$label` ещё раз, когда будешь готов.',
-        ),
-      );
-      return;
-    }
-
-    controller.setTargetFormat(targetExtension);
-    _appendBotMessage(
-      _copy(
-        en: '📎 File `${selectedFile.name}` received.\n'
-            'Starting ${sourceExtension.toUpperCase()} → ${targetExtension.toUpperCase()} conversion...',
-        ru: '📎 Принял файл `${selectedFile.name}`.\n'
-            'Запускаю конвертацию ${sourceExtension.toUpperCase()} → ${targetExtension.toUpperCase()}...',
-      ),
-    );
-    await controller.startConversionJob();
-  }
-
   void _handlePresentationUpdates() {
     final controller = _presentationController;
     if (controller == null) {
@@ -2408,10 +2367,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         callback = _beginPresentationTopicInput;
         break;
       case 'start_conversion':
-        callback = () => _startConversionFlow(
-              sourceExtension: (action.payload['source'] as String?) ?? 'pdf',
-              targetExtension: (action.payload['target'] as String?) ?? 'docx',
-              label: action.label,
+        callback = () async => _appendBotMessage(
+              _copy(
+                en: 'This file tool is not available in the Google Play version.',
+                ru: 'Этот инструмент для файлов недоступен в версии Google Play.',
+              ),
+              keyboard: _mainMenuOnlyKeyboard(),
             );
         break;
       case 'accept_slides':
@@ -3275,11 +3236,11 @@ class _AttachmentTile extends StatelessWidget {
         AppLocalizations.of(context).language == AppLanguage.russian;
     switch (attachment.kind) {
       case 'pptx':
-        return isRussian ? 'Файл (PPTX)' : 'File (PPTX)';
+        return isRussian ? 'Файл результата' : 'Result file';
       case 'pdf':
-        return isRussian ? 'Документ (PDF)' : 'Document (PDF)';
+        return isRussian ? 'Расклад (PDF)' : 'Reading (PDF)';
       case 'docx':
-        return isRussian ? 'Документ (DOCX)' : 'Document (DOCX)';
+        return isRussian ? 'Файл результата' : 'Result file';
       case 'image':
         return isRussian ? 'Расклад (JPG)' : 'Reading (JPG)';
       case 'txt':
