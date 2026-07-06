@@ -181,7 +181,7 @@ Actual: `flutter test` passed, `flutter analyze` reported no issues.
 - Create: `app/lib/l10n/app_localizations.dart`
 - Create: `app/lib/data/repositories/language_repository.dart`
 
-- [ ] **Step 1: Add localization dependencies**
+- [x] **Step 1: Add localization dependencies**
 
 Add to `app/pubspec.yaml`:
 
@@ -194,7 +194,9 @@ dependencies:
 
 Expected: `flutter pub get` succeeds.
 
-- [ ] **Step 2: Create language model**
+Actual: `flutter pub get` succeeds; `flutter_localizations` and `intl` are added.
+
+- [x] **Step 2: Create language model**
 
 Create `app/lib/l10n/app_language.dart` with supported languages:
 
@@ -222,7 +224,7 @@ enum AppLanguage {
 }
 ```
 
-- [ ] **Step 3: Create language repository**
+- [x] **Step 3: Create language repository**
 
 Create `app/lib/data/repositories/language_repository.dart`:
 
@@ -254,7 +256,7 @@ class LanguageRepository extends ChangeNotifier {
 }
 ```
 
-- [ ] **Step 4: Wire MaterialApp locale**
+- [x] **Step 4: Wire MaterialApp locale**
 
 Modify `app/lib/app/app.dart` to use:
 
@@ -269,6 +271,8 @@ supportedLocales: AppLanguage.values.map((item) => item.locale).toList(),
 ```
 
 Expected: app can rebuild when selected language changes.
+
+Actual: language foundation tests pass, full `flutter test` passes, and `flutter analyze` reports no issues.
 
 ## Task 4: Translate Chat UI And User Messages
 

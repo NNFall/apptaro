@@ -6,51 +6,67 @@ import '../data/repositories/appslides_repository.dart';
 import '../data/repositories/backend_config_repository.dart';
 import '../data/repositories/chat_transcript_repository.dart';
 import '../data/repositories/client_session_repository.dart';
+import '../data/repositories/language_repository.dart';
 import '../data/repositories/local_history_repository.dart';
 import '../data/repositories/saved_files_repository.dart';
 
 class AppScope extends StatefulWidget {
   const AppScope({
     super.key,
+    this.languageRepository,
     required this.child,
   });
 
+  final LanguageRepository? languageRepository;
   final Widget child;
 
   static AppSlidesRepository repositoryOf(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
     assert(scope != null, 'AppScope is missing above this context');
     return scope!.repository;
   }
 
   static LocalHistoryRepository historyOf(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
     assert(scope != null, 'AppScope is missing above this context');
     return scope!.historyRepository;
   }
 
   static BackendConfigRepository backendConfigOf(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
     assert(scope != null, 'AppScope is missing above this context');
     return scope!.backendConfigRepository;
   }
 
   static ClientSessionRepository clientSessionOf(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
     assert(scope != null, 'AppScope is missing above this context');
     return scope!.clientSessionRepository;
   }
 
   static SavedFilesRepository savedFilesOf(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
     assert(scope != null, 'AppScope is missing above this context');
     return scope!.savedFilesRepository;
   }
 
   static ChatTranscriptRepository transcriptOf(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
     assert(scope != null, 'AppScope is missing above this context');
     return scope!.chatTranscriptRepository;
+  }
+
+  static LanguageRepository languageOf(BuildContext context) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_AppScopeInherited>();
+    assert(scope != null, 'AppScope is missing above this context');
+    return scope!.languageRepository;
   }
 
   @override
@@ -58,19 +74,24 @@ class AppScope extends StatefulWidget {
 }
 
 class _AppScopeState extends State<AppScope> {
-  late final BackendConfigRepository _backendConfigRepository = BackendConfigRepository();
+  late final BackendConfigRepository _backendConfigRepository =
+      BackendConfigRepository();
   late final ClientSessionRepository _clientSessionRepository =
       ClientSessionRepository();
   late final AppSlidesRepository _repository = AppSlidesRepository(
     backendConfig: _backendConfigRepository,
     clientSession: _clientSessionRepository,
   );
-  late final LocalHistoryRepository _historyRepository = LocalHistoryRepository();
+  late final LocalHistoryRepository _historyRepository =
+      LocalHistoryRepository();
   late final SavedFilesRepository _savedFilesRepository = SavedFilesRepository(
     repository: _repository,
   );
   late final ChatTranscriptRepository _chatTranscriptRepository =
       ChatTranscriptRepository();
+  late final LanguageRepository _languageRepository =
+      widget.languageRepository ?? LanguageRepository();
+  late final bool _ownsLanguageRepository = widget.languageRepository == null;
 
   @override
   void initState() {
@@ -80,6 +101,9 @@ class _AppScopeState extends State<AppScope> {
     unawaited(_historyRepository.restore());
     unawaited(_savedFilesRepository.restore());
     unawaited(_chatTranscriptRepository.restore());
+    if (_ownsLanguageRepository) {
+      unawaited(_languageRepository.restore());
+    }
   }
 
   @override
@@ -90,6 +114,9 @@ class _AppScopeState extends State<AppScope> {
     _historyRepository.dispose();
     _chatTranscriptRepository.dispose();
     _repository.dispose();
+    if (_ownsLanguageRepository) {
+      _languageRepository.dispose();
+    }
     super.dispose();
   }
 
@@ -100,6 +127,7 @@ class _AppScopeState extends State<AppScope> {
       chatTranscriptRepository: _chatTranscriptRepository,
       clientSessionRepository: _clientSessionRepository,
       historyRepository: _historyRepository,
+      languageRepository: _languageRepository,
       repository: _repository,
       savedFilesRepository: _savedFilesRepository,
       child: widget.child,
@@ -113,6 +141,7 @@ class _AppScopeInherited extends InheritedWidget {
     required this.chatTranscriptRepository,
     required this.clientSessionRepository,
     required this.historyRepository,
+    required this.languageRepository,
     required this.repository,
     required this.savedFilesRepository,
     required super.child,
@@ -122,6 +151,7 @@ class _AppScopeInherited extends InheritedWidget {
   final ChatTranscriptRepository chatTranscriptRepository;
   final ClientSessionRepository clientSessionRepository;
   final LocalHistoryRepository historyRepository;
+  final LanguageRepository languageRepository;
   final AppSlidesRepository repository;
   final SavedFilesRepository savedFilesRepository;
 
@@ -130,6 +160,7 @@ class _AppScopeInherited extends InheritedWidget {
     return backendConfigRepository != oldWidget.backendConfigRepository ||
         chatTranscriptRepository != oldWidget.chatTranscriptRepository ||
         clientSessionRepository != oldWidget.clientSessionRepository ||
+        languageRepository != oldWidget.languageRepository ||
         repository != oldWidget.repository ||
         historyRepository != oldWidget.historyRepository ||
         savedFilesRepository != oldWidget.savedFilesRepository;
