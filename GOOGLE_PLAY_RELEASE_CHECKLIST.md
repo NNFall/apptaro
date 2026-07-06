@@ -6,7 +6,7 @@ This checklist is for the Google Play version of PMapptaro.
 
 - Android package: `com.apptaro.app`
 - Flutter version source: `app/pubspec.yaml`
-- Current version: `0.1.0+7`
+- Current version: `0.1.0+8`
 - Increase the build number after every new Google Play upload.
 
 Google Play rejects builds with a `versionCode` that was already uploaded.
@@ -112,3 +112,9 @@ Check:
 - chat shows active balance/subscription;
 - admin bot receives the purchase notification;
 - reinstall or clear data restores an active Google Play entitlement.
+
+## Google Play Product Behavior
+
+- `weekly_readings` and `monthly_readings` are subscription products and are restored silently through Google Play purchase restore.
+- `one10_readings` and `one40_readings` are consumable one-time packs. The app verifies the purchase token on the backend first, then consumes the Google Play purchase so the same pack can be bought again.
+- Consumed one-time packs are not discoverable through Google Play restore after app data is cleared. This is a Google Play Billing limitation for consumables without a user account.

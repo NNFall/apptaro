@@ -16,7 +16,7 @@
 - Working directory: `D:\papka for all\work\PMapptaro`.
 - Repository: `https://github.com/NNFall/apptaro.git`.
 - Android package: `com.apptaro.app`.
-- Flutter version: `0.1.0+7`.
+- Flutter version: `0.1.0+8`.
 - Current backend URL: `http://185.171.83.116:8022`.
 - Current billing: Google Play Billing in Flutter with backend token verification.
 - Current release signing: debug signing config.
@@ -714,7 +714,7 @@ Expected: screenshots saved for release review.
 **Files:**
 - Modify: `GOOGLE_PLAY_RELEASE_CHECKLIST.md`
 
-- [ ] **Step 1: Run all local checks**
+- [x] **Step 1: Run all local checks**
 
 Run:
 
@@ -730,7 +730,7 @@ flutter build appbundle --release
 
 Expected: all pass.
 
-- [ ] **Step 2: Verify no user-facing Russian in English mode**
+- [x] **Step 2: Verify no user-facing Russian in English mode**
 
 Run:
 
@@ -740,7 +740,7 @@ rg -n "[А-Яа-яЁё]" app/lib backend/src/domain backend/src/api
 
 Expected: only Russian localization values, admin-only text, or Russian language branch prompts remain.
 
-- [ ] **Step 3: Verify backend health**
+- [x] **Step 3: Verify backend health**
 
 Run:
 

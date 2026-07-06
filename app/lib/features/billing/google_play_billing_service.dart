@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../../core/config/app_config.dart';
 import '../../data/repositories/appslides_repository.dart';
@@ -31,6 +33,7 @@ class GooglePlayBillingService {
   Completer<BillingSummary>? _activePurchaseCompleter;
   Completer<BillingSummary?>? _restoreCompleter;
   String? _activeProductId;
+  bool _activeProductIsConsumable = false;
   Object? _lastError;
 
   Object? get lastError => _lastError;
@@ -70,13 +73,19 @@ class GooglePlayBillingService {
 
     final product = response.productDetails.first;
     _activeProductId = productId;
+    _activeProductIsConsumable = !plan.recurring;
     _activePurchaseCompleter = Completer<BillingSummary>();
-    final started = await _inAppPurchase.buyNonConsumable(
-      purchaseParam: PurchaseParam(productDetails: product),
-    );
+    final purchaseParam = PurchaseParam(productDetails: product);
+    final started = plan.recurring
+        ? await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam)
+        : await _inAppPurchase.buyConsumable(
+            purchaseParam: purchaseParam,
+            autoConsume: false,
+          );
     if (!started) {
       _activePurchaseCompleter = null;
       _activeProductId = null;
+      _activeProductIsConsumable = false;
       throw StateError('Google Play purchase was not started.');
     }
 
@@ -85,6 +94,7 @@ class GooglePlayBillingService {
       onTimeout: () {
         _activePurchaseCompleter = null;
         _activeProductId = null;
+        _activeProductIsConsumable = false;
         throw TimeoutException('Google Play purchase confirmation timed out.');
       },
     );
@@ -152,6 +162,9 @@ class GooglePlayBillingService {
         packageName: _packageName,
         restored: purchase.status == PurchaseStatus.restored,
       );
+      if (_shouldConsume(purchase)) {
+        await _consumeAndroidPurchase(purchase);
+      }
       if (purchase.pendingCompletePurchase) {
         await _inAppPurchase.completePurchase(purchase);
       }
@@ -159,6 +172,7 @@ class GooglePlayBillingService {
         _activePurchaseCompleter?.complete(summary);
         _activePurchaseCompleter = null;
         _activeProductId = null;
+        _activeProductIsConsumable = false;
       }
       _completeRestore(summary);
     } catch (error) {
@@ -177,6 +191,7 @@ class GooglePlayBillingService {
     }
     _activePurchaseCompleter = null;
     _activeProductId = null;
+    _activeProductIsConsumable = false;
   }
 
   void _completeRestore(BillingSummary? summary) {
@@ -185,5 +200,33 @@ class GooglePlayBillingService {
       completer.complete(summary);
     }
     _restoreCompleter = null;
+  }
+
+  bool _shouldConsume(PurchaseDetails purchase) {
+    if (purchase.status != PurchaseStatus.purchased) {
+      return false;
+    }
+    if (_activeProductId == purchase.productID) {
+      return _activeProductIsConsumable;
+    }
+    return _isConsumableProductId(purchase.productID);
+  }
+
+  static bool _isConsumableProductId(String productId) {
+    for (final entry in defaultProductIdsByPlan.entries) {
+      if (entry.value == productId) {
+        return entry.key == 'one10' || entry.key == 'one40';
+      }
+    }
+    return false;
+  }
+
+  Future<void> _consumeAndroidPurchase(PurchaseDetails purchase) async {
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    final androidAddition =
+        _inAppPurchase.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+    await androidAddition.consumePurchase(purchase);
   }
 }
