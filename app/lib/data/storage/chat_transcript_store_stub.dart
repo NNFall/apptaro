@@ -8,23 +8,23 @@ abstract class ChatTranscriptStore {
 
 ChatTranscriptStore createChatTranscriptStore({
   required String storageKey,
-  required String legacyStorageKey,
+  required List<String> legacyStorageKeys,
 }) {
   return _SharedPrefsChatTranscriptStore(
     storageKey: storageKey,
-    legacyStorageKey: legacyStorageKey,
+    legacyStorageKeys: legacyStorageKeys,
   );
 }
 
 class _SharedPrefsChatTranscriptStore implements ChatTranscriptStore {
   _SharedPrefsChatTranscriptStore({
     required String storageKey,
-    required String legacyStorageKey,
+    required List<String> legacyStorageKeys,
   })  : _storageKey = storageKey,
-        _legacyStorageKey = legacyStorageKey;
+        _legacyStorageKeys = legacyStorageKeys;
 
   final String _storageKey;
-  final String _legacyStorageKey;
+  final List<String> _legacyStorageKeys;
   final Future<SharedPreferences> _storage = SharedPreferences.getInstance();
 
   @override
@@ -35,9 +35,11 @@ class _SharedPrefsChatTranscriptStore implements ChatTranscriptStore {
       return raw;
     }
 
-    final legacy = storage.getString(_legacyStorageKey);
-    if (legacy != null && legacy.isNotEmpty) {
-      return legacy;
+    for (final legacyKey in _legacyStorageKeys) {
+      final legacy = storage.getString(legacyKey);
+      if (legacy != null && legacy.isNotEmpty) {
+        return legacy;
+      }
     }
 
     return null;
@@ -47,13 +49,17 @@ class _SharedPrefsChatTranscriptStore implements ChatTranscriptStore {
   Future<void> write(String value) async {
     final storage = await _storage;
     await storage.setString(_storageKey, value);
-    await storage.remove(_legacyStorageKey);
+    for (final legacyKey in _legacyStorageKeys) {
+      await storage.remove(legacyKey);
+    }
   }
 
   @override
   Future<void> remove() async {
     final storage = await _storage;
     await storage.remove(_storageKey);
-    await storage.remove(_legacyStorageKey);
+    for (final legacyKey in _legacyStorageKeys) {
+      await storage.remove(legacyKey);
+    }
   }
 }

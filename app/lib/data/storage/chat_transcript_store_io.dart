@@ -11,26 +11,26 @@ abstract class ChatTranscriptStore {
 
 ChatTranscriptStore createChatTranscriptStore({
   required String storageKey,
-  required String legacyStorageKey,
+  required List<String> legacyStorageKeys,
 }) {
   return _IoChatTranscriptStore(
     storageKey: storageKey,
-    legacyStorageKey: legacyStorageKey,
+    legacyStorageKeys: legacyStorageKeys,
   );
 }
 
 class _IoChatTranscriptStore implements ChatTranscriptStore {
   _IoChatTranscriptStore({
     required String storageKey,
-    required String legacyStorageKey,
+    required List<String> legacyStorageKeys,
   })  : _storageKey = storageKey,
-        _legacyStorageKey = legacyStorageKey;
+        _legacyStorageKeys = legacyStorageKeys;
 
   static const String _directoryName = 'appslides_state';
   static const String _filename = 'chat_transcript.json';
 
   final String _storageKey;
-  final String _legacyStorageKey;
+  final List<String> _legacyStorageKeys;
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   Future<File>? _fileFuture;
 
@@ -50,9 +50,11 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
       return raw;
     }
 
-    final legacy = prefs.getString(_legacyStorageKey);
-    if (legacy != null && legacy.isNotEmpty) {
-      return legacy;
+    for (final legacyKey in _legacyStorageKeys) {
+      final legacy = prefs.getString(legacyKey);
+      if (legacy != null && legacy.isNotEmpty) {
+        return legacy;
+      }
     }
 
     return null;
@@ -61,7 +63,9 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
   @override
   Future<void> write(String value) async {
     final prefs = await _prefs;
-    await prefs.remove(_legacyStorageKey);
+    for (final legacyKey in _legacyStorageKeys) {
+      await prefs.remove(legacyKey);
+    }
     await prefs.setString(_storageKey, value);
 
     try {
@@ -80,7 +84,9 @@ class _IoChatTranscriptStore implements ChatTranscriptStore {
 
     final prefs = await _prefs;
     await prefs.remove(_storageKey);
-    await prefs.remove(_legacyStorageKey);
+    for (final legacyKey in _legacyStorageKeys) {
+      await prefs.remove(legacyKey);
+    }
   }
 
   Future<File> _resolveFile() async {

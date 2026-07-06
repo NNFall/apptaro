@@ -14,7 +14,8 @@ class SavedFilesRepository extends ChangeNotifier {
   })  : _repository = repository,
         _fileStore = createLocalFileStore();
 
-  static const String _storageKey = 'appslides.saved_files.entries.v1';
+  static const String _storageKey = 'apptaro.saved_files.entries.v1';
+  static const String _legacyStorageKey = 'appslides.saved_files.entries.v1';
   static const int _maxEntries = 50;
 
   final AppSlidesRepository _repository;
@@ -48,7 +49,12 @@ class SavedFilesRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final raw = await _storage.getString(_storageKey);
+      var migratedFromLegacy = false;
+      var raw = await _storage.getString(_storageKey);
+      if (raw == null || raw.isEmpty) {
+        raw = await _storage.getString(_legacyStorageKey);
+        migratedFromLegacy = raw != null && raw.isNotEmpty;
+      }
       if (raw == null || raw.isEmpty) {
         _entries.clear();
       } else {
@@ -65,6 +71,10 @@ class SavedFilesRepository extends ChangeNotifier {
             ..clear()
             ..addAll(restored);
         }
+      }
+      if (migratedFromLegacy) {
+        await _persist();
+        await _storage.remove(_legacyStorageKey);
       }
     } catch (_) {
       _entries.clear();
@@ -144,6 +154,13 @@ class SavedFilesRepository extends ChangeNotifier {
     await _persist();
     notifyListeners();
     return true;
+  }
+
+  Future<void> clear() async {
+    _entries.clear();
+    await _storage.remove(_storageKey);
+    await _storage.remove(_legacyStorageKey);
+    notifyListeners();
   }
 
   void _upsert(SavedFileEntry entry) {

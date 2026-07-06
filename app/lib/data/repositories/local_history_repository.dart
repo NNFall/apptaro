@@ -9,7 +9,8 @@ import '../../domain/models/job_artifact.dart';
 import '../../domain/models/remote_job.dart';
 
 class LocalHistoryRepository extends ChangeNotifier {
-  static const String _storageKey = 'appslides.history.entries.v1';
+  static const String _storageKey = 'apptaro.history.entries.v1';
+  static const String _legacyStorageKey = 'appslides.history.entries.v1';
   static const int _maxEntries = 100;
 
   final SharedPreferencesAsync _storage = SharedPreferencesAsync();
@@ -30,7 +31,12 @@ class LocalHistoryRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final raw = await _storage.getString(_storageKey);
+      var migratedFromLegacy = false;
+      var raw = await _storage.getString(_storageKey);
+      if (raw == null || raw.isEmpty) {
+        raw = await _storage.getString(_legacyStorageKey);
+        migratedFromLegacy = raw != null && raw.isNotEmpty;
+      }
       if (raw == null || raw.isEmpty) {
         _entries.clear();
       } else {
@@ -43,6 +49,10 @@ class LocalHistoryRepository extends ChangeNotifier {
                   HistoryEntry.fromJson(item.cast<String, dynamic>())),
             );
         }
+      }
+      if (migratedFromLegacy) {
+        await _persist();
+        await _storage.remove(_legacyStorageKey);
       }
     } catch (_) {
       _entries.clear();
@@ -57,6 +67,7 @@ class LocalHistoryRepository extends ChangeNotifier {
     _entries.clear();
     notifyListeners();
     await _storage.remove(_storageKey);
+    await _storage.remove(_legacyStorageKey);
   }
 
   void recordOutline({

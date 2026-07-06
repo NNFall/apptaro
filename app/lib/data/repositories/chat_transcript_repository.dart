@@ -7,13 +7,16 @@ import '../../domain/models/chat_transcript_entry.dart';
 import '../storage/chat_transcript_store.dart';
 
 class ChatTranscriptRepository extends ChangeNotifier {
-  static const String _storageKey = 'appslides.chat.transcript.v2';
-  static const String _legacyStorageKey = 'appslides.chat.transcript.v1';
+  static const String _storageKey = 'apptaro.chat.transcript.v1';
+  static const List<String> _legacyStorageKeys = <String>[
+    'appslides.chat.transcript.v2',
+    'appslides.chat.transcript.v1',
+  ];
   static const int _maxEntries = 250;
 
   final ChatTranscriptStore _store = createChatTranscriptStore(
     storageKey: _storageKey,
-    legacyStorageKey: _legacyStorageKey,
+    legacyStorageKeys: _legacyStorageKeys,
   );
   final List<ChatTranscriptEntry> _entries = <ChatTranscriptEntry>[];
 
