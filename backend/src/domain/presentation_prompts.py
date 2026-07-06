@@ -18,7 +18,14 @@ def title_prompt(topic: str, language: str = 'en') -> str:
     )
 
 
-def outline_prompt(topic: str, slides: int) -> str:
+def outline_prompt(topic: str, slides: int, language: str = 'en') -> str:
+    if language == 'en':
+        return (
+            'Create a short outline for a tarot-style reading. Return only one title per line, '
+            'without numbering.\n'
+            f'User question: {topic}\n'
+            f'Number of items: {slides}\n'
+        )
     return (
         'Составь план презентации. Верни только список заголовков слайдов, '
         'по одному на строку, без нумерации.\n'
@@ -27,8 +34,24 @@ def outline_prompt(topic: str, slides: int) -> str:
     )
 
 
-def outline_comment_prompt(topic: str, slides: int, outline: list[str], comment: str) -> str:
+def outline_comment_prompt(
+    topic: str,
+    slides: int,
+    outline: list[str],
+    comment: str,
+    language: str = 'en',
+) -> str:
     outline_text = '\n'.join(f'- {item}' for item in outline)
+    if language == 'en':
+        return (
+            'You have the current tarot reading outline and a user comment. '
+            'Regenerate the outline with the requested number of items. '
+            'Return only one title per line, without numbering.\n'
+            f'User question: {topic}\n'
+            f'Number of items: {slides}\n'
+            f'Current outline:\n{outline_text}\n'
+            f'User comment: {comment}\n'
+        )
     return (
         'У тебя есть текущий план презентации и комментарий пользователя. '
         'Перегенерируй план из указанного количества слайдов с учетом комментария. '
@@ -40,7 +63,16 @@ def outline_comment_prompt(topic: str, slides: int, outline: list[str], comment:
     )
 
 
-def slides_prompt(topic: str, outline: list[str]) -> str:
+def slides_prompt(topic: str, outline: list[str], language: str = 'en') -> str:
+    if language == 'en':
+        return (
+            'Generate a JSON array. Each item must be: '
+            '{"title": str, "text": str, "image_prompt": str}. '
+            'Text should be short, 2-3 sentences, no longer than 320 characters. '
+            'Title should be 4-7 words. Return JSON only.\n'
+            f'User question: {topic}\n'
+            f'Outline: {outline}\n'
+        )
     return (
         'Сгенерируй JSON-массив слайдов. Каждый элемент: '
         '{"title": str, "text": str, "image_prompt": str}. '
@@ -53,7 +85,13 @@ def slides_prompt(topic: str, outline: list[str]) -> str:
 
 # Tarot prompts synchronized with telegram_taro_bot/prompts/tarot_prompts.py
 # and extended with stricter card-binding constraints.
-def teaser_intro_text(question: str) -> str:
+def teaser_intro_text(question: str, language: str = 'en') -> str:
+    if language == 'en':
+        return (
+            f'🔮 <b>You asked:</b>\n'
+            f'"{question}"\n\n'
+            'Let us see what the cards are saying.'
+        )
     return (
         f'🔮 <b>Ты спросил:</b>\n'
         f'«{question}»\n\n'
@@ -61,11 +99,15 @@ def teaser_intro_text(question: str) -> str:
     )
 
 
-def paywall_text() -> str:
+def paywall_text(language: str = 'en') -> str:
+    if language == 'en':
+        return 'To open the full reading, choose a subscription.'
     return 'Чтобы открыть полный расклад, оформите подписку.'
 
 
-def confirmation_text() -> str:
+def confirmation_text(language: str = 'en') -> str:
+    if language == 'en':
+        return 'Ask your question and I will draw the cards.'
     return 'Задайте свой вопрос — я сразу открою карты.'
 
 
@@ -213,6 +255,24 @@ def followup_user_prompt(
     )
 
 
+def _english_followup_user_prompt(
+    question: str,
+    followup: str,
+    cards_block: str,
+    last_answer: str,
+    mode: str,
+) -> str:
+    return (
+        f'Original question: {question}\n\n'
+        f'User follow-up: {followup}\n\n'
+        f'Available cards:\n{cards_block}\n\n'
+        f'Previous answer:\n{last_answer}\n\n'
+        f'Mode: {mode}\n\n'
+        'If mode is teaser, do not reveal cards 2 or 3. '
+        'Give a clear clarification and a short practical takeaway.'
+    )
+
+
 def continuation_user_prompt(
     question: str,
     first_card_line: str,
@@ -318,7 +378,15 @@ def tarot_followup_prompt(
     cards_block: str,
     last_answer: str,
     mode: str,
+    language: str = 'en',
 ) -> str:
+    if language == 'en':
+        return (
+            f'SYSTEM INSTRUCTIONS:\n{system_prompt("followup", language=language)}\n\n'
+            'USER REQUEST:\n'
+            f'{_english_followup_user_prompt(question, followup, cards_block, last_answer, mode)}'
+        )
+
     return (
         f'СИСТЕМНЫЕ ИНСТРУКЦИИ:\n{system_prompt("followup")}\n\n'
         'ЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n'
@@ -361,6 +429,6 @@ def _cards_count(cards_block: str) -> int:
 def _first_card_line(cards_block: str) -> str:
     lines = [line.strip() for line in cards_block.splitlines() if line.strip()]
     if not lines:
-        return '1) карта не определена'
+        return '1) card is not defined'
     first = re.sub(r'^\s*\d+[\).]?\s*', '', lines[0]).strip()
     return first or lines[0]

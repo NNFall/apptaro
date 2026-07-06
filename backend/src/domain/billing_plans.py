@@ -17,7 +17,7 @@ class BillingPlan:
 PLANS: dict[str, BillingPlan] = {
     'week': BillingPlan(
         key='week',
-        title='Неделя раскладов',
+        title='Weekly tarot readings',
         price_rub=199,
         limit=15,
         days=7,
@@ -26,7 +26,7 @@ PLANS: dict[str, BillingPlan] = {
     ),
     'month': BillingPlan(
         key='month',
-        title='Месяц раскладов',
+        title='Monthly tarot readings',
         price_rub=499,
         limit=100,
         days=30,
@@ -35,7 +35,7 @@ PLANS: dict[str, BillingPlan] = {
     ),
     'one10': BillingPlan(
         key='one10',
-        title='Разово 10 раскладов',
+        title='10 tarot readings',
         price_rub=199,
         limit=10,
         days=7,
@@ -44,7 +44,7 @@ PLANS: dict[str, BillingPlan] = {
     ),
     'one40': BillingPlan(
         key='one40',
-        title='Разово 40 раскладов',
+        title='40 tarot readings',
         price_rub=499,
         limit=50,
         days=7,

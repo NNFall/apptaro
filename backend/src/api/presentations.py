@@ -181,7 +181,7 @@ async def render_presentation(
     if not await billing_service.can_start_generation(client_id):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail='Лимит раскладов исчерпан. Оформите подписку через YooKassa.',
+            detail='Your reading limit is over. Choose a subscription to continue.',
         )
 
     try:
@@ -208,7 +208,7 @@ async def render_presentation(
         ) from exc
 
     if not await billing_service.consume_generation(client_id):
-        error_text = 'Не удалось списать расклад после успешной генерации.'
+        error_text = 'Failed to charge one reading after successful generation.'
         await notifier.notify_generation_failed(client_id, error_text)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -248,7 +248,7 @@ async def create_presentation_job(
     if not await billing_service.can_start_generation(client_id):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail='Лимит раскладов исчерпан. Оформите подписку через YooKassa.',
+            detail='Your reading limit is over. Choose a subscription to continue.',
         )
 
     job = create_job(
@@ -341,7 +341,7 @@ async def _run_presentation_job(
         return
 
     if not await billing_service.consume_generation(client_id):
-        error_text = 'Не удалось списать расклад после успешной генерации.'
+        error_text = 'Failed to charge one reading after successful generation.'
         mark_job_failed(job_id, error_text)
         await notifier.notify_generation_failed(client_id, error_text)
         return

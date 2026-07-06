@@ -312,24 +312,49 @@ class PresentationGenerationClient:
         title = _clean_title(content)
         return title or _fallback_title(topic, language=language)
 
-    def generate_outline(self, topic: str, slides: int) -> list[str]:
+    def generate_outline(self, topic: str, slides: int, *, language: str = 'en') -> list[str]:
         if not self.api_key or not self.text_endpoint:
+            if language == 'en':
+                return [f'Position {index}: {topic}' for index in range(1, slides + 1)]
             return [f'Позиция {index}: {topic}' for index in range(1, slides + 1)]
 
-        prompt = outline_prompt(topic, slides)
+        prompt = outline_prompt(topic, slides, language=language)
         payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.6}
         return self._generate_lines(prompt, payload, slides)
 
-    def revise_outline(self, topic: str, slides: int, outline: list[str], comment: str) -> list[str]:
+    def revise_outline(
+        self,
+        topic: str,
+        slides: int,
+        outline: list[str],
+        comment: str,
+        *,
+        language: str = 'en',
+    ) -> list[str]:
         if not self.api_key or not self.text_endpoint:
             return outline[:slides]
 
-        prompt = outline_comment_prompt(topic, slides, outline, comment)
+        prompt = outline_comment_prompt(topic, slides, outline, comment, language=language)
         payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.6}
         return self._generate_lines(prompt, payload, slides)
 
-    def generate_slide_contents(self, topic: str, outline: list[str]) -> list[dict[str, str]]:
+    def generate_slide_contents(
+        self,
+        topic: str,
+        outline: list[str],
+        *,
+        language: str = 'en',
+    ) -> list[dict[str, str]]:
         if not self.api_key or not self.text_endpoint:
+            if language == 'en':
+                return [
+                    {
+                        'title': title,
+                        'text': f'Short text for the question: {topic}.',
+                        'image_prompt': f'Illustration: {title}.',
+                    }
+                    for title in outline
+                ]
             return [
                 {
                     'title': title,
@@ -339,7 +364,7 @@ class PresentationGenerationClient:
                 for title in outline
             ]
 
-        prompt = slides_prompt(topic, outline)
+        prompt = slides_prompt(topic, outline, language=language)
         payload = {'messages': [_build_text_message(prompt)], 'temperature': 0.6}
         try:
             data = self._post(self.text_endpoint, payload)
@@ -348,7 +373,7 @@ class PresentationGenerationClient:
             replicate = self._try_replicate_slides(prompt)
             if replicate is not None:
                 return replicate
-            fallback = self._fallback_slides(topic, outline)
+            fallback = self._fallback_slides(topic, outline, language=language)
             return fallback
 
         content = _extract_content(data)
@@ -358,7 +383,7 @@ class PresentationGenerationClient:
             replicate = self._try_replicate_slides(prompt)
             if replicate is not None:
                 return replicate
-            return self._fallback_slides(topic, outline)
+            return self._fallback_slides(topic, outline, language=language)
 
         slides = _parse_json_list(content)
         if slides:
@@ -367,7 +392,7 @@ class PresentationGenerationClient:
         replicate = self._try_replicate_slides(prompt)
         if replicate is not None:
             return replicate
-        return self._fallback_slides(topic, outline)
+        return self._fallback_slides(topic, outline, language=language)
 
     def generate_tarot_reading(
         self,
@@ -610,7 +635,7 @@ class PresentationGenerationClient:
             fallback = self._try_fallback_outline(payload, slides)
             if fallback is not None:
                 return fallback
-            raise TextGenerationError('Сервис временно недоступен, попробуйте позже.') from exc
+            raise TextGenerationError('The service is temporarily unavailable. Try again later.') from exc
 
         content = _extract_content(data)
         err = _error_from_text(content)
@@ -634,7 +659,7 @@ class PresentationGenerationClient:
         fallback = self._try_fallback_outline(payload, slides)
         if fallback is not None:
             return fallback
-        raise TextGenerationError('Пустой ответ от сервиса. Попробуйте еще раз.')
+        raise TextGenerationError('The service returned an empty response. Try again.')
 
     def _headers(self) -> dict[str, str]:
         if not self.api_key:
@@ -727,7 +752,16 @@ class PresentationGenerationClient:
             return lines[:slides]
         return None
 
-    def _fallback_slides(self, topic: str, outline: list[str]) -> list[dict[str, str]]:
+    def _fallback_slides(self, topic: str, outline: list[str], *, language: str = 'en') -> list[dict[str, str]]:
+        if language == 'en':
+            return [
+                {
+                    'title': title,
+                    'text': f'Short text for the question: {topic}.',
+                    'image_prompt': f'Illustration: {title}.',
+                }
+                for title in outline
+            ]
         return [
             {
                 'title': title,
@@ -783,9 +817,9 @@ def _extract_content(data: dict[str, Any]) -> str:
 
 def _extract_error(data: dict[str, Any]) -> str:
     if isinstance(data, dict) and 'code' in data and data.get('code') not in (0, '0', None):
-        return str(data.get('msg') or data.get('message') or data.get('error') or 'Ошибка сервиса')
+        return str(data.get('msg') or data.get('message') or data.get('error') or 'Service error')
     if isinstance(data, dict) and 'error' in data:
-        return str(data.get('error') or 'Ошибка сервиса')
+        return str(data.get('error') or 'Service error')
     return ''
 
 
@@ -800,7 +834,7 @@ def _error_from_text(text: str) -> str:
             return ''
         return _extract_error(payload)
     if 'server exception' in raw.lower():
-        return 'Сервис временно недоступен, попробуйте позже.'
+        return 'The service is temporarily unavailable. Try again later.'
     return ''
 
 
@@ -858,15 +892,15 @@ def _fallback_title(topic: str, language: str = 'en') -> str:
     if language == 'en' and (not topic or not topic.strip()):
         return 'Tarot Reading'
     if not topic:
-        return 'Расклад таро'
+        return 'Расклад таро' if language != 'en' else 'Tarot Reading'
     value = topic.strip()
     if not value:
-        return 'Расклад таро'
+        return 'Расклад таро' if language != 'en' else 'Tarot Reading'
     lines = [line for line in value.splitlines() if line.strip()]
     value = lines[0] if lines else value
     value = re.sub(r'\s+', ' ', value).strip()
     if not value:
-        return 'Расклад таро'
+        return 'Расклад таро' if language != 'en' else 'Tarot Reading'
     if len(value) > 80:
         value = value[:77].rstrip() + '...'
     return value
