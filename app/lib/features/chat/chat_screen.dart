@@ -1400,19 +1400,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         en: '**Valid until:** ${_shortDate(active.endsAt)}',
         ru: '**Действует до:** ${_shortDate(active.endsAt)}',
       ));
-      if (_showAutoRenewStatusInBalance() && active.provider == 'yookassa') {
-        buffer.writeln(
-          active.autoRenew
-              ? _copy(
-                  en: 'Auto-renewal is enabled.',
-                  ru: 'Автопродление включено.',
-                )
-              : _copy(
-                  en: 'Auto-renewal is disabled.',
-                  ru: 'Автопродление отключено.',
-                ),
-        );
-      }
       return buffer.toString().trim();
     }
 
@@ -1473,18 +1460,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final rows = <List<_ChatAction>>[];
     final active = summary.activeSubscription;
 
-    if (active != null &&
-        active.isActive &&
-        active.autoRenew &&
-        active.provider == 'yookassa') {
-      rows.add([
-        _action(
-          _copy(en: '❌ Cancel subscription', ru: '❌ Отключить подписку'),
-          _cancelBillingSubscription,
-          actionKey: 'cancel_billing_subscription',
-        ),
-      ]);
-    } else if (active == null || !active.isActive) {
+    if (active == null || !active.isActive) {
       rows.add([
         _action(
           _selectSubscriptionLabel,
@@ -1515,7 +1491,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             actionKey: 'start_billing_payment',
             payload: <String, dynamic>{
               'plan_key': plan.key,
-              'renew': false,
             },
           ),
         ],
@@ -1639,7 +1614,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _showPlanOptions({bool renew = false}) async {
+  Future<void> _showPlanOptions() async {
     final controller = _billingController;
     if (controller == null) {
       return;
@@ -1660,14 +1635,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         [
           _action(
             _planOptionLabel(plan),
-            () async => _startBillingPayment(
-              plan.key,
-              renew: renew && plan.recurring,
-            ),
+            () async => _startBillingPayment(plan.key),
             actionKey: 'start_billing_payment',
             payload: <String, dynamic>{
               'plan_key': plan.key,
-              'renew': renew && plan.recurring,
             },
           ),
         ],
@@ -1682,21 +1653,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     ];
 
     _appendBotMessage(
-      renew
-          ? _copy(
-              en: '**Renew subscription**\nChoose a plan to renew:',
-              ru: '**Продлить подписку**\nВыбери тариф для продления:',
-            )
-          : _copy(
-              en: '**Choose a subscription** 👇',
-              ru: '**Выбери подписку** 👇',
-            ),
+      _copy(
+        en: '**Choose a subscription** 👇',
+        ru: '**Выбери подписку** 👇',
+      ),
       keyboard: rows,
     );
   }
 
-  Future<void> _startBillingPayment(String planKey,
-      {bool renew = false}) async {
+  Future<void> _startBillingPayment(String planKey) async {
     final controller = _billingController;
     if (controller == null) {
       return;
@@ -1712,48 +1677,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       showLoadingAnimation: true,
     );
-    await controller.startCheckout(planKey: planKey, renew: renew);
+    await controller.startCheckout(planKey: planKey);
     if (controller.payment == null && controller.error != null) {
       _clearBillingProgressMessage();
       _appendBotMessage('❌ ${controller.error!}');
     }
-  }
-
-  Future<void> _cancelBillingSubscription() async {
-    final controller = _billingController;
-    if (controller == null) {
-      return;
-    }
-
-    await controller.cancelSubscription();
-    final summary = controller.summary;
-    if (summary == null) {
-      _appendBotMessage(
-        '❌ ${controller.error ?? _copy(en: 'Could not cancel subscription.', ru: 'Не удалось отключить подписку.')}',
-      );
-      return;
-    }
-
-    final latest = summary.latestValidSubscription;
-    final untilDate = latest == null ? '' : _shortDate(latest.endsAt);
-    _appendBotMessage(
-      latest == null
-          ? _copy(en: 'Subscription canceled.', ru: 'Подписка отключена.')
-          : _copy(
-              en: 'Subscription canceled. Readings are available until $untilDate.',
-              ru: 'Подписка выключена. Расклады доступны до $untilDate.',
-            ),
-      keyboard: [
-        [
-          _action(
-            _mainMenuLabel,
-            _showMainMenu,
-            actionKey: 'show_main_menu',
-            echoAsUser: false,
-          ),
-        ],
-      ],
-    );
   }
 
   Future<void> _resumePendingPresentationAfterPayment() async {
@@ -1984,8 +1912,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final day = date.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
   }
-
-  bool _showAutoRenewStatusInBalance() => false;
 
   void _handleExternalStateChanged() {
     if (mounted) {
@@ -2521,19 +2447,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         callback = () => _selectTemplate(template);
         break;
       case 'show_plan_options':
-        final renew = action.payload['renew'] == true;
-        callback = () => _showPlanOptions(renew: renew);
+        callback = _showPlanOptions;
         break;
       case 'start_billing_payment':
         final planKey = action.payload['plan_key'] as String?;
         if (planKey == null || planKey.isEmpty) {
           return null;
         }
-        final renew = action.payload['renew'] == true;
-        callback = () => _startBillingPayment(planKey, renew: renew);
-        break;
-      case 'cancel_billing_subscription':
-        callback = _cancelBillingSubscription;
+        callback = () => _startBillingPayment(planKey);
         break;
       default:
         return null;

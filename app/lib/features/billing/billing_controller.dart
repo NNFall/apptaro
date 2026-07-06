@@ -23,14 +23,12 @@ class BillingController extends ChangeNotifier {
   BillingPayment? _payment;
   bool _loadingSummary = false;
   bool _creatingPayment = false;
-  bool _canceling = false;
   String? _error;
 
   BillingSummary? get summary => _summary;
   BillingPayment? get payment => _payment;
   bool get loadingSummary => _loadingSummary;
   bool get creatingPayment => _creatingPayment;
-  bool get canceling => _canceling;
   String? get error => _error;
 
   Future<void> initialize() async {
@@ -57,10 +55,7 @@ class BillingController extends ChangeNotifier {
     }
   }
 
-  Future<void> startCheckout({
-    required String planKey,
-    bool renew = false,
-  }) async {
+  Future<void> startCheckout({required String planKey}) async {
     _creatingPayment = true;
     _error = null;
     notifyListeners();
@@ -87,21 +82,6 @@ class BillingController extends ChangeNotifier {
       _error = _describeError(error);
     } finally {
       _creatingPayment = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> cancelSubscription() async {
-    _canceling = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      _summary = await _repository.cancelBillingSubscription();
-    } catch (error) {
-      _error = _describeError(error);
-    } finally {
-      _canceling = false;
       notifyListeners();
     }
   }

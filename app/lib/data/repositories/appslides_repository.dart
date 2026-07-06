@@ -106,10 +106,6 @@ class AppSlidesRepository {
 
   Future<BillingSummary> fetchBillingSummary() => _api.fetchBillingSummary();
 
-  Future<BillingSummary> cancelBillingSubscription() {
-    return _api.cancelBillingSubscription();
-  }
-
   Future<BillingSummary> verifyGooglePlayPurchase({
     required String productId,
     required String purchaseToken,

@@ -175,17 +175,6 @@ class AppSlidesApiClient {
     return BillingSummary.fromJson(payload);
   }
 
-  Future<BillingSummary> cancelBillingSubscription() async {
-    final response = await _client.post(
-      _resolve(AppConfig.billingCancelSubscriptionPath),
-      headers: await _jsonHeaders(),
-      body: '{}',
-    );
-    final payload = _decodeResponse(response);
-    _ensureSuccess(response, payload);
-    return BillingSummary.fromJson(payload);
-  }
-
   Future<BillingSummary> verifyGooglePlayPurchase({
     required String productId,
     required String purchaseToken,
