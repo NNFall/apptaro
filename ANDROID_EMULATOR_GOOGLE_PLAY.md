@@ -1,135 +1,150 @@
 # Android Emulator For Google Play Testing
 
-Этот файл фиксирует локальный эмулятор для тестирования `PMapptaro` без физического телефона.
+This file records the local Android emulator setup for `PMapptaro`.
 
-## Установленное состояние
+## Current State
 
+- Flutter doctor: clean, no issues.
 - Android SDK: `C:\Users\User\AppData\Local\Android\sdk`.
-- Flutter doctor: без ошибок.
-- Google Play system image установлен:
+- Android Emulator: installed.
+- Android licenses: accepted.
+- Active Google Play AVD: `apptaro_google_play`.
+- Secondary UI-smoke AVD: `apptaro_smoke`.
+
+Verified on `2026-07-07`:
 
 ```text
-system-images;android-35;google_apis_playstore;x86_64
+flutter doctor -v
+flutter emulators
+flutter devices
 ```
 
-- AVD для Google Play:
+`flutter devices` detected the running emulator:
+
+```text
+sdk gphone64 x86 64 • emulator-5554 • android-x64 • Android 15 (API 35)
+```
+
+The running AVD name is:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell getprop ro.boot.qemu.avd_name
+```
+
+Expected output:
 
 ```text
 apptaro_google_play
 ```
 
-- Старый AVD для обычного smoke:
-
-```text
-apptaro_smoke
-```
-
-## Зачем два эмулятора
-
-`apptaro_smoke` использует обычный default Android image. Он подходит для UI-smoke, но не подходит для Google Play Billing.
-
-`apptaro_google_play` использует Google Play image и содержит Play Store package `com.android.vending`. Его нужно использовать для проверки Google Play Billing, purchase restore и поведения приложения как Google Play build.
-
-## Основные команды
-
-Запустить Google Play emulator:
+Google Play packages are present:
 
 ```powershell
-& "$env:LOCALAPPDATA\Android\sdk\emulator\emulator.exe" -avd apptaro_google_play
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell pm list packages com.android.vending
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell pm list packages com.google.android.gms
 ```
 
-Проверить устройства:
-
-```powershell
-& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" devices
-flutter devices
-```
-
-На этой машине `adb` может быть не добавлен в `PATH`, поэтому в командах выше используется полный путь:
-
-```powershell
-& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe"
-```
-
-Проверить, что Play Store установлен:
-
-```powershell
-& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" shell pm list packages com.android.vending
-```
-
-Ожидаемый вывод:
+Expected output includes:
 
 ```text
 package:com.android.vending
+package:com.google.android.gms
 ```
 
-Установить APK вручную:
+## Launch
 
-```powershell
-& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" install -r app\build\app\outputs\flutter-apk\app-release.apk
-```
-
-Запустить Flutter на эмуляторе:
+Start the Google Play emulator:
 
 ```powershell
 cd app
-flutter run -d emulator-5554
+flutter emulators --launch apptaro_google_play
 ```
 
-Сделать скриншот:
+Or start it directly:
 
 ```powershell
-& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" exec-out screencap -p > docs\screenshots\android\pmapptaro-emulator.png
+& "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -avd apptaro_google_play
 ```
 
-## Важное ограничение
+Check devices:
 
-Google Play Billing нельзя полноценно проверить просто установкой локального APK, если приложение не связано с Google Play Console и тестовым треком. Для покупки через Google Play обычно нужен build из internal/closed testing track, установленный через Play Store, и тестовый аккаунт в лицензировании/тестерах.
+```powershell
+flutter devices
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" devices -l
+```
 
-Локальный emulator все равно полезен:
+## Local Smoke Test
 
-- UI;
-- локализация;
+Build a debug APK:
+
+```powershell
+cd app
+flutter build apk --debug
+```
+
+Install it:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r build\app\outputs\flutter-apk\app-debug.apk
+```
+
+Launch it:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell monkey -p com.apptaro.app -c android.intent.category.LAUNCHER 1
+```
+
+Capture a screenshot:
+
+```powershell
+New-Item -ItemType Directory -Force ..\docs\screenshots\android\google-play | Out-Null
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" exec-out screencap -p > ..\docs\screenshots\android\google-play\emulator-current.png
+```
+
+Capture a UI dump:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell uiautomator dump /sdcard/window.xml
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" pull /sdcard/window.xml ..\docs\screenshots\android\google-play\window-current.xml
+```
+
+## Google Play Billing Limitation
+
+Google Play Billing cannot be fully validated by installing a locally built APK only.
+
+For a real purchase/restore test, use:
+
+- a build uploaded to an internal or closed testing track in Google Play Console;
+- a tester account accepted into that track;
+- the same tester account signed into Play Store on `apptaro_google_play`;
+- active products/subscriptions in Google Play Console;
+- backend Google Play Developer API validation configured with the service account.
+
+The emulator is still useful for:
+
+- English/Russian UI smoke;
 - startup flow;
-- история чата;
-- network errors;
-- deeplink smoke;
-- базовая проверка, что устройство Google Play совместимое.
+- chat history persistence;
+- network error behavior;
+- backend connectivity;
+- screenshots for review;
+- basic Google Play environment compatibility.
 
-## Current Google Play Release Smoke
+## Smoke Evidence
 
-Verified on `apptaro_google_play` / `emulator-5554`:
+Verified on `2026-07-07` with the running `apptaro_google_play` emulator:
 
-- release APK installed from `app/build/app/outputs/flutter-apk/app-release.apk`;
-- package launched as `com.apptaro.app`;
-- backend health passed on `http://185.171.83.116:8022/v1/health`;
-- clean startup screen is fully English;
-- ask-question flow is fully English;
-- screenshots saved in `docs/screenshots/android/google-play/`.
-
-Smoke screenshots:
-
-```text
-docs/screenshots/android/google-play/home-release-clean.png
-docs/screenshots/android/google-play/ask-flow-release.png
-```
-
-## Current Billing Cleanup Smoke
-
-Verified on `2026-07-06` after removing old redirect/YooKassa billing remnants:
-
-- active AVD: `apptaro_google_play`;
-- connected device: `emulator-5554`;
-- Android version: `15`;
-- Play Store package exists: `com.android.vending`;
-- Google Play Services package exists: `com.google.android.gms`;
-- release APK installed successfully from `app/build/app/outputs/flutter-apk/app-release.apk`;
-- package launched successfully as `com.apptaro.app`;
-- UI dump contains English startup copy and no Russian/YooKassa/redirect billing strings.
+- current debug APK built from `app/build/app/outputs/flutter-apk/app-debug.apk`;
+- an older differently signed `com.apptaro.app` package was removed from the emulator;
+- current debug APK installed successfully;
+- app launched with `adb shell monkey -p com.apptaro.app`;
+- startup screen is in English;
+- UI dump contains `AI Tarot Reading`, `Ask a question`, `Balance`, `Language`, and `Help`;
+- UI dump does not show the old presentation/converter entry points on the startup screen.
 
 Artifacts:
 
 ```text
-docs/screenshots/android/google-play/home-release-after-billing-cleanup.png
-docs/screenshots/android/google-play/window-home-release-after-billing-cleanup.xml
+docs/screenshots/android/google-play/emulator-debug-clean-pulled-2026-07-07.png
+docs/screenshots/android/google-play/window-debug-clean-2026-07-07.xml
 ```
