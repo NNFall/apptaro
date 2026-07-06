@@ -22,7 +22,7 @@ flutter devices
 `flutter devices` detected the running emulator:
 
 ```text
-sdk gphone64 x86 64 • emulator-5554 • android-x64 • Android 15 (API 35)
+sdk gphone64 x86 64 - emulator-5554 - android-x64 - Android 15 (API 35)
 ```
 
 The running AVD name is:
