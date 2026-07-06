@@ -21,7 +21,7 @@ class AppLocalizations {
   }
 
   String get appTitle => switch (language) {
-        AppLanguage.english => 'Tarot Reading',
+        AppLanguage.english => 'AI Tarot Reading',
         AppLanguage.russian => 'Таро Расклад',
       };
 

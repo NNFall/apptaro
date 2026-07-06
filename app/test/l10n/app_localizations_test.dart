@@ -6,7 +6,7 @@ void main() {
   test('returns English copy for Google Play default language', () {
     final copy = AppLocalizations.forLanguage(AppLanguage.english);
 
-    expect(copy.appTitle, 'Tarot Reading');
+    expect(copy.appTitle, 'AI Tarot Reading');
     expect(copy.askQuestionButton, '🔮 Ask a question');
     expect(copy.languageButton, '🌐 Language');
   });
