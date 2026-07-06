@@ -27,6 +27,7 @@ DEFAULT_REMOTE_DIR = '/root/PMapptaro'
 DEFAULT_HOST_PORT = 8022
 WATCHDOG_SCRIPT_NAME = 'pmapptaro_admin_bot_watchdog.sh'
 WATCHDOG_CRON_NAME = 'pmapptaro_admin_bot_watchdog'
+GOOGLE_PLAY_SERVICE_ACCOUNT_FILENAME = 'google-play-service-account.json'
 
 BACKEND_SKIP_PARTS = {
     '.venv',
@@ -46,6 +47,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--password', required=True)
     parser.add_argument('--port', type=int, default=22)
     parser.add_argument('--remote-dir', default=DEFAULT_REMOTE_DIR)
+    parser.add_argument(
+        '--google-play-service-account-file',
+        default='',
+        help=(
+            'Optional local Google Play service-account JSON file to upload to '
+            f'<remote-dir>/data/{GOOGLE_PLAY_SERVICE_ACCOUNT_FILENAME}.'
+        ),
+    )
     return parser.parse_args()
 
 
@@ -204,6 +213,36 @@ def _env_value(content: str, key: str) -> str:
     return ''
 
 
+def resolve_google_play_service_account_file(
+    local_env: dict[str, str],
+    explicit_path: str = '',
+) -> Path | None:
+    if local_env.get('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', '').strip():
+        return None
+
+    has_explicit_path = bool(explicit_path.strip())
+    raw_path = explicit_path.strip() or local_env.get('GOOGLE_PLAY_SERVICE_ACCOUNT_FILE', '').strip()
+    if not raw_path:
+        return None
+    if not has_explicit_path and raw_path.startswith('/data/'):
+        return None
+
+    local_path = Path(raw_path).expanduser()
+    if not local_path.is_absolute():
+        local_path = (REPO_ROOT / local_path).resolve()
+
+    if not local_path.exists():
+        raise FileNotFoundError(f'Google Play service-account file was not found: {local_path}')
+    if not local_path.is_file():
+        raise FileNotFoundError(f'Google Play service-account path is not a file: {local_path}')
+
+    with local_path.open('r', encoding='utf-8') as handle:
+        data = json.load(handle)
+    if not isinstance(data, dict):
+        raise ValueError(f'Google Play service-account file must contain a JSON object: {local_path}')
+    return local_path
+
+
 def ensure_remote_admin_bot_token_is_unique(
     remote: 'RemoteHost',
     remote_dir: str,
@@ -254,6 +293,19 @@ PY
         )
     if exit_code != 0:
         raise RuntimeError(f'Failed to check remote admin bot token uniqueness.\nSTDOUT:\n{out}\nSTDERR:\n{err}')
+
+
+def upload_google_play_service_account(
+    remote: 'RemoteHost',
+    remote_dir: str,
+    local_path: Path | None,
+) -> None:
+    if local_path is None:
+        return
+    remote_path = posixpath.join(remote_dir, 'data', GOOGLE_PLAY_SERVICE_ACCOUNT_FILENAME)
+    remote.upload_file(local_path, remote_path)
+    remote.run(f"chmod 600 '{remote_path}'")
+    print(f'Uploaded Google Play service-account JSON to {remote_path}')
 
 
 class RemoteHost:
@@ -394,7 +446,12 @@ def install_admin_bot_watchdog(
     remote.run('systemctl restart cron')
 
 
-def deploy(remote: RemoteHost, remote_dir: str, remote_env: str) -> None:
+def deploy(
+    remote: RemoteHost,
+    remote_dir: str,
+    remote_env: str,
+    google_play_service_account_file: Path | None = None,
+) -> None:
     backend_remote = posixpath.join(remote_dir, 'backend')
     admin_bot_remote = posixpath.join(remote_dir, 'telegram_admin_bot')
     templates_remote = posixpath.join(remote_dir, 'templates')
@@ -402,6 +459,8 @@ def deploy(remote: RemoteHost, remote_dir: str, remote_env: str) -> None:
     remote.ensure_dir(remote_dir)
     for name in ('data', 'temp', 'logs', 'templates', 'tarot'):
         remote.ensure_dir(posixpath.join(remote_dir, name))
+
+    upload_google_play_service_account(remote, remote_dir, google_play_service_account_file)
 
     for path in (backend_remote, admin_bot_remote, templates_remote, tarot_remote):
         remote.remove_tree(path)
@@ -461,6 +520,10 @@ def main() -> int:
     args = parse_args()
     ensure_required_paths()
     local_env = load_local_env()
+    google_play_service_account_file = resolve_google_play_service_account_file(
+        local_env,
+        args.google_play_service_account_file,
+    )
 
     print(f'Deploying backend to {args.user}@{args.host}:{args.remote_dir}')
     remote = RemoteHost(args.host, args.user, args.password, args.port)
@@ -470,7 +533,7 @@ def main() -> int:
         host_port = choose_host_port(remote)
         remote_env = build_remote_env(local_env, host_port)
         ensure_remote_admin_bot_token_is_unique(remote, args.remote_dir, remote_env)
-        deploy(remote, args.remote_dir, remote_env)
+        deploy(remote, args.remote_dir, remote_env, google_play_service_account_file)
         install_admin_bot_watchdog(
             remote,
             args.remote_dir,

@@ -39,6 +39,25 @@ GOOGLE_PLAY_TEST_MODE=0
 
 `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` can be used instead of a file, but the file path is preferred for production.
 
+The deploy script can upload the JSON file safely. The file is not committed to git:
+
+```powershell
+python scripts/deploy/deploy_backend_remote.py `
+  --host 185.171.83.116 `
+  --user root `
+  --password "<server-password>" `
+  --remote-dir /root/PMapptaro `
+  --google-play-service-account-file "C:\path\to\service-account.json"
+```
+
+The script validates that the local file is a JSON object, uploads it to:
+
+```text
+/root/PMapptaro/data/google-play-service-account.json
+```
+
+and sets file permissions to `600`.
+
 ## Admin Bot Token
 
 `ADMIN_BOT_TOKEN` must belong to a separate Telegram bot for this Google Play stack.
