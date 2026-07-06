@@ -114,6 +114,7 @@ def get_billing_service() -> BillingService:
         support_max_url=settings.support_max_url,
         return_url=settings.yookassa_return_url or settings.offer_url,
         test_mode=settings.yookassa_test_mode,
+        legacy_yookassa_enabled=settings.legacy_yookassa_billing_enabled,
         notifier=get_admin_notifier(),
     )
 

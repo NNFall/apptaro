@@ -47,6 +47,7 @@ class BillingService:
         support_max_url: str,
         return_url: str,
         test_mode: bool,
+        legacy_yookassa_enabled: bool = False,
         notifier: AdminNotifier,
     ) -> None:
         self._gateway = gateway
@@ -56,11 +57,12 @@ class BillingService:
         self._support_max_url = support_max_url
         self._return_url = return_url
         self._test_mode = test_mode
+        self._legacy_yookassa_enabled = legacy_yookassa_enabled
         self._notifier = notifier
 
     @property
     def is_configured(self) -> bool:
-        return self._gateway.is_configured
+        return self._legacy_yookassa_enabled and self._gateway.is_configured
 
     async def get_summary(self, client_id: str) -> BillingSummary:
         billing_repo.touch_client(client_id)

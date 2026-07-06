@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.core.dependencies import get_billing_service, get_known_client_id
 from src.domain.billing_service import BillingService
 from src.schemas.billing import (
-    BillingPaymentResponse,
     BillingSummaryResponse,
     CreateBillingPaymentRequest,
     GooglePlayVerifyRequest,
@@ -54,14 +53,12 @@ def _summary_response(summary) -> BillingSummaryResponse:
     )
 
 
-def _payment_response(result) -> BillingPaymentResponse:
-    return BillingPaymentResponse(
-        payment_id=result.payment_id,
-        status=result.status,
-        confirmation_url=result.confirmation_url,
-        test_mode=result.test_mode,
-        summary=_summary_response(result.summary),
+def _raise_redirect_billing_disabled() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail='Redirect billing is disabled in the Google Play build. Use /v1/billing/google-play/verify.',
     )
+
 
 @router.get('/summary', response_model=BillingSummaryResponse)
 async def get_billing_summary(
@@ -72,23 +69,12 @@ async def get_billing_summary(
     return _summary_response(summary)
 
 
-@router.post('/payments', response_model=BillingPaymentResponse)
+@router.post('/payments', status_code=status.HTTP_410_GONE)
 async def create_billing_payment(
     payload: CreateBillingPaymentRequest,
-    client_id: str = Depends(get_known_client_id),
-    service: BillingService = Depends(get_billing_service),
-) -> BillingPaymentResponse:
-    try:
-        result = await service.create_payment(
-            client_id=client_id,
-            plan_key=payload.plan_key,
-            context=payload.context,
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return _payment_response(result)
+) -> None:
+    _ = payload
+    _raise_redirect_billing_disabled()
 
 
 @router.post('/google-play/verify', response_model=BillingSummaryResponse)
@@ -112,17 +98,12 @@ async def verify_google_play_purchase(
     return _summary_response(summary)
 
 
-@router.get('/payments/{payment_id}', response_model=BillingPaymentResponse)
+@router.get('/payments/{payment_id}', status_code=status.HTTP_410_GONE)
 async def get_billing_payment(
     payment_id: str,
-    client_id: str = Depends(get_known_client_id),
-    service: BillingService = Depends(get_billing_service),
-) -> BillingPaymentResponse:
-    try:
-        result = await service.sync_payment(client_id=client_id, payment_id=payment_id)
-    except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    return _payment_response(result)
+) -> None:
+    _ = payment_id
+    _raise_redirect_billing_disabled()
 
 
 @router.post('/subscription/cancel', response_model=BillingSummaryResponse)

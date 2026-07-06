@@ -10,6 +10,7 @@ FastAPI backend для Google Play версии `AI Tarot Reading`: tarot readin
 - Google Play service account on host: `/root/PMapptaro/data/google-play-service-account.json`
 - Google Play service account in Docker: `/data/google-play-service-account.json`
 - Admin bot: отдельный `telegram_admin_bot/`, `ADMIN_BOT_TOKEN`, `ADMIN_IDS`
+- Legacy YooKassa redirect billing: disabled by default via `ENABLE_LEGACY_YOOKASSA_BILLING=0`
 
 ## Product Flow
 
@@ -48,7 +49,7 @@ Trial teaser:
 
 Flutter Google Play client не использует YooKassa checkout и не вызывает `/v1/billing/payments`.
 
-В backend пока сохранены legacy YooKassa methods/endpoints для совместимости старого платформенного каркаса и тестов. Не использовать их в Google Play UI.
+В backend пока сохранены внутренние legacy YooKassa методы для совместимости старого платформенного каркаса. Public redirect endpoints в Google Play backend отключены и возвращают `410 Gone`. Даже при наличии старых YooKassa ключей legacy billing не включается без явного `ENABLE_LEGACY_YOOKASSA_BILLING=1`.
 
 Google Play product ids задаются в `src/domain/billing_plans.py`:
 
@@ -87,10 +88,12 @@ Backend отправляет тематические уведомления:
 - `POST /v1/billing/promo/redeem`
 - `POST /v1/billing/subscription/cancel`
 
-Legacy compatibility endpoints still exist in code:
+Disabled legacy redirect endpoints:
 
 - `POST /v1/billing/payments`
 - `GET /v1/billing/payments/{payment_id}`
+
+Оба endpoint возвращают `410 Gone` с указанием использовать `POST /v1/billing/google-play/verify`.
 
 ## Local Run
 

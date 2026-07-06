@@ -127,6 +127,7 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'IMAGE_GENERATION_RETRIES': local_env.get('IMAGE_GENERATION_RETRIES', '2'),
         'IMAGE_GENERATION_RETRY_DELAY_SECONDS': local_env.get('IMAGE_GENERATION_RETRY_DELAY_SECONDS', '2.0'),
         'YOOKASSA_RETURN_URL': local_env.get('YOOKASSA_RETURN_URL', 'apptaro://billing/return'),
+        'ENABLE_LEGACY_YOOKASSA_BILLING': local_env.get('ENABLE_LEGACY_YOOKASSA_BILLING', '0'),
         'SUPPORT_MAX_URL': local_env.get(
             'SUPPORT_MAX_URL',
             'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8',
@@ -170,6 +171,7 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'YOOKASSA_POLL_INTERVAL',
         'YOOKASSA_POLL_TIMEOUT',
         'YOOKASSA_TEST_MODE',
+        'ENABLE_LEGACY_YOOKASSA_BILLING',
         'SUPPORT_USERNAME',
         'SUPPORT_MAX_URL',
         'OFFER_URL',

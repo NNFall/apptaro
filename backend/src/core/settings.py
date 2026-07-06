@@ -127,6 +127,7 @@ class Settings:
     yookassa_payment_subject: str
     yookassa_payment_mode: str
     yookassa_test_mode: bool
+    legacy_yookassa_billing_enabled: bool
     auto_renew_interval: int
     google_play_package_name: str
     google_play_service_account_file: str
@@ -206,6 +207,7 @@ def load_settings() -> Settings:
         yookassa_payment_subject=os.getenv('YOOKASSA_PAYMENT_SUBJECT', 'service') or 'service',
         yookassa_payment_mode=os.getenv('YOOKASSA_PAYMENT_MODE', 'full_prepayment') or 'full_prepayment',
         yookassa_test_mode=os.getenv('YOOKASSA_TEST_MODE', '1') == '1',
+        legacy_yookassa_billing_enabled=os.getenv('ENABLE_LEGACY_YOOKASSA_BILLING', '0') == '1',
         auto_renew_interval=int(os.getenv('AUTO_RENEW_INTERVAL', '60')),
         google_play_package_name=os.getenv('GOOGLE_PLAY_PACKAGE_NAME', 'com.apptaro.app').strip(),
         google_play_service_account_file=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_FILE', '').strip(),
