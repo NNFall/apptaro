@@ -163,3 +163,21 @@ Artifacts:
 docs/screenshots/android/google-play/release-0.1.0-10-home.png
 docs/screenshots/android/google-play/window-release-0.1.0-10.xml
 ```
+
+Release APK verification on `2026-07-07` after language UX update:
+
+- built `app/build/app/outputs/flutter-apk/app-release.apk`;
+- built `app/build/app/outputs/bundle/release/app-release.aab`;
+- package `com.apptaro.app`, version `0.1.0+11`;
+- startup screen is in English;
+- UI dump contains `AI Tarot Reading`, `Ask a question`, `Balance`, and `Help`, with no Cyrillic text;
+- language is available from the small top-right header icon, not as a main chat keyboard button;
+- main menu source guard verifies there is no `show_language_menu` inline action;
+- modal picker visual check on the local AVD was not accepted as evidence because the emulator displayed a system `System UI isn't responding` dialog after tapping the header icon.
+
+Artifacts:
+
+```text
+docs/screenshots/android/google-play/release-0.1.0-11-home.png
+docs/screenshots/android/google-play/window-release-0.1.0-11-home.xml
+```

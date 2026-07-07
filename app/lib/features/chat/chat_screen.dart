@@ -194,7 +194,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     width: contentWidth,
                     child: Column(
                       children: [
-                        const _ChatHeader(),
+                        _ChatHeader(
+                          onLanguagePressed: _showLanguageMenu,
+                        ),
                         Expanded(
                           child: ListView.builder(
                             controller: _scrollController,
@@ -1965,14 +1967,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ],
       [
         _action(
-          _copy(en: '🌐 Language', ru: '🌐 Язык'),
-          () async => _showLanguageMenu(),
-          actionKey: 'show_language_menu',
-          echoAsUser: false,
-        ),
-      ],
-      [
-        _action(
           _copy(en: '❓ Help', ru: '❓ Помощь'),
           () async => _showHelpV2(),
           actionKey: 'show_help',
@@ -1982,37 +1976,71 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _showLanguageMenu() async {
-    _appendBotMessage(
-      _copy(
-        en: '🌐 **Language**\nChoose the app language.',
-        ru: '🌐 **Язык**\nВыберите язык приложения.',
+    final current = _currentLanguage;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      keyboard: [
-        [
-          _action(
-            'English',
-            () => _setLanguage(AppLanguage.english),
-            actionKey: 'set_language',
-            payload: <String, dynamic>{'language': AppLanguage.english.code},
-            echoAsUser: false,
+      builder: (sheetContext) {
+        final isRussian = current == AppLanguage.russian;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isRussian ? 'Выберите язык' : 'Choose language',
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                _LanguageTile(
+                  label: 'English',
+                  selected: current == AppLanguage.english,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(_setLanguage(
+                      AppLanguage.english,
+                      announce: false,
+                    ));
+                  },
+                ),
+                _LanguageTile(
+                  label: 'Русский',
+                  selected: current == AppLanguage.russian,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(_setLanguage(
+                      AppLanguage.russian,
+                      announce: false,
+                    ));
+                  },
+                ),
+              ],
+            ),
           ),
-          _action(
-            'Русский',
-            () => _setLanguage(AppLanguage.russian),
-            actionKey: 'set_language',
-            payload: <String, dynamic>{'language': AppLanguage.russian.code},
-            echoAsUser: false,
-          ),
-        ],
-        [_mainMenuOnlyKeyboard().first.first],
-      ],
+        );
+      },
     );
   }
 
-  Future<void> _setLanguage(AppLanguage language) async {
+  Future<void> _setLanguage(
+    AppLanguage language, {
+    bool announce = true,
+  }) async {
     await AppScope.languageOf(context).setLanguage(language);
     if (mounted) {
       setState(() {});
+    }
+    if (!announce) {
+      await _persistTranscript();
+      return;
     }
     _appendBotMessage(
       language == AppLanguage.russian
@@ -2652,7 +2680,11 @@ class _MessageMarkdown extends StatelessWidget {
 }
 
 class _ChatHeader extends StatelessWidget {
-  const _ChatHeader();
+  const _ChatHeader({
+    required this.onLanguagePressed,
+  });
+
+  final VoidCallback onLanguagePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -2660,7 +2692,7 @@ class _ChatHeader extends StatelessWidget {
     return Container(
       height: 58,
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 7, 14, 7),
+      padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -2669,21 +2701,68 @@ class _ChatHeader extends StatelessWidget {
           ),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
-          Text(
-            copy.appTitle,
-            style: TextStyle(
-              fontSize: 13.8,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              copy.appTitle,
+              style: TextStyle(
+                fontSize: 13.8,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          ),
+          IconButton(
+            onPressed: onLanguagePressed,
+            tooltip: copy.languageButton.replaceFirst('🌐 ', ''),
+            visualDensity: VisualDensity.compact,
+            icon: const Text(
+              '文',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF7D8790),
+              ),
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LanguageTile extends StatelessWidget {
+  const _LanguageTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      minLeadingWidth: 0,
+      title: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: selected
+          ? const Icon(
+              Icons.check_rounded,
+              color: Color(0xFF5C8F43),
+            )
+          : null,
+      onTap: onTap,
     );
   }
 }

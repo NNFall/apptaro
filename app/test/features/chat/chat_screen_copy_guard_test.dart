@@ -18,4 +18,14 @@ void main() {
     expect(source, isNot(contains('File conversion is queued')));
     expect(source, isNot(contains('Conversion result')));
   });
+
+  test('language switch is a header modal, not a main chat button', () {
+    final source =
+        File('lib/features/chat/chat_screen.dart').readAsStringSync();
+
+    expect(source, contains('onLanguagePressed: _showLanguageMenu'));
+    expect(source, contains('showModalBottomSheet<void>'));
+    expect(source, contains('class _LanguageTile'));
+    expect(source, isNot(contains("actionKey: 'show_language_menu'")));
+  });
 }
