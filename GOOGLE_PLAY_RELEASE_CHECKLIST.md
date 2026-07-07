@@ -6,7 +6,7 @@ This checklist is for the Google Play version of PMapptaro.
 
 - Android package: `com.apptaro.app`
 - Flutter version source: `app/pubspec.yaml`
-- Current version: `0.1.0+10`
+- Current version: `0.1.0+11`
 - Increase the build number after every new Google Play upload.
 
 Google Play rejects builds with a `versionCode` that was already uploaded.
@@ -114,6 +114,15 @@ Check:
 - chat shows active balance/subscription;
 - admin bot receives the purchase notification;
 - reinstall or clear data restores an active Google Play entitlement.
+
+Local emulator smoke already verified on `2026-07-07` with sideloaded release `0.1.0+11`:
+
+- top-right language picker opens as a modal and switches English/Russian for new chat messages;
+- `Help` and `Balance` work without `ClientException`;
+- `Ask a question` reaches the backend and returns an English tarot teaser with card image;
+- chat history and generated teaser survive `adb shell am force-stop com.apptaro.app` and app relaunch.
+
+This local smoke does not replace the Google Play track billing test above because local sideloads cannot fully validate Play purchase sheets and tester-account purchases.
 
 ## Google Play Product Behavior
 
