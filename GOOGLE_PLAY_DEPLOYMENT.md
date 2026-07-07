@@ -122,6 +122,14 @@ Verified on 2026-07-07:
 - `pmapptaro_admin_bot` is not running correctly because the configured Telegram bot token is also used by the old `apptaro_admin_bot` container.
 - The admin bot logs showed `Conflict: terminated by other getUpdates request`.
 
+Rechecked later on 2026-07-07:
+
+- `pmapptaro_backend` is still running and `/v1/health` returns `{"status":"ok","service":"PMapptaro Backend"}`.
+- `pmapptaro_admin_bot` exists but is stopped: `Exited (137)`.
+- `docker compose ps` in `/root/PMapptaro` lists only `pmapptaro_backend`.
+- Masked token scan confirms `/root/PMapptaro/.env` and `/root/apptaro/.env` still share the same `ADMIN_BOT_TOKEN`.
+- This is a deployment configuration blocker, not a backend health blocker.
+
 Action required before full stack deploy:
 
 1. Create a separate Telegram bot token for the Google Play PMapptaro admin bot.
