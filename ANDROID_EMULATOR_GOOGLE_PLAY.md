@@ -173,11 +173,36 @@ Release APK verification on `2026-07-07` after language UX update:
 - UI dump contains `AI Tarot Reading`, `Ask a question`, `Balance`, and `Help`, with no Cyrillic text;
 - language is available from the small top-right header icon, not as a main chat keyboard button;
 - main menu source guard verifies there is no `show_language_menu` inline action;
-- modal picker visual check on the local AVD was not accepted as evidence because the emulator displayed a system `System UI isn't responding` dialog after tapping the header icon.
+- language modal opens from the header icon and contains `Choose language`, `English`, and `Русский`;
+- switching to `Русский` changes new menu messages and buttons to Russian;
+- switching back to `English` changes new menu messages and buttons to English;
+- `Help` opens the English help text with user ID and support links;
+- `Balance` reaches the backend and returns subscription state without `ClientException`;
+- `Ask a question` accepts a typed question, starts generation, and returns an English tarot teaser with a card image;
+- chat history, generated teaser text, and image survive `adb shell am force-stop com.apptaro.app` and app relaunch;
+- an Android/Gboard `Try out your stylus` panel appeared once during ADB text input; it was a system keyboard overlay, not an app crash.
 
 Artifacts:
 
 ```text
 docs/screenshots/android/google-play/release-0.1.0-11-home.png
 docs/screenshots/android/google-play/window-release-0.1.0-11-home.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-home.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-home.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-language-modal.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-language-modal.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-after-ru-menu-2.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-after-ru-menu-2.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-after-en-menu-3.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-after-en-menu-3.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-help.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-help.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-balance.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-balance.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-ask-goodnews.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-ask-goodnews.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-ask-result.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-ask-result.xml
+docs/screenshots/android/google-play/smoke-0.1.0-11-force-stop-history.png
+docs/screenshots/android/google-play/window-smoke-0.1.0-11-force-stop-history.xml
 ```
