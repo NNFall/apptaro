@@ -26,6 +26,8 @@ void main() {
     expect(chatScreen, isNot(contains('billing/return')));
     expect(chatScreen, isNot(contains('YooKassa')));
     expect(chatScreen, isNot(contains('yookassa')));
+    expect(chatScreen, isNot(contains('Payment test mode is enabled')));
+    expect(chatScreen, isNot(contains('Тестовый режим оплаты включён')));
     expect(chatScreen, isNot(contains('launch_payment_url')));
     expect(chatScreen, isNot(contains('check_billing_payment')));
     expect(chatScreen, isNot(contains('cancel_billing_subscription')));

@@ -1299,14 +1299,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     }
 
-    if (summary.testMode) {
-      buffer.writeln();
-      buffer.writeln(_copy(
-        en: '_Payment test mode is enabled._',
-        ru: '_Тестовый режим оплаты включён._',
-      ));
-    }
-
     final offerUrl = summary.offerUrl.trim();
     if (offerUrl.isNotEmpty) {
       buffer.writeln();
