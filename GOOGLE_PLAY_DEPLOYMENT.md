@@ -70,6 +70,12 @@ Conflict: terminated by other getUpdates request
 
 The deploy script checks `/root/*/.env` and stops deployment if the same admin bot token is already used by another project.
 
+The admin bot also logs this case explicitly at runtime:
+
+```text
+Admin bot polling conflict: another getUpdates polling process is using the same ADMIN_BOT_TOKEN.
+```
+
 If the Google Play backend must be updated before a separate admin bot token is ready, use backend-only deploy. It does not start or restart `pmapptaro_admin_bot`, does not install the watchdog, and only rebuilds `pmapptaro_backend`:
 
 ```powershell

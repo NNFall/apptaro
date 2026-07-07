@@ -6,7 +6,7 @@ from pathlib import Path
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
-from aiogram.exceptions import TelegramNetworkError, TelegramServerError
+from aiogram.exceptions import TelegramConflictError, TelegramNetworkError, TelegramServerError
 from aiogram.types import BotCommand, BotCommandScopeChat, Update
 
 from telegram_admin_bot.config import AdminBotConfig, load_config
@@ -71,6 +71,18 @@ async def _poll_updates(bot: Bot, dp: Dispatcher, config: AdminBotConfig) -> Non
                 await dp.feed_update(bot, update)
         except asyncio.CancelledError:
             raise
+        except TelegramConflictError:
+            logger.exception(
+                'Admin bot polling conflict: another getUpdates polling process is using '
+                'the same ADMIN_BOT_TOKEN. Create a separate Telegram bot token for this stack, '
+                'then redeploy. Retry in %ss',
+                backoff_seconds,
+            )
+            await asyncio.sleep(backoff_seconds)
+            backoff_seconds = min(
+                max(1, config.polling_retry_max_seconds),
+                backoff_seconds * 2,
+            )
         except (TelegramNetworkError, TelegramServerError):
             logger.exception('Admin bot polling failed, retry in %ss', backoff_seconds)
             await asyncio.sleep(backoff_seconds)
