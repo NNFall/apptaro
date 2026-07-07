@@ -98,7 +98,8 @@ Capture a screenshot:
 
 ```powershell
 New-Item -ItemType Directory -Force ..\docs\screenshots\android\google-play | Out-Null
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" exec-out screencap -p > ..\docs\screenshots\android\google-play\emulator-current.png
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell screencap -p /sdcard/emulator-current.png
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" pull /sdcard/emulator-current.png ..\docs\screenshots\android\google-play\emulator-current.png
 ```
 
 Capture a UI dump:
@@ -147,4 +148,18 @@ Artifacts:
 ```text
 docs/screenshots/android/google-play/emulator-debug-clean-pulled-2026-07-07.png
 docs/screenshots/android/google-play/window-debug-clean-2026-07-07.xml
+```
+
+Release APK verification on `2026-07-07`:
+
+- installed `app/build/app/outputs/flutter-apk/app-release.apk`;
+- package `com.apptaro.app`, version `0.1.0+10`;
+- startup screen is in English;
+- UI dump contains no Cyrillic text.
+
+Artifacts:
+
+```text
+docs/screenshots/android/google-play/release-0.1.0-10-home.png
+docs/screenshots/android/google-play/window-release-0.1.0-10.xml
 ```
