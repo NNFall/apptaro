@@ -1997,10 +1997,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   selected: current == AppLanguage.english,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    unawaited(_setLanguage(
-                      AppLanguage.english,
-                      announce: false,
-                    ));
+                    unawaited(_setLanguage(AppLanguage.english));
                   },
                 ),
                 _LanguageTile(
@@ -2008,10 +2005,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   selected: current == AppLanguage.russian,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    unawaited(_setLanguage(
-                      AppLanguage.russian,
-                      announce: false,
-                    ));
+                    unawaited(_setLanguage(AppLanguage.russian));
                   },
                 ),
               ],

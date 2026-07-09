@@ -6,7 +6,7 @@ This checklist is for the Google Play version of PMapptaro.
 
 - Android package: `com.apptaro.app`
 - Flutter version source: `app/pubspec.yaml`
-- Current version: `0.1.0+13`
+- Current version: `0.1.0+14`
 - Increase the build number after every new Google Play upload.
 
 Google Play rejects builds with a `versionCode` that was already uploaded.
@@ -185,6 +185,30 @@ Evidence files:
 ```text
 docs/screenshots/android/google-play/release-0.1.0-13-home.png
 docs/screenshots/android/google-play/window-release-0.1.0-13-home.xml
+```
+
+Additional local emulator smoke verified on `2026-07-09` with sideloaded release `0.1.0+14`:
+
+- release APK installs with `versionCode=14`, `versionName=0.1.0`;
+- clean home screen is English-first;
+- the language switch is only the compact top-right `文` header button;
+- tapping `文` opens a modal with `Choose language`, `English`, and `Русский`;
+- choosing `Русский` immediately adds a Russian confirmation message and Russian main menu buttons;
+- Russian `Помощь` shows user ID plus Telegram and Max support links;
+- Russian `Баланс` reaches the backend and does not show `YooKassa`, `ЮKassa`, or test-mode payment copy;
+- `/help` typed through the composer is restored after `adb shell am force-stop com.apptaro.app` and relaunch;
+- switching back to `English` immediately adds English main menu buttons.
+
+Evidence files:
+
+```text
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/SUMMARY.txt
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/01-home-en.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/02-language-modal-en.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/03-after-ru-select.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/06-balance-ru.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/09-after-force-stop-history.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/11-after-en-select.png
 ```
 
 ## Google Play Product Behavior

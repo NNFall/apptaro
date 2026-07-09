@@ -105,9 +105,12 @@ New-Item -ItemType Directory -Force ..\docs\screenshots\android\google-play | Ou
 Capture a UI dump:
 
 ```powershell
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell uiautomator dump /sdcard/window.xml
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" pull /sdcard/window.xml ..\docs\screenshots\android\google-play\window-current.xml
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell uiautomator dump /data/local/tmp/window.xml
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" exec-out cat /data/local/tmp/window.xml > ..\docs\screenshots\android\google-play\window-current.xml
 ```
+
+On the current `apptaro_google_play` AVD, `/data/local/tmp/window.xml` is more
+reliable than `/sdcard/window.xml` for `uiautomator dump`.
 
 ## Google Play Billing Limitation
 
@@ -205,4 +208,31 @@ docs/screenshots/android/google-play/smoke-0.1.0-11-ask-result.png
 docs/screenshots/android/google-play/window-smoke-0.1.0-11-ask-result.xml
 docs/screenshots/android/google-play/smoke-0.1.0-11-force-stop-history.png
 docs/screenshots/android/google-play/window-smoke-0.1.0-11-force-stop-history.xml
+```
+
+Release APK verification on `2026-07-09` after header language modal hardening:
+
+- built `app/build/app/outputs/flutter-apk/app-release.apk`;
+- built `app/build/app/outputs/bundle/release/app-release.aab`;
+- package `com.apptaro.app`, version `0.1.0+14`;
+- startup screen is English-first and contains no main `Language` chat button;
+- language is available from the compact top-right `文` header icon;
+- language modal contains `Choose language`, `English`, and `Русский`;
+- selecting `Русский` immediately appends a Russian confirmation message and Russian main menu buttons;
+- Russian `Помощь` shows user ID plus Telegram and Max support links;
+- Russian `Баланс` reaches the backend without `YooKassa`, `ЮKassa`, or payment test-mode copy;
+- `/help` typed through the composer survives `adb shell am force-stop com.apptaro.app` and relaunch;
+- switching back to `English` immediately appends English main menu buttons.
+
+Artifacts:
+
+```text
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/SUMMARY.txt
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/01-home-en.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/02-language-modal-en.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/03-after-ru-select.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/04-help-ru.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/06-balance-ru.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/09-after-force-stop-history.png
+docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/11-after-en-select.png
 ```

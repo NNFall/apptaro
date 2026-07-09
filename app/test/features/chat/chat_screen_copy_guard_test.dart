@@ -26,6 +26,7 @@ void main() {
     expect(source, contains('onLanguagePressed: _showLanguageMenu'));
     expect(source, contains('showModalBottomSheet<void>'));
     expect(source, contains('class _LanguageTile'));
+    expect(source, isNot(contains('announce: false')));
     expect(source, isNot(contains("actionKey: 'show_language_menu'")));
     expect(source, isNot(contains("case 'show_language_menu'")));
     expect(source, isNot(contains("case 'set_language'")));

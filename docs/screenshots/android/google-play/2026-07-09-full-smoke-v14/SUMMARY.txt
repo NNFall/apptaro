@@ -1,0 +1,11 @@
+ADB=%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe
+APK=app/build/app/outputs/flutter-apk/app-release.apk
+OUT=docs/screenshots/android/google-play/2026-07-09-full-smoke-v14
+version=versionCode=14 minSdk=24 targetSdk=36;     versionName=0.1.0
+home-en OK: compact header language icon; no main Language button
+language-modal-en OK
+after-ru-select OK: confirmation plus Russian buttons
+help-ru OK
+balance-ru OK: no YooKassa/test-mode copy
+history-after-force-stop OK
+after-en-select OK
