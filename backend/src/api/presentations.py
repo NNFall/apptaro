@@ -62,6 +62,38 @@ def _charge_error(language: str) -> str:
     )
 
 
+def _missing_render_asset_error(language: str) -> str:
+    return _localized(
+        language,
+        en='Required tarot reading files were not found. Please try again later.',
+        ru='\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0439\u0442\u0438 \u043d\u0443\u0436\u043d\u044b\u0435 \u0444\u0430\u0439\u043b\u044b \u0434\u043b\u044f \u0440\u0430\u0441\u043a\u043b\u0430\u0434\u0430. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.',
+    )
+
+
+def _text_generation_error(language: str) -> str:
+    return _localized(
+        language,
+        en='Failed to generate the tarot reading. Please try again.',
+        ru='\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0440\u0430\u0441\u043a\u043b\u0430\u0434. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.',
+    )
+
+
+def _render_error(language: str) -> str:
+    return _localized(
+        language,
+        en='Failed to render the tarot reading. Please try again.',
+        ru='\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0431\u0440\u0430\u0442\u044c \u0440\u0430\u0441\u043a\u043b\u0430\u0434. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.',
+    )
+
+
+def _safe_render_error(language: str, exc: Exception) -> str:
+    if isinstance(exc, FileNotFoundError):
+        return _missing_render_asset_error(language)
+    if isinstance(exc, TextGenerationError):
+        return _text_generation_error(language)
+    return _render_error(language)
+
+
 @router.post('/outline', response_model=OutlineResponse)
 async def generate_outline(
     payload: OutlineGenerateRequest,
@@ -216,15 +248,21 @@ async def render_presentation(
         )
     except FileNotFoundError as exc:
         await notifier.notify_generation_failed(client_id, str(exc))
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_missing_render_asset_error(language),
+        ) from exc
     except TextGenerationError as exc:
         await notifier.notify_generation_failed(client_id, str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_text_generation_error(language),
+        ) from exc
     except Exception as exc:
         await notifier.notify_generation_failed(client_id, str(exc))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to render tarot reading: {exc}',
+            detail=_render_error(language),
         ) from exc
 
     if not await billing_service.consume_generation(client_id):
@@ -356,7 +394,7 @@ async def _run_presentation_job(
             language=language,
         )
     except Exception as exc:
-        mark_job_failed(job_id, str(exc))
+        mark_job_failed(job_id, _safe_render_error(language, exc))
         await notifier.notify_generation_failed(client_id, str(exc))
         return
 

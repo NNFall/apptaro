@@ -2242,23 +2242,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       case 'show_balance':
         callback = _showBalance;
         break;
-      case 'show_language_menu':
-        callback = _showLanguageMenu;
-        break;
-      case 'set_language':
-        final language =
-            AppLanguage.fromCode(action.payload['language'] as String?);
-        callback = () => _setLanguage(language);
-        break;
-      case 'show_settings':
-        callback = _showSettings;
-        break;
-      case 'show_history':
-        callback = () async => _showHistory();
-        break;
-      case 'show_files':
-        callback = () async => _showMainMenu();
-        break;
       case 'test_connection':
         callback = _testConnection;
         break;

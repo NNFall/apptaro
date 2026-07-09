@@ -6,7 +6,7 @@ This checklist is for the Google Play version of PMapptaro.
 
 - Android package: `com.apptaro.app`
 - Flutter version source: `app/pubspec.yaml`
-- Current version: `0.1.0+12`
+- Current version: `0.1.0+13`
 - Increase the build number after every new Google Play upload.
 
 Google Play rejects builds with a `versionCode` that was already uploaded.
@@ -170,6 +170,21 @@ docs/screenshots/android/google-play/release-0.1.0-12-language-modal.png
 docs/screenshots/android/google-play/window-release-0.1.0-12-home.xml
 docs/screenshots/android/google-play/window-release-0.1.0-12-balance.xml
 docs/screenshots/android/google-play/window-release-0.1.0-12-language-modal.xml
+```
+
+Additional local emulator smoke verified on `2026-07-09` with sideloaded release `0.1.0+13`:
+
+- release APK installs with `versionCode=13`;
+- clean home screen is English-first;
+- the language switch is only the compact top-right `文` header button;
+- main chat keyboard contains `Ask a question`, `Balance`, and `Help`, without a `Language` chat button;
+- restored legacy chat transcript actions are sanitized so obsolete `Language`, `Settings`, `History`, and `Files` buttons do not return after update.
+
+Evidence files:
+
+```text
+docs/screenshots/android/google-play/release-0.1.0-13-home.png
+docs/screenshots/android/google-play/window-release-0.1.0-13-home.xml
 ```
 
 ## Google Play Product Behavior

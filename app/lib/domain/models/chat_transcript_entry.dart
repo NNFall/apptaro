@@ -45,6 +45,28 @@ class ChatTranscriptEntry {
     };
   }
 
+  ChatTranscriptEntry withoutActionKeys(Set<String> actionKeys) {
+    final sanitizedKeyboard = keyboard
+        .map(
+          (row) => row
+              .where((action) => !actionKeys.contains(action.actionKey))
+              .toList(growable: false),
+        )
+        .where((row) => row.isNotEmpty)
+        .toList(growable: false);
+
+    return ChatTranscriptEntry(
+      id: id,
+      sender: sender,
+      text: text,
+      sentAt: sentAt,
+      keyboard: sanitizedKeyboard,
+      attachments: attachments,
+      templatePreviewTemplates: templatePreviewTemplates,
+      linkPreview: linkPreview,
+    );
+  }
+
   factory ChatTranscriptEntry.fromJson(Map<String, dynamic> json) {
     return ChatTranscriptEntry(
       id: json['id'] as String? ?? '',

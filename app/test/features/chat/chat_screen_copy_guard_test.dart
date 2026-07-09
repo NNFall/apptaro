@@ -27,5 +27,10 @@ void main() {
     expect(source, contains('showModalBottomSheet<void>'));
     expect(source, contains('class _LanguageTile'));
     expect(source, isNot(contains("actionKey: 'show_language_menu'")));
+    expect(source, isNot(contains("case 'show_language_menu'")));
+    expect(source, isNot(contains("case 'set_language'")));
+    expect(source, isNot(contains("case 'show_settings'")));
+    expect(source, isNot(contains("case 'show_history'")));
+    expect(source, isNot(contains("case 'show_files'")));
   });
 }

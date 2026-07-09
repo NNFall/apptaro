@@ -28,6 +28,7 @@ DEFAULT_HOST_PORT = 8022
 WATCHDOG_SCRIPT_NAME = 'pmapptaro_admin_bot_watchdog.sh'
 WATCHDOG_CRON_NAME = 'pmapptaro_admin_bot_watchdog'
 GOOGLE_PLAY_SERVICE_ACCOUNT_FILENAME = 'google-play-service-account.json'
+EXPECTED_HEALTH_SERVICE = 'PMapptaro Backend'
 
 BACKEND_SKIP_PARTS = {
     '.venv',
@@ -531,7 +532,7 @@ def wait_for_health(remote: RemoteHost, remote_dir: str, host_port: int, timeout
             f"curl -fsS --max-time 5 http://127.0.0.1:{host_port}/v1/health",
             check=False,
         )
-        if exit_code == 0:
+        if exit_code == 0 and is_expected_health_response(out):
             return out.strip()
         time.sleep(3)
 
@@ -540,6 +541,19 @@ def wait_for_health(remote: RemoteHost, remote_dir: str, host_port: int, timeout
         check=False,
     )
     raise RuntimeError(f'Health check did not pass in time.\nLOGS:\n{logs_out}\n{logs_err}')
+
+
+def is_expected_health_response(raw: str) -> bool:
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(payload, dict):
+        return False
+    return (
+        payload.get('status') == 'ok'
+        and payload.get('service') == EXPECTED_HEALTH_SERVICE
+    )
 
 
 def choose_host_port(remote: RemoteHost, preferred_port: int = DEFAULT_HOST_PORT) -> int:

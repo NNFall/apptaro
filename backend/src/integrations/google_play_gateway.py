@@ -101,7 +101,7 @@ class GooglePlayGateway:
             raise ValueError('Google Play subscription product does not match requested plan')
 
         expires_at = str(line_item.get('expiryTime') or '').strip() or None
-        auto_renewing = bool(line_item.get('autoRenewingPlan'))
+        auto_renewing = 'autoRenewingPlan' in line_item
         latest_order_id = str(data.get('latestOrderId') or '').strip()
         status = 'paid' if _is_subscription_paid(state, expires_at) else 'failed'
         return GooglePlayPurchaseInfo(

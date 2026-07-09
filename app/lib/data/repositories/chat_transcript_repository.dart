@@ -12,6 +12,13 @@ class ChatTranscriptRepository extends ChangeNotifier {
     'appslides.chat.transcript.v2',
     'appslides.chat.transcript.v1',
   ];
+  static const Set<String> _obsoleteRestoredActionKeys = <String>{
+    'show_language_menu',
+    'set_language',
+    'show_settings',
+    'show_history',
+    'show_files',
+  };
   static const int _maxEntries = 250;
 
   final ChatTranscriptStore _store = createChatTranscriptStore(
@@ -149,6 +156,10 @@ class ChatTranscriptRepository extends ChangeNotifier {
   void _applyDecodedEntries(List<ChatTranscriptEntry> parsedEntries) {
     _entries
       ..clear()
-      ..addAll(parsedEntries);
+      ..addAll(
+        parsedEntries.map(
+          (entry) => entry.withoutActionKeys(_obsoleteRestoredActionKeys),
+        ),
+      );
   }
 }

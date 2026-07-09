@@ -4,7 +4,7 @@ Last updated: 2026-07-09
 
 Branch: `codex/google-play-adaptation`
 
-App version: `0.1.0+12`
+App version: `0.1.0+13`
 
 Android package: `com.apptaro.app`
 
@@ -33,7 +33,7 @@ state that is not currently satisfied:
 |---|-------------|----------------|----------|------------------|
 | 1 | Audit current Flutter app, backend, admin bot, and source Telegram bot behavior. | Done | `GOOGLE_PLAY_ADAPTATION_AUDIT.md`, `SOURCE_HANDOFF_RUSTORE_APPTARO.md`, `docs/superpowers/plans/2026-07-06-pmapptaro-google-play-adaptation.md` | None for local audit. |
 | 2 | Configure Android Emulator for local testing without a physical phone. | Done | `ANDROID_EMULATOR_GOOGLE_PLAY.md`; device `emulator-5554` was used for release APK smoke tests. | None. |
-| 3 | Prepare Google Play package, signing, AAB, versionCode, release pipeline. | Verified locally | `app/pubspec.yaml` has `0.1.0+12`; `app/android/app/build.gradle.kts` uses `com.apptaro.app`; release APK/AAB artifacts exist under `app/build/app/outputs/`. | Upload each new AAB to Play Console with a higher build number. |
+| 3 | Prepare Google Play package, signing, AAB, versionCode, release pipeline. | Verified locally | `app/pubspec.yaml` has `0.1.0+13`; `app/android/app/build.gradle.kts` uses `com.apptaro.app`; release APK/AAB artifacts exist under `app/build/app/outputs/`. | Upload each new AAB to Play Console with a higher build number. |
 | 4 | Fully translate user-facing app UI to English. | Verified locally | `app/lib/l10n/`; `flutter test`; smoke screenshots in `docs/screenshots/android/google-play/2026-07-09-language-check/`. | Continue copy review as product text changes. |
 | 5 | Add localization architecture: device language detection plus manual language selection. MVP English + Russian. | Verified locally | `app/lib/l10n/app_language.dart`, `app/lib/data/repositories/language_repository.dart`, header language modal in `app/lib/features/chat/chat_screen.dart`; `test/l10n`, `test/data/repositories/language_repository_test.dart`, and `test/features/chat/chat_screen_copy_guard_test.dart`. | Add more languages by extending `AppLanguage`, localizations, backend prompts, and tests. |
 | 6 | Translate backend-generated texts, errors, prompts, and AI answers according to user language. | Verified by tests | `backend/src/core/dependencies.py` reads `X-Apptaro-Language`; `backend/src/api/presentations.py`; `backend/src/domain/presentation_prompts.py`; tests `backend/tests/test_api_language_routing.py`, `backend/tests/test_prompt_localization.py`, `backend/tests/test_generation_fallback_localization.py`, `backend/tests/test_tarot_deck_localization.py`. | Continue adding tests for new prompt surfaces. |
@@ -64,7 +64,7 @@ Invoke-RestMethod http://185.171.83.116:8022/v1/health
 Get-Item app/build/app/outputs/flutter-apk/app-release.apk, app/build/app/outputs/bundle/release/app-release.aab
 ```
 
-- Version: `0.1.0+12`.
+- Version: `0.1.0+13`.
 - Namespace and application ID: `com.apptaro.app`.
 - Backend health: `{"status":"ok","service":"PMapptaro Backend","environment":"production","version":"0.1.0"}`.
 - Release artifacts exist:
@@ -97,8 +97,8 @@ Observed results:
 - `python scripts\dev\google_play_readiness.py --local-only`: all local checks passed, including public `GET /v1/health`.
 - `python scripts\dev\google_play_readiness.py`: local and remote checks ran; remote backend checks passed, remote admin bot checks failed because the bot container is stopped and the admin token duplicates `/root/apptaro/.env`.
 - `flutter analyze`: no issues found.
-- `flutter test`: 14 tests passed.
-- `python -m pytest backend/tests`: 58 tests passed.
+- `flutter test`: 16 tests passed.
+- `python -m pytest backend/tests`: 67 tests passed.
 - `flutter build appbundle --release`: built `app-release.aab`.
 
 ## Next Required Actions

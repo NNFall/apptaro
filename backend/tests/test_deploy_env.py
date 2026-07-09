@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.deploy.deploy_backend_remote import (  # noqa: E402
     build_remote_env,
     ensure_admin_bot_token_is_configured,
+    is_expected_health_response,
 )
 
 
@@ -54,6 +55,21 @@ class DeployEnvironmentTests(unittest.TestCase):
         )
 
         ensure_admin_bot_token_is_configured(remote_env)
+
+    def test_deploy_health_check_requires_pmapptaro_service(self) -> None:
+        self.assertTrue(
+            is_expected_health_response(
+                '{"status":"ok","service":"PMapptaro Backend","environment":"production"}'
+            )
+        )
+        self.assertFalse(
+            is_expected_health_response(
+                '{"status":"ok","service":"Other Backend","environment":"production"}'
+            )
+        )
+
+    def test_deploy_health_check_rejects_non_json_response(self) -> None:
+        self.assertFalse(is_expected_health_response('ok'))
 
 
 if __name__ == '__main__':

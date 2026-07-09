@@ -3,16 +3,16 @@
 ## Scope
 
 Checked the Google Play adaptation of the Flutter app on Android emulator
-`emulator-5554` with release APK `0.1.0+12`.
+`emulator-5554` with release APK `0.1.0+13`.
 
 Main focus:
 
 - language switch UX;
-- main chat buttons after language switching;
+- main chat buttons after language switching and after transcript restore;
 - backend-dependent balance screen;
 - help screen;
 - start of the main tarot reading flow;
-- release APK build.
+- release APK/AAB build.
 
 ## Result
 
@@ -26,6 +26,10 @@ The main chat menu keeps only product actions:
 
 - English: `Ask a question`, `Balance`, `Help`
 - Russian: `Задать вопрос`, `Баланс`, `Помощь`
+
+Additional `0.1.0+13` verification confirms that restored legacy transcript
+actions are sanitized: obsolete `Language`, `Settings`, `History`, and `Files`
+buttons do not return as chat buttons after update.
 
 Important behavior: existing chat messages are preserved in the language they
 were originally generated in. After changing language, newly generated messages
@@ -42,28 +46,38 @@ Screenshots and UI dumps:
 - `docs/screenshots/android/google-play/2026-07-09-language-check/help-ru.png`
 - `docs/screenshots/android/google-play/2026-07-09-language-check/ask-start-ru.png`
 - `docs/screenshots/android/google-play/2026-07-09-language-check/question-final-ru.png`
+- `docs/screenshots/android/google-play/release-0.1.0-13-home.png`
+- `docs/screenshots/android/google-play/window-release-0.1.0-13-home.xml`
 
 ## Verified Commands
 
 ```powershell
 flutter test test/features/chat/chat_screen_copy_guard_test.dart
+flutter test test/domain/models/chat_transcript_entry_test.dart
 flutter test test/l10n test/data/repositories/language_repository_test.dart test/data/api/appslides_api_client_test.dart
 flutter analyze
 flutter test
 python -m pytest backend/tests
+flutter build appbundle --release
 flutter build apk --release
 Invoke-RestMethod http://185.171.83.116:8022/v1/health
+adb shell dumpsys package com.apptaro.app
+adb shell uiautomator dump /sdcard/window.xml
 ```
 
 Observed results:
 
 - chat language guard test: passed;
+- transcript action sanitizer test: passed;
 - localization and language API tests: passed;
 - Flutter analyzer: no issues;
-- full Flutter tests: 14 passed;
-- backend tests: 52 passed;
+- full Flutter tests: 16 passed;
+- backend tests: 67 passed;
 - backend health: `status=ok`, `service=PMapptaro Backend`;
-- release APK built: `app/build/app/outputs/flutter-apk/app-release.apk`.
+- release APK built: `app/build/app/outputs/flutter-apk/app-release.apk`;
+- release AAB built: `app/build/app/outputs/bundle/release/app-release.aab`;
+- installed APK reports `versionCode=13`, `versionName=0.1.0`;
+- fresh UI dump contains `文`, `Ask a question`, `Balance`, and `Help`, but no main `Language` chat button.
 
 ## Limitations
 

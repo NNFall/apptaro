@@ -20,6 +20,7 @@ from src.core.dependencies import (  # noqa: E402
 )
 from src.domain.presentation_outline_service import PresentationOutlineService  # noqa: E402
 from src.integrations.admin_notifier import AdminNotifier  # noqa: E402
+from src.integrations.text_generation import TextGenerationError  # noqa: E402
 from src.main import create_app  # noqa: E402
 
 
@@ -38,6 +39,9 @@ class AllowBillingService:
     async def can_start_generation(self, client_id: str) -> bool:
         return True
 
+    async def consume_generation(self, client_id: str) -> bool:
+        return True
+
     async def should_show_trial_teaser(self, client_id: str) -> bool:
         return False
 
@@ -48,6 +52,14 @@ class AllowBillingService:
 class DenyBillingService:
     async def can_start_generation(self, client_id: str) -> bool:
         return False
+
+
+class FailingRenderService:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    async def render(self, **kwargs):
+        raise self.error
 
 
 class BackendLanguageRoutingTests(unittest.TestCase):
@@ -118,6 +130,45 @@ class BackendLanguageRoutingTests(unittest.TestCase):
             response.json()['detail'],
             'Лимит раскладов исчерпан. Выберите подписку, чтобы продолжить.',
         )
+
+    def test_render_missing_asset_error_uses_russian_without_leaking_path(self) -> None:
+        self.app.dependency_overrides[get_render_service] = lambda: FailingRenderService(
+            FileNotFoundError('/data/runtime/tarot/cards/missing.png')
+        )
+
+        response = self.client.post(
+            '/v1/presentations/render',
+            json=self._render_payload(),
+            headers={
+                'X-Apptaro-Client-Id': 'apptaro_test_client',
+                'X-Apptaro-Language': 'ru',
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.json()['detail'],
+            '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0439\u0442\u0438 \u043d\u0443\u0436\u043d\u044b\u0435 \u0444\u0430\u0439\u043b\u044b \u0434\u043b\u044f \u0440\u0430\u0441\u043a\u043b\u0430\u0434\u0430. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.',
+        )
+        self.assertNotIn('/data/runtime', response.text)
+
+    def test_render_text_generation_error_defaults_to_safe_english_message(self) -> None:
+        self.app.dependency_overrides[get_render_service] = lambda: FailingRenderService(
+            TextGenerationError('provider internal details')
+        )
+
+        response = self.client.post(
+            '/v1/presentations/render',
+            json=self._render_payload(),
+            headers={'X-Apptaro-Client-Id': 'apptaro_test_client'},
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json()['detail'],
+            'Failed to generate the tarot reading. Please try again.',
+        )
+        self.assertNotIn('provider internal details', response.text)
 
     def _outline(self, *, topic: str, language: str | None = None) -> dict[str, object]:
         headers = {
