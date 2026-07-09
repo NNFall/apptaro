@@ -124,6 +124,24 @@ Local emulator smoke already verified on `2026-07-07` with sideloaded release `0
 
 This local smoke does not replace the Google Play track billing test above because local sideloads cannot fully validate Play purchase sheets and tester-account purchases.
 
+Additional local emulator smoke verified on `2026-07-09` with sideloaded release `0.1.0+12`:
+
+- release APK installs and launches on `emulator-5554`;
+- clean home screen is English-first and keeps the compact top-right language picker;
+- balance screen loads from backend without `ClientException`, `YooKassa`, or payment test-mode notice;
+- language picker opens as a modal with `English` and `Русский`.
+
+Evidence files:
+
+```text
+docs/screenshots/android/google-play/release-0.1.0-12-home.png
+docs/screenshots/android/google-play/release-0.1.0-12-balance.png
+docs/screenshots/android/google-play/release-0.1.0-12-language-modal.png
+docs/screenshots/android/google-play/window-release-0.1.0-12-home.xml
+docs/screenshots/android/google-play/window-release-0.1.0-12-balance.xml
+docs/screenshots/android/google-play/window-release-0.1.0-12-language-modal.xml
+```
+
 ## Google Play Product Behavior
 
 - `weekly_readings` and `monthly_readings` are subscription products and are restored silently through Google Play purchase restore.
