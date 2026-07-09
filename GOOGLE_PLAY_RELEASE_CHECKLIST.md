@@ -88,6 +88,32 @@ Server-side path:
 /root/PMapptaro/data/google-play-service-account.json
 ```
 
+## Readiness Check
+
+Run the local release readiness check before uploading a new AAB:
+
+```powershell
+python scripts\dev\google_play_readiness.py --local-only
+```
+
+Run the full local + server check before marking the release backend-ready.
+Use environment variables for SSH credentials so secrets are not committed or
+copied into docs:
+
+```powershell
+$env:PMAPPTARO_REMOTE_HOST='185.171.83.116'
+$env:PMAPPTARO_REMOTE_USER='root'
+$env:PMAPPTARO_REMOTE_PASSWORD='<server-password>'
+python scripts\dev\google_play_readiness.py
+```
+
+Expected current blocker until a separate admin bot token is configured:
+
+```text
+[FAIL] remote admin bot container: ...
+[FAIL] remote admin bot token uniqueness: duplicate token also used by: /root/apptaro/.env
+```
+
 ## Play Console Upload
 
 1. Open the app in Google Play Console.

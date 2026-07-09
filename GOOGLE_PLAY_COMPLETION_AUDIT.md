@@ -84,6 +84,8 @@ Read-only server check:
 Post-audit verification commands:
 
 ```powershell
+python scripts\dev\google_play_readiness.py --local-only
+python scripts\dev\google_play_readiness.py
 flutter analyze
 flutter test
 python -m pytest backend/tests
@@ -92,9 +94,11 @@ flutter build appbundle --release
 
 Observed results:
 
+- `python scripts\dev\google_play_readiness.py --local-only`: all local checks passed.
+- `python scripts\dev\google_play_readiness.py`: local and remote checks ran; remote backend checks passed, remote admin bot checks failed because the bot container is stopped and the admin token duplicates `/root/apptaro/.env`.
 - `flutter analyze`: no issues found.
 - `flutter test`: 14 tests passed.
-- `python -m pytest backend/tests`: 52 tests passed.
+- `python -m pytest backend/tests`: 56 tests passed.
 - `flutter build appbundle --release`: built `app-release.aab`.
 
 ## Next Required Actions
