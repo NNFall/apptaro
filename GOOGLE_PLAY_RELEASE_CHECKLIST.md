@@ -96,6 +96,10 @@ Run the local release readiness check before uploading a new AAB:
 python scripts\dev\google_play_readiness.py --local-only
 ```
 
+This checks version/package/backend URL, release APK/AAB artifacts, and the
+public `GET /v1/health` endpoint. If you need an offline artifact-only check,
+add `--skip-backend-health`.
+
 Run the full local + server check before marking the release backend-ready.
 Use environment variables for SSH credentials so secrets are not committed or
 copied into docs:

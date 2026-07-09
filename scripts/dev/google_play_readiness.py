@@ -6,12 +6,14 @@ import json
 import os
 import re
 import sys
+import urllib.request
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Callable, Iterable
 
 
 EXPECTED_PACKAGE = 'com.apptaro.app'
 EXPECTED_BACKEND_URL = 'http://185.171.83.116:8022'
+EXPECTED_BACKEND_SERVICE = 'PMapptaro Backend'
 CURRENT_REMOTE_ENV = '/root/PMapptaro/.env'
 
 
@@ -170,6 +172,32 @@ PY
     return checks
 
 
+def collect_backend_health_check(
+    base_url: str,
+    *,
+    fetch_json: Callable[[str], dict[str, Any]] | None = None,
+) -> CheckResult:
+    url = f'{base_url.rstrip("/")}/v1/health'
+    fetch = fetch_json or _fetch_json
+    try:
+        payload = fetch(url)
+    except Exception as exc:  # noqa: BLE001 - readiness output should include the operational error.
+        return CheckResult(
+            name='public backend health',
+            ok=False,
+            detail=f'{url} failed: {exc}',
+        )
+
+    status = str(payload.get('status', ''))
+    service = str(payload.get('service', ''))
+    ok = status == 'ok' and service == EXPECTED_BACKEND_SERVICE
+    return CheckResult(
+        name='public backend health',
+        ok=ok,
+        detail=f'{url} status={status or "missing"} service={service or "missing"}',
+    )
+
+
 def duplicate_admin_token_paths(
     token_hashes_by_path: dict[str, str],
     *,
@@ -193,6 +221,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description='Check PMapptaro Google Play release readiness.')
     parser.add_argument('--repo-root', default='.', help='Repository root. Defaults to current directory.')
     parser.add_argument('--local-only', action='store_true', help='Skip SSH remote checks.')
+    parser.add_argument('--skip-backend-health', action='store_true', help='Skip public /v1/health HTTP check.')
     parser.add_argument('--json', action='store_true', help='Print JSON instead of text.')
     parser.add_argument('--remote-host', default=os.getenv('PMAPPTARO_REMOTE_HOST', ''))
     parser.add_argument('--remote-user', default=os.getenv('PMAPPTARO_REMOTE_USER', 'root'))
@@ -203,6 +232,8 @@ def main(argv: list[str] | None = None) -> int:
 
     root = Path(args.repo_root).resolve()
     checks = collect_local_checks(root)
+    if not args.skip_backend_health:
+        checks.append(collect_backend_health_check(EXPECTED_BACKEND_URL))
 
     if not args.local_only:
         if not args.remote_host:
@@ -253,6 +284,15 @@ def _remote_fact_lines(client, command: str) -> list[str]:
     if err:
         raise RuntimeError(err)
     return [line.strip() for line in out.splitlines() if line.strip()]
+
+
+def _fetch_json(url: str) -> dict[str, Any]:
+    with urllib.request.urlopen(url, timeout=10) as response:  # noqa: S310 - fixed operational endpoint.
+        payload = response.read().decode('utf-8')
+    data = json.loads(payload)
+    if not isinstance(data, dict):
+        raise ValueError('health endpoint returned non-object JSON')
+    return data
 
 
 def _presence_check(name: str, marker: str, facts_text: str) -> CheckResult:

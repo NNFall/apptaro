@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.dev.google_play_readiness import (  # noqa: E402
     CheckResult,
+    collect_backend_health_check,
     collect_local_checks,
     duplicate_admin_token_paths,
     overall_exit_code,
@@ -87,6 +88,31 @@ class GooglePlayReadinessTests(unittest.TestCase):
         )
 
         self.assertEqual(paths, ['/root/apptaro/.env'])
+
+    def test_backend_health_check_accepts_pmapptaro_backend(self) -> None:
+        check = collect_backend_health_check(
+            'http://backend.example',
+            fetch_json=lambda url: {
+                'status': 'ok',
+                'service': 'PMapptaro Backend',
+                'environment': 'production',
+            },
+        )
+
+        self.assertTrue(check.ok)
+        self.assertIn('PMapptaro Backend', check.detail)
+
+    def test_backend_health_check_rejects_wrong_service(self) -> None:
+        check = collect_backend_health_check(
+            'http://backend.example',
+            fetch_json=lambda url: {
+                'status': 'ok',
+                'service': 'Other Backend',
+            },
+        )
+
+        self.assertFalse(check.ok)
+        self.assertIn('Other Backend', check.detail)
 
     def test_overall_exit_code_is_nonzero_when_any_required_check_fails(self) -> None:
         checks = [
