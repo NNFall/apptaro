@@ -126,6 +126,19 @@ Expected current blocker until a separate admin bot token is configured:
 4. Add release notes.
 5. Review warnings and send the release for review.
 
+Before billing smoke, confirm that the service account can see the Play Console
+application. As of `2026-07-10`, the credentials authenticate successfully but
+Android Publisher API returns:
+
+```text
+404 Package not found: com.apptaro.app
+```
+
+This must be resolved in Play Console by confirming the exact package name and
+granting the service account application-level access. A present JSON file and
+a healthy backend are not sufficient proof that purchase-token validation can
+reach this Play application.
+
 Suggested release notes:
 
 ```text
