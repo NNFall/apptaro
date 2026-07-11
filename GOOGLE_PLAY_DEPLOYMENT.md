@@ -136,11 +136,17 @@ Rechecked later on 2026-07-07:
 - Masked token scan confirms `/root/PMapptaro/.env` and `/root/apptaro/.env` still share the same `ADMIN_BOT_TOKEN`.
 - This is a deployment configuration blocker, not a backend health blocker.
 
-Action required before full stack deploy:
+Reverified on 2026-07-12 after configuring a dedicated Telegram bot token:
 
-1. Create a separate Telegram bot token for the Google Play PMapptaro admin bot.
-2. Put that token into `telegram_admin_bot/.env` as `ADMIN_BOT_TOKEN`.
-3. Run the deploy script without `--backend-only`.
+- full deploy completed successfully;
+- `pmapptaro_backend` is running and serves `/v1/health` on port `8022`;
+- `pmapptaro_admin_bot` is running with Docker health status `healthy`;
+- the admin bot token uniqueness check passes across server projects;
+- the Google Play service-account JSON on the server matches the selected local
+  credential file.
+- a Telegram delivery test succeeded for admin `7476208806`; admin `190796855`
+  must open `@Tarogoogleplaybot` and send `/start` once before Telegram allows
+  the bot to set commands or send notifications to that chat.
 
 ## Notes
 
