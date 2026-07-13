@@ -16,7 +16,7 @@ from src.integrations.google_play_gateway import GooglePlayGateway  # noqa: E402
 
 class RecordingGooglePlayGateway(GooglePlayGateway):
     def __init__(self, response: dict[str, Any]) -> None:
-        super().__init__(package_name='com.apptaro.app')
+        super().__init__(package_name='com.nexwit.tarot')
         self.response = response
         self.urls: list[str] = []
 
@@ -44,14 +44,14 @@ class GooglePlayGatewayTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, 'product id'):
             gateway.verify_purchase(
-                package_name='com.apptaro.app',
+                package_name='com.nexwit.tarot',
                 product_id='',
                 purchase_token='token_123',
                 recurring=True,
             )
         with self.assertRaisesRegex(ValueError, 'purchase token'):
             gateway.verify_purchase(
-                package_name='com.apptaro.app',
+                package_name='com.nexwit.tarot',
                 product_id='weekly_readings',
                 purchase_token='',
                 recurring=True,
@@ -66,7 +66,7 @@ class GooglePlayGatewayTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, 'product does not match'):
             gateway.verify_purchase(
-                package_name='com.apptaro.app',
+                package_name='com.nexwit.tarot',
                 product_id='weekly_readings',
                 purchase_token='token_weekly',
                 recurring=True,
@@ -89,7 +89,7 @@ class GooglePlayGatewayTests(unittest.TestCase):
         })
 
         purchase = gateway.verify_purchase(
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
             product_id='weekly_readings',
             purchase_token='token_weekly',
             recurring=True,
@@ -112,13 +112,13 @@ class GooglePlayGatewayTests(unittest.TestCase):
         })
 
         paid = paid_gateway.verify_purchase(
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
             product_id='one10_readings',
             purchase_token='token_one10',
             recurring=False,
         )
         failed = failed_gateway.verify_purchase(
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
             product_id='one10_readings',
             purchase_token='token_one10_failed',
             recurring=False,

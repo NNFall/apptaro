@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 
-EXPECTED_PACKAGE = 'com.apptaro.app'
+EXPECTED_PACKAGE = 'com.nexwit.tarot'
 EXPECTED_BACKEND_URL = 'http://185.171.83.116:8022'
 EXPECTED_BACKEND_SERVICE = 'PMapptaro Backend'
 CURRENT_REMOTE_ENV = '/root/PMapptaro/.env'

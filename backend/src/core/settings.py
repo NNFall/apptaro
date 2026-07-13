@@ -209,7 +209,7 @@ def load_settings() -> Settings:
         yookassa_test_mode=os.getenv('YOOKASSA_TEST_MODE', '1') == '1',
         legacy_yookassa_billing_enabled=os.getenv('ENABLE_LEGACY_YOOKASSA_BILLING', '0') == '1',
         auto_renew_interval=int(os.getenv('AUTO_RENEW_INTERVAL', '60')),
-        google_play_package_name=os.getenv('GOOGLE_PLAY_PACKAGE_NAME', 'com.apptaro.app').strip(),
+        google_play_package_name=os.getenv('GOOGLE_PLAY_PACKAGE_NAME', 'com.nexwit.tarot').strip(),
         google_play_service_account_file=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_FILE', '').strip(),
         google_play_service_account_json=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', '').strip(),
         google_play_test_mode=os.getenv('GOOGLE_PLAY_TEST_MODE', '0') == '1',

@@ -31,9 +31,9 @@ class GooglePlayReadinessTests(unittest.TestCase):
             (root / 'app' / 'pubspec.yaml').write_text('version: 0.1.0+12\n', encoding='utf-8')
             (root / 'app' / 'android' / 'app' / 'build.gradle.kts').write_text(
                 'android {\n'
-                '    namespace = "com.apptaro.app"\n'
+                '    namespace = "com.nexwit.tarot"\n'
                 '    defaultConfig {\n'
-                '        applicationId = "com.apptaro.app"\n'
+                '        applicationId = "com.nexwit.tarot"\n'
                 '    }\n'
                 '}\n',
                 encoding='utf-8',
@@ -41,7 +41,7 @@ class GooglePlayReadinessTests(unittest.TestCase):
             (root / 'app' / 'lib' / 'core' / 'config' / 'app_config.dart').write_text(
                 "class AppConfig {\n"
                 "  static const String fixedBackendBaseUrl = 'http://185.171.83.116:8022';\n"
-                "  static const String androidPackageName = 'com.apptaro.app';\n"
+                "  static const String androidPackageName = 'com.nexwit.tarot';\n"
                 "}\n",
                 encoding='utf-8',
             )

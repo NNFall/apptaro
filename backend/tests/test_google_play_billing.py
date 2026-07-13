@@ -102,7 +102,7 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
             client_id='client_google_1',
             product_id='weekly_readings',
             purchase_token='token_week_1',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
         )
 
         self.assertIsNotNone(summary.active_subscription)
@@ -120,7 +120,7 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
             client_id='client_google_one40',
             product_id='one40_readings',
             purchase_token='token_one40',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
         )
 
         self.assertIsNotNone(summary.active_subscription)
@@ -134,13 +134,13 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
             client_id='client_google_2',
             product_id='weekly_readings',
             purchase_token='token_week_2',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
         )
         await self.service.verify_google_play_purchase(
             client_id='client_google_2',
             product_id='weekly_readings',
             purchase_token='token_week_2',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
         )
 
         active = billing_repo.get_active_subscription('client_google_2')
@@ -153,13 +153,13 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
             client_id='client_google_pack_old',
             product_id='one10_readings',
             purchase_token='token_pack_replay',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
         )
         summary = await self.service.verify_google_play_purchase(
             client_id='client_google_pack_new',
             product_id='one10_readings',
             purchase_token='token_pack_replay',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
             restored=True,
         )
 
@@ -172,7 +172,7 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
             client_id='client_google_depleted',
             product_id='weekly_readings',
             purchase_token='token_depleted',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
         )
         for _ in range(15):
             self.assertTrue(await self.service.consume_generation('client_google_depleted'))
@@ -181,7 +181,7 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
             client_id='client_google_depleted',
             product_id='weekly_readings',
             purchase_token='token_depleted',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
             restored=True,
         )
 
@@ -193,13 +193,13 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
             client_id='client_google_old',
             product_id='weekly_readings',
             purchase_token='token_restore',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
         )
         summary = await self.service.verify_google_play_purchase(
             client_id='client_google_new',
             product_id='weekly_readings',
             purchase_token='token_restore',
-            package_name='com.apptaro.app',
+            package_name='com.nexwit.tarot',
             restored=True,
         )
 
@@ -214,7 +214,7 @@ class GooglePlayBillingTests(unittest.IsolatedAsyncioTestCase):
                 client_id='client_google_failed',
                 product_id='weekly_readings',
                 purchase_token='token_failed',
-                package_name='com.apptaro.app',
+                package_name='com.nexwit.tarot',
             )
 
         self.assertIsNone(billing_repo.get_active_subscription('client_google_failed'))

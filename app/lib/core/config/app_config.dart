@@ -14,7 +14,7 @@ class AppConfig {
   static const String billingGooglePlayVerifyPath =
       '/v1/billing/google-play/verify';
   static const String billingPromoRedeemPath = '/v1/billing/promo/redeem';
-  static const String androidPackageName = 'com.apptaro.app';
+  static const String androidPackageName = 'com.nexwit.tarot';
 
   static String presentationJobPath(String jobId) =>
       '$presentationJobsPath/$jobId';

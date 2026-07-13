@@ -129,7 +129,7 @@ def build_remote_env(local_env: dict[str, str], host_port: int) -> str:
         'TAROT_CARDS_DIR': '/app/runtime/tarot/cards',
         'TAROT_BACKGROUND_PATH': '/app/runtime/tarot/backgrounds/main.png',
         'TAROT_LAYOUT_PATH': '/app/runtime/tarot/layout.json',
-        'GOOGLE_PLAY_PACKAGE_NAME': local_env.get('GOOGLE_PLAY_PACKAGE_NAME', 'com.apptaro.app'),
+        'GOOGLE_PLAY_PACKAGE_NAME': local_env.get('GOOGLE_PLAY_PACKAGE_NAME', 'com.nexwit.tarot'),
         'GOOGLE_PLAY_SERVICE_ACCOUNT_FILE': google_play_service_account_file,
         'GOOGLE_PLAY_TEST_MODE': local_env.get('GOOGLE_PLAY_TEST_MODE', '0'),
         'IMAGE_CONCURRENCY': local_env.get('IMAGE_CONCURRENCY', '5'),
