@@ -32,7 +32,7 @@ Inside Docker it is available as:
 The backend reads it through:
 
 ```text
-GOOGLE_PLAY_PACKAGE_NAME=com.apptaro.app
+GOOGLE_PLAY_PACKAGE_NAME=com.nexwit.tarot
 GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=/data/google-play-service-account.json
 GOOGLE_PLAY_TEST_MODE=0
 ```

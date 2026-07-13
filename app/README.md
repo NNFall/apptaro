@@ -54,7 +54,7 @@ http://185.171.83.116:8022
 Package/application id:
 
 ```text
-com.apptaro.app
+com.nexwit.tarot
 ```
 
 Локальное переключение backend URL в пользовательском интерфейсе намеренно отключено.
@@ -74,7 +74,7 @@ flutter build apk --release
 ```powershell
 flutter devices
 & "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" install -r build\app\outputs\flutter-apk\app-release.apk
-& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" shell am start -n com.apptaro.app/com.apptaro.app.MainActivity
+& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" shell am start -n com.nexwit.tarot/com.nexwit.tarot.MainActivity
 ```
 
 Подробности по Google Play эмулятору: `../ANDROID_EMULATOR_GOOGLE_PLAY.md`.

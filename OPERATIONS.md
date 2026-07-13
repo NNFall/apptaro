@@ -110,7 +110,7 @@ python -c "import telegram_admin_bot.main; print('admin bot import ok')"
 - Local backend URL switching inside the app is intentionally disabled.
 - Google Play Billing is the active payment provider for this branch; purchases are verified server-side through `POST /v1/billing/google-play/verify`.
 - The Google Play service-account JSON should be stored at `/root/PMapptaro/data/google-play-service-account.json`.
-- `GOOGLE_PLAY_PACKAGE_NAME` must be `com.apptaro.app`.
+- `GOOGLE_PLAY_PACKAGE_NAME` must be `com.nexwit.tarot`.
 - The separate `telegram_admin_bot/` works against the same SQLite database as the backend and uses `client_id` for subscription commands.
 - The production compose stack now includes both `pmapptaro_backend` and `pmapptaro_admin_bot`.
 - The admin bot now writes heartbeat file `/tmp/admin_bot.heartbeat` after successful `getUpdates`; server cron restarts the container if heartbeat gets stale.

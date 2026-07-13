@@ -14,7 +14,9 @@ Google Play версия мобильного AI-приложения для р�
 
 ## Google Play версия
 
-- Android package: `com.apptaro.app`.
+- Google Play app: `Tarot Reader AI`.
+- Android package: `com.nexwit.tarot`.
+- Current release version: `0.1.0+15`.
 - Backend: `http://185.171.83.116:8022`.
 - User-facing UI по умолчанию на английском.
 - Русский язык сохранен как ручная локализация.
@@ -69,7 +71,7 @@ Google Play emulator:
 ```powershell
 flutter devices
 & "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" install -r app\build\app\outputs\flutter-apk\app-release.apk
-& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" shell am start -n com.apptaro.app/com.apptaro.app.MainActivity
+& "$env:LOCALAPPDATA\Android\sdk\platform-tools\adb.exe" shell am start -n com.nexwit.tarot/com.nexwit.tarot.MainActivity
 ```
 
 Подробные инструкции:

@@ -4,9 +4,9 @@ This checklist is for the Google Play version of PMapptaro.
 
 ## Package And Version
 
-- Android package: `com.apptaro.app`
+- Android package: `com.nexwit.tarot`
 - Flutter version source: `app/pubspec.yaml`
-- Current version: `0.1.0+14`
+- Current version: `0.1.0+15`
 - Increase the build number after every new Google Play upload.
 
 Google Play rejects builds with a `versionCode` that was already uploaded.
@@ -78,7 +78,7 @@ Invoke-RestMethod http://185.171.83.116:8022/v1/health
 Google Play purchases require:
 
 ```text
-GOOGLE_PLAY_PACKAGE_NAME=com.apptaro.app
+GOOGLE_PLAY_PACKAGE_NAME=com.nexwit.tarot
 GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=/data/google-play-service-account.json
 ```
 
@@ -131,7 +131,7 @@ application. As of `2026-07-10`, the credentials authenticate successfully but
 Android Publisher API returns:
 
 ```text
-404 Package not found: com.apptaro.app
+404 Package not found: com.nexwit.tarot
 ```
 
 This must be resolved in Play Console by confirming the exact package name and
@@ -163,7 +163,7 @@ Local emulator smoke already verified on `2026-07-07` with sideloaded release `0
 - top-right language picker opens as a modal and switches English/Russian for new chat messages;
 - `Help` and `Balance` work without `ClientException`;
 - `Ask a question` reaches the backend and returns an English tarot teaser with card image;
-- chat history and generated teaser survive `adb shell am force-stop com.apptaro.app` and app relaunch.
+- chat history and generated teaser survive `adb shell am force-stop com.nexwit.tarot` and app relaunch.
 
 This local smoke does not replace the Google Play track billing test above because local sideloads cannot fully validate Play purchase sheets and tester-account purchases.
 
@@ -209,7 +209,7 @@ Additional local emulator smoke verified on `2026-07-09` with sideloaded release
 - choosing `Русский` immediately adds a Russian confirmation message and Russian main menu buttons;
 - Russian `Помощь` shows user ID plus Telegram and Max support links;
 - Russian `Баланс` reaches the backend and does not show `YooKassa`, `ЮKassa`, or test-mode payment copy;
-- `/help` typed through the composer is restored after `adb shell am force-stop com.apptaro.app` and relaunch;
+- `/help` typed through the composer is restored after `adb shell am force-stop com.nexwit.tarot` and relaunch;
 - switching back to `English` immediately adds English main menu buttons.
 
 Evidence files:
