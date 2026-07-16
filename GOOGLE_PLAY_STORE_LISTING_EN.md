@@ -1,5 +1,9 @@
 # Google Play Store Listing: English (United States)
 
+> The canonical current metadata for every locale, including `en-US`, is stored
+> in `GOOGLE_PLAY_STORE_LISTINGS.md`. This file is retained as the original
+> English release record.
+
 ## Product Identity
 
 - App name: `Tarot Reader AI`
