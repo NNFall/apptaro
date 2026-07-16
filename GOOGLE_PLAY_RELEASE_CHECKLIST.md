@@ -111,12 +111,9 @@ $env:PMAPPTARO_REMOTE_PASSWORD='<server-password>'
 python scripts\dev\google_play_readiness.py
 ```
 
-Expected current blocker until a separate admin bot token is configured:
-
-```text
-[FAIL] remote admin bot container: ...
-[FAIL] remote admin bot token uniqueness: duplicate token also used by: /root/apptaro/.env
-```
+The separate `pmapptaro_admin_bot` token and container were verified healthy in
+the latest remote audit. Re-run the full readiness command after every backend
+or server configuration change rather than relying on this recorded state.
 
 ## Play Console Upload
 
@@ -126,18 +123,22 @@ Expected current blocker until a separate admin bot token is configured:
 4. Add release notes.
 5. Review warnings and send the release for review.
 
-Before billing smoke, confirm that the service account can see the Play Console
-application. As of `2026-07-10`, the credentials authenticate successfully but
-Android Publisher API returns:
+The service account can access the Play Console application and its monetization
+catalog. The active product configuration verified through Android Publisher API
+on `2026-07-16` is documented in `GOOGLE_PLAY_BILLING_PRODUCTS.md`.
+
+The four configured product IDs are:
 
 ```text
-404 Package not found: com.nexwit.tarot
+weekly_readings
+monthly_readings
+one10_readings
+one40_readings
 ```
 
-This must be resolved in Play Console by confirming the exact package name and
-granting the service account application-level access. A present JSON file and
-a healthy backend are not sufficient proof that purchase-token validation can
-reach this Play application.
+Catalog access does not replace a real purchase-token validation test. A present
+JSON file, active products, and a healthy backend are not sufficient proof of
+the complete checkout flow.
 
 Suggested release notes:
 
@@ -229,3 +230,4 @@ docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/11-after-en-selec
 - `weekly_readings` and `monthly_readings` are subscription products and are restored silently through Google Play purchase restore.
 - `one10_readings` and `one40_readings` are consumable one-time packs. They grant 10 and 40 readings respectively. The app verifies the purchase token on the backend first, then consumes the Google Play purchase so the same pack can be bought again.
 - Consumed one-time packs are not discoverable through Google Play restore after app data is cleared. This is a Google Play Billing limitation for consumables without a user account.
+- All four products and their purchase configurations were verified as `ACTIVE` through Google Play Developer API on `2026-07-16`; see `GOOGLE_PLAY_BILLING_PRODUCTS.md`.

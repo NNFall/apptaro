@@ -1,6 +1,6 @@
 # Google Play Completion Audit
 
-Last updated: 2026-07-12
+Last updated: 2026-07-16
 
 Branch: `codex/google-play-adaptation`
 
@@ -16,18 +16,13 @@ The Google Play adaptation is implemented and locally verified for the Flutter
 client, backend API, localization, Google Play Billing API surface, purchase
 token validation logic, local storage invariants, and Android release artifacts.
 
-The full objective is not complete yet because two checks require external
-state that is not currently satisfied:
+The Play Console application, service-account access, and four-product billing
+catalog are now configured. The full objective is not complete yet because one
+check still requires external state:
 
 1. Google Play purchase and restore still need a real internal/closed test
    track smoke test from a Play Store install. A sideloaded release APK cannot
    prove the Google purchase sheet and licensed tester flow.
-2. The configured service account can authenticate, but Android Publisher API
-   currently returns `404 applicationNotFound` for `com.nexwit.tarot` until the
-   first AAB is uploaded to the matching Play Console application.
-   subscriptions. The Play Console application/package and application-level
-   service-account permissions must be confirmed before purchase validation can
-   work with a real token.
 
 ## Requirement Matrix
 
@@ -39,8 +34,8 @@ state that is not currently satisfied:
 | 4 | Fully translate user-facing app UI to English. | Verified locally | `app/lib/l10n/`; `flutter test`; smoke screenshots in `docs/screenshots/android/google-play/2026-07-09-language-check/`. | Continue copy review as product text changes. |
 | 5 | Add localization architecture: device language detection plus manual language selection. MVP English + Russian. | Verified locally | `app/lib/l10n/app_language.dart`, `app/lib/data/repositories/language_repository.dart`, header language modal in `app/lib/features/chat/chat_screen.dart`; `test/l10n`, `test/data/repositories/language_repository_test.dart`, `test/features/chat/chat_screen_copy_guard_test.dart`, and `docs/screenshots/android/google-play/2026-07-09-full-smoke-v14/`. | Add more languages by extending `AppLanguage`, localizations, backend prompts, and tests. |
 | 6 | Translate backend-generated texts, errors, prompts, and AI answers according to user language. | Verified by tests | `backend/src/core/dependencies.py` reads `X-Apptaro-Language`; `backend/src/api/presentations.py`; `backend/src/domain/presentation_prompts.py`; tests `backend/tests/test_api_language_routing.py`, `backend/tests/test_prompt_localization.py`, `backend/tests/test_generation_fallback_localization.py`, `backend/tests/test_tarot_deck_localization.py`. | Continue adding tests for new prompt surfaces. |
-| 7 | Replace YooKassa billing with Google Play Billing in the Google Play version. | Verified locally | `app/lib/features/billing/google_play_billing_service.dart`; `app/lib/features/billing/billing_controller.dart`; `app/test/billing/google_play_billing_ui_guard_test.dart`; backend redirects return 410 in `backend/src/api/billing.py`; tests `backend/tests/test_google_play_api_surface.py`, `backend/tests/test_legacy_yookassa_disabled.py`. | Real Play Store billing smoke remains external. |
-| 8 | Server-side validation of Google Play purchase token on backend. | Verified by tests; live API access awaits first Play upload | `backend/src/integrations/google_play_gateway.py`; `backend/src/domain/billing_service.py`; tests `backend/tests/test_google_play_billing.py`, `backend/tests/test_google_play_settings.py`. The service account authenticates and has application-level financial permissions, but Android Publisher API currently returns `404 applicationNotFound` for `com.nexwit.tarot`. | Upload the first AAB to the matching Play Console application, repeat the API probe, then validate a real purchase token. |
+| 7 | Replace YooKassa billing with Google Play Billing in the Google Play version. | Verified locally; Play catalog active | `app/lib/features/billing/google_play_billing_service.dart`; `app/lib/features/billing/billing_controller.dart`; `app/test/billing/google_play_billing_ui_guard_test.dart`; `GOOGLE_PLAY_BILLING_PRODUCTS.md`; backend redirects return 410 in `backend/src/api/billing.py`; tests `backend/tests/test_google_play_api_surface.py`, `backend/tests/test_legacy_yookassa_disabled.py`. | Real Play Store billing smoke remains external. |
+| 8 | Server-side validation of Google Play purchase token on backend. | Verified by tests; live catalog API access confirmed | `backend/src/integrations/google_play_gateway.py`; `backend/src/domain/billing_service.py`; tests `backend/tests/test_google_play_billing.py`, `backend/tests/test_google_play_settings.py`. The service account can read and manage the four active products for `com.nexwit.tarot`. | Validate a real purchase token from a licensed tester purchase. |
 | 9 | Silent restore after reinstall or data clear. | Verified by code/tests, external purchase pending | `BillingController.initialize()` calls `restoreGooglePlayPurchases(silent: true)`; `GooglePlayBillingService.restorePurchases()`; restore tests in `backend/tests/test_google_play_billing.py`; release checklist documents Play track restore. | Confirm from a Google Play test-track install with a licensed tester. |
 | 10 | Deploy separate backend to `/root/PMapptaro` with separate data folder, SQLite DB, Docker services, and admin Telegram bot. | Done | `/root/PMapptaro` has separate data and SQLite files; `pmapptaro_backend` runs on `0.0.0.0:8022->8000/tcp`; `GET /v1/health` returns `PMapptaro Backend`; `pmapptaro_admin_bot` is healthy and its token is unique across server projects. | Continue monitoring after future deployments. |
 | 11 | Do not break local chat history, stable client_id, promo codes, admin bot, tarot generation, entitlement logic. | Verified by tests and smoke | `app/lib/data/repositories/chat_transcript_repository.dart`; `app/lib/data/repositories/client_session_repository.dart`; storage migration tests; `backend/tests/test_billing_promo.py`; `backend/tests/test_admin_notifier.py`; `backend/tests/test_admin_bot_polling.py`; Android smoke screenshots show chat history and tarot flow. | Re-test after billing/admin-token changes. |
@@ -83,9 +78,13 @@ Read-only server check:
 - `pmapptaro_admin_bot` is running and healthy.
 - Masked token scan confirms the PMapptaro admin token is unique across server
   projects.
-- The backend service account obtains an authorized Google API session, but
-  a purchase probe for `com.nexwit.tarot` currently returns
-  `404 applicationNotFound` before the first Play Console AAB upload.
+- The backend service account obtains an authorized Google API session and can
+  access the monetization catalog for `com.nexwit.tarot`.
+- On `2026-07-16`, Android Publisher API confirmed active subscriptions
+  `weekly_readings` and `monthly_readings`, plus active one-time products
+  `one10_readings` and `one40_readings`. Each product has 173 regional price
+  configurations and localized listings for `en-US`, `ru-RU`, `pt-BR`,
+  `fr-FR`, and `zh-CN`.
 
 Post-audit verification commands:
 
@@ -112,12 +111,8 @@ Observed results:
 
 ## Next Required Actions
 
-1. Confirm that the Play Console application package is exactly
-   `com.nexwit.tarot`, then repeat the Android Publisher API probe.
-2. Repeat the read-only Android Publisher subscriptions probe and require HTTP
-   `200` before testing purchases.
-3. Upload the latest AAB to a Google Play internal/closed track.
-4. Install from Google Play as a licensed tester and verify:
+1. Upload the latest AAB to a Google Play internal/closed track.
+2. Install from Google Play as a licensed tester and verify:
    - product list loads;
    - weekly/monthly subscription purchase works;
    - one-time pack purchase works and is consumed;
