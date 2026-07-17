@@ -8,8 +8,9 @@ import '../../core/config/app_config.dart';
 import '../../data/repositories/appslides_repository.dart';
 import '../../domain/models/billing_plan.dart';
 import '../../domain/models/billing_summary.dart';
+import 'store_billing_service.dart';
 
-class GooglePlayBillingService {
+class GooglePlayBillingService implements StoreBillingService {
   GooglePlayBillingService({
     required AppSlidesRepository repository,
     InAppPurchase? inAppPurchase,
@@ -30,14 +31,15 @@ class GooglePlayBillingService {
   final String _packageName;
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
-  Completer<BillingSummary>? _activePurchaseCompleter;
-  Completer<BillingSummary?>? _restoreCompleter;
+  Completer<StoreBillingResult>? _activePurchaseCompleter;
+  Completer<StoreBillingResult?>? _restoreCompleter;
   String? _activeProductId;
   bool _activeProductIsConsumable = false;
   Object? _lastError;
 
   Object? get lastError => _lastError;
 
+  @override
   Future<void> initialize() async {
     _purchaseSubscription ??= _inAppPurchase.purchaseStream.listen(
       (items) => unawaited(_handlePurchaseUpdates(items)),
@@ -49,7 +51,8 @@ class GooglePlayBillingService {
     );
   }
 
-  Future<BillingSummary> purchasePlan(BillingPlan plan) async {
+  @override
+  Future<StoreBillingResult> purchasePlan(BillingPlan plan) async {
     await initialize();
     _lastError = null;
 
@@ -74,7 +77,7 @@ class GooglePlayBillingService {
     final product = response.productDetails.first;
     _activeProductId = productId;
     _activeProductIsConsumable = !plan.recurring;
-    _activePurchaseCompleter = Completer<BillingSummary>();
+    _activePurchaseCompleter = Completer<StoreBillingResult>();
     final purchaseParam = PurchaseParam(productDetails: product);
     final started = plan.recurring
         ? await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam)
@@ -100,12 +103,13 @@ class GooglePlayBillingService {
     );
   }
 
-  Future<BillingSummary?> restorePurchases() async {
+  @override
+  Future<StoreBillingResult?> restorePurchases() async {
     await initialize();
     if (!await _inAppPurchase.isAvailable()) {
       return null;
     }
-    _restoreCompleter = Completer<BillingSummary?>();
+    _restoreCompleter = Completer<StoreBillingResult?>();
     await _inAppPurchase.restorePurchases();
     return _restoreCompleter!.future.timeout(
       const Duration(seconds: 12),
@@ -116,6 +120,7 @@ class GooglePlayBillingService {
     );
   }
 
+  @override
   Future<void> dispose() async {
     await _purchaseSubscription?.cancel();
     _purchaseSubscription = null;
@@ -169,12 +174,22 @@ class GooglePlayBillingService {
         await _inAppPurchase.completePurchase(purchase);
       }
       if (_activeProductId == null || _activeProductId == purchase.productID) {
-        _activePurchaseCompleter?.complete(summary);
+        _activePurchaseCompleter?.complete(
+          StoreBillingResult(
+            summary: summary,
+            paymentId: 'google_play:${purchase.productID}',
+          ),
+        );
         _activePurchaseCompleter = null;
         _activeProductId = null;
         _activeProductIsConsumable = false;
       }
-      _completeRestore(summary);
+      _completeRestore(
+        StoreBillingResult(
+          summary: summary,
+          paymentId: 'google_play:restore',
+        ),
+      );
     } catch (error) {
       _lastError = error;
       if (_activeProductId == null || _activeProductId == purchase.productID) {
@@ -194,10 +209,10 @@ class GooglePlayBillingService {
     _activeProductIsConsumable = false;
   }
 
-  void _completeRestore(BillingSummary? summary) {
+  void _completeRestore(StoreBillingResult? result) {
     final completer = _restoreCompleter;
     if (completer != null && !completer.isCompleted) {
-      completer.complete(summary);
+      completer.complete(result);
     }
     _restoreCompleter = null;
   }

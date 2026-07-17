@@ -7,17 +7,18 @@ import '../../data/repositories/appslides_repository.dart';
 import '../../domain/models/billing_payment.dart';
 import '../../domain/models/billing_summary.dart';
 import 'google_play_billing_service.dart';
+import 'store_billing_service.dart';
 
 class BillingController extends ChangeNotifier {
   BillingController({
     required AppSlidesRepository repository,
-    GooglePlayBillingService? googlePlayBillingService,
+    StoreBillingService? storeBillingService,
   })  : _repository = repository,
-        _googlePlayBillingService = googlePlayBillingService ??
+        _storeBillingService = storeBillingService ??
             GooglePlayBillingService(repository: repository);
 
   final AppSlidesRepository _repository;
-  final GooglePlayBillingService _googlePlayBillingService;
+  final StoreBillingService _storeBillingService;
 
   BillingSummary? _summary;
   BillingPayment? _payment;
@@ -35,9 +36,8 @@ class BillingController extends ChangeNotifier {
     if (_summary != null || _loadingSummary) {
       return;
     }
-    await _googlePlayBillingService.initialize();
+    await _storeBillingService.initialize();
     await refreshSummary();
-    unawaited(restoreGooglePlayPurchases(silent: true));
   }
 
   Future<void> refreshSummary() async {
@@ -67,15 +67,14 @@ class BillingController extends ChangeNotifier {
         (item) => item.key == planKey,
         orElse: () => throw StateError('Billing plan was not found: $planKey'),
       );
-      final summary = await _googlePlayBillingService.purchasePlan(plan);
-      _summary = summary;
+      final result = await _storeBillingService.purchasePlan(plan);
+      _summary = result.summary;
       _payment = BillingPayment(
-        paymentId:
-            'google_play:${GooglePlayBillingService.productIdForPlan(plan)}',
+        paymentId: result.paymentId,
         status: 'paid',
         confirmationUrl: null,
         testMode: false,
-        summary: summary,
+        summary: result.summary,
         plan: plan,
       );
     } catch (error) {
@@ -86,37 +85,28 @@ class BillingController extends ChangeNotifier {
     }
   }
 
-  Future<void> restoreGooglePlayPurchases({bool silent = false}) async {
-    if (!silent) {
-      _loadingSummary = true;
-      _error = null;
-      notifyListeners();
-    }
+  Future<void> restorePurchases() async {
+    _loadingSummary = true;
+    _error = null;
+    notifyListeners();
 
     try {
-      final restoredSummary =
-          await _googlePlayBillingService.restorePurchases();
-      if (restoredSummary != null) {
-        _summary = restoredSummary;
+      final result = await _storeBillingService.restorePurchases();
+      if (result != null) {
+        _summary = result.summary;
         _payment = BillingPayment(
-          paymentId: 'google_play:restore',
+          paymentId: result.paymentId,
           status: 'paid',
           confirmationUrl: null,
           testMode: false,
-          summary: restoredSummary,
+          summary: result.summary,
         );
       }
     } catch (error) {
-      if (!silent) {
-        _error = _describeError(error);
-      }
+      _error = _describeError(error);
     } finally {
-      if (!silent) {
-        _loadingSummary = false;
-        notifyListeners();
-      } else if (_payment != null) {
-        notifyListeners();
-      }
+      _loadingSummary = false;
+      notifyListeners();
     }
   }
 
@@ -141,7 +131,7 @@ class BillingController extends ChangeNotifier {
 
   @override
   void dispose() {
-    unawaited(_googlePlayBillingService.dispose());
+    unawaited(_storeBillingService.dispose());
     super.dispose();
   }
 

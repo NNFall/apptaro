@@ -45,17 +45,16 @@ void main() {
     expect(iosPlist, isNot(contains('<string>apptaro</string>')));
     expect(iosPlist, isNot(contains('Таро Расклад')));
   });
-  test('Google Play restore remains silent and backend-verified', () {
+  test('Google Play restore is explicit and remains backend-verified', () {
     final billingController =
         File('lib/features/billing/billing_controller.dart').readAsStringSync();
     final googlePlayBillingService =
         File('lib/features/billing/google_play_billing_service.dart')
             .readAsStringSync();
 
-    expect(
-      billingController,
-      contains('unawaited(restoreGooglePlayPurchases(silent: true))'),
-    );
+    expect(billingController, isNot(contains('restorePurchases(silent: true)')));
+    expect(billingController, isNot(contains('restoreGooglePlayPurchases')));
+    expect(billingController, contains('Future<void> restorePurchases()'));
     expect(
       googlePlayBillingService,
       contains('restored: purchase.status == PurchaseStatus.restored'),
