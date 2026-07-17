@@ -120,6 +120,24 @@ class AppSlidesRepository {
     );
   }
 
+  Future<String> fetchAppleAppAccountToken() {
+    return _api.fetchAppleAppAccountToken();
+  }
+
+  Future<BillingSummary> verifyApplePurchase({
+    required String transactionId,
+    required String productId,
+    required String operation,
+    required String clientSignedData,
+  }) {
+    return _api.verifyApplePurchase(
+      transactionId: transactionId,
+      productId: productId,
+      operation: operation,
+      clientSignedData: clientSignedData,
+    );
+  }
+
   Future<BillingSummary> redeemPromoCode(String code) {
     return _api.redeemPromoCode(code);
   }

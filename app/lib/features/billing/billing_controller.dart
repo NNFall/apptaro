@@ -6,8 +6,33 @@ import '../../data/api/appslides_api_client.dart';
 import '../../data/repositories/appslides_repository.dart';
 import '../../domain/models/billing_payment.dart';
 import '../../domain/models/billing_summary.dart';
+import 'apple_store_billing_service.dart';
 import 'google_play_billing_service.dart';
 import 'store_billing_service.dart';
+
+typedef StoreBillingServiceBuilder = StoreBillingService Function(
+  AppSlidesRepository repository,
+);
+
+StoreBillingService createPlatformStoreBillingService({
+  required AppSlidesRepository repository,
+  required bool isWeb,
+  required TargetPlatform targetPlatform,
+  StoreBillingServiceBuilder? appleBuilder,
+  StoreBillingServiceBuilder? googleBuilder,
+}) {
+  final useApple = !isWeb && targetPlatform == TargetPlatform.iOS;
+  if (useApple) {
+    return (appleBuilder ??
+        (repository) => AppleStoreBillingService(repository: repository))(
+      repository,
+    );
+  }
+  return (googleBuilder ??
+      (repository) => GooglePlayBillingService(repository: repository))(
+    repository,
+  );
+}
 
 class BillingController extends ChangeNotifier {
   BillingController({
@@ -15,7 +40,11 @@ class BillingController extends ChangeNotifier {
     StoreBillingService? storeBillingService,
   })  : _repository = repository,
         _storeBillingService = storeBillingService ??
-            GooglePlayBillingService(repository: repository);
+            createPlatformStoreBillingService(
+              repository: repository,
+              isWeb: kIsWeb,
+              targetPlatform: defaultTargetPlatform,
+            );
 
   final AppSlidesRepository _repository;
   final StoreBillingService _storeBillingService;

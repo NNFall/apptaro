@@ -10,9 +10,46 @@ import 'package:apptaro/domain/models/billing_plan.dart';
 import 'package:apptaro/domain/models/billing_summary.dart';
 import 'package:apptaro/features/billing/billing_controller.dart';
 import 'package:apptaro/features/billing/store_billing_service.dart';
+import 'package:flutter/foundation.dart';
 
 void main() {
   group('BillingController', () {
+    test('platform factory selects Apple only for native iOS', () {
+      final repository = _FakeRepository(_summary(clientId: 'factory'));
+      final apple = _FakeStoreBillingService();
+      final google = _FakeStoreBillingService();
+
+      StoreBillingService create({
+        required bool isWeb,
+        required TargetPlatform platform,
+      }) {
+        return createPlatformStoreBillingService(
+          repository: repository,
+          isWeb: isWeb,
+          targetPlatform: platform,
+          appleBuilder: (_) => apple,
+          googleBuilder: (_) => google,
+        );
+      }
+
+      expect(
+        create(isWeb: false, platform: TargetPlatform.iOS),
+        same(apple),
+      );
+      expect(
+        create(isWeb: true, platform: TargetPlatform.iOS),
+        same(google),
+      );
+      expect(
+        create(isWeb: false, platform: TargetPlatform.macOS),
+        same(google),
+      );
+      expect(
+        create(isWeb: false, platform: TargetPlatform.android),
+        same(google),
+      );
+    });
+
     test('initialize starts the store and refreshes without restoring',
         () async {
       final initialSummary = _summary(clientId: 'initial');

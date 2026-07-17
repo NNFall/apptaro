@@ -193,6 +193,39 @@ class AppSlidesApiClient {
     return BillingSummary.fromJson(payload);
   }
 
+  Future<String> fetchAppleAppAccountToken() async {
+    final payload = await _postJson(
+      path: AppConfig.billingAppleAccountTokenPath,
+      body: const <String, Object?>{},
+    );
+    final token = payload['app_account_token'];
+    if (token is String && token.trim().isNotEmpty) {
+      return token.trim();
+    }
+    throw const AppSlidesApiException(
+      statusCode: 500,
+      message: 'Invalid Apple app account token response',
+    );
+  }
+
+  Future<BillingSummary> verifyApplePurchase({
+    required String transactionId,
+    required String productId,
+    required String operation,
+    required String clientSignedData,
+  }) async {
+    final payload = await _postJson(
+      path: AppConfig.billingAppleVerifyPath,
+      body: <String, Object>{
+        'transaction_id': transactionId,
+        'product_id': productId,
+        'operation': operation,
+        'client_signed_data': clientSignedData,
+      },
+    );
+    return BillingSummary.fromJson(payload);
+  }
+
   Future<BillingSummary> redeemPromoCode(String code) async {
     final payload = await _postJson(
       path: AppConfig.billingPromoRedeemPath,

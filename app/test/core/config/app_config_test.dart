@@ -3,6 +3,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('defines the Apple billing endpoint and product identity', () {
+    expect(
+      AppConfig.billingAppleAccountTokenPath,
+      '/v1/billing/apple/account-token',
+    );
+    expect(AppConfig.billingAppleVerifyPath, '/v1/billing/apple/verify');
+    expect(AppConfig.appleBundleId, 'com.nexwit.tarot');
+  });
+
   group('AppConfig.shouldRequireAppleBackend', () {
     test('requires the Apple backend for native iOS', () {
       expect(
