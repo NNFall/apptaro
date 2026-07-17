@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
+
 class AppConfig {
   static const String appName = 'AI Tarot Reading';
   static const String fixedBackendBaseUrl = 'http://185.171.83.116:8022';
+  static const String appleBackendBaseUrl =
+      String.fromEnvironment('APPLE_BACKEND_BASE_URL');
   static const String supportMaxUrl =
       'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8';
   static const String healthPath = '/v1/health';
@@ -27,7 +31,41 @@ class AppConfig {
   static String conversionDownloadPath(String jobId) =>
       '${conversionJobPath(jobId)}/download';
 
-  static String get defaultBackendBaseUrl => fixedBackendBaseUrl;
+  static String resolveBackendBaseUrl({
+    required bool isApplePlatform,
+    required String appleBackendBaseUrl,
+  }) {
+    if (!isApplePlatform) {
+      return fixedBackendBaseUrl;
+    }
+
+    final normalized = appleBackendBaseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    if (normalized.isEmpty) {
+      throw StateError(
+        'APPLE_BACKEND_BASE_URL is required for Apple builds.',
+      );
+    }
+
+    final uri = Uri.tryParse(normalized);
+    if (uri == null ||
+        !uri.isAbsolute ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty) {
+      throw ArgumentError.value(
+        appleBackendBaseUrl,
+        'APPLE_BACKEND_BASE_URL',
+        'Apple builds require an absolute HTTPS URL.',
+      );
+    }
+
+    return normalized;
+  }
+
+  static String get defaultBackendBaseUrl => resolveBackendBaseUrl(
+        isApplePlatform: defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS,
+        appleBackendBaseUrl: appleBackendBaseUrl,
+      );
 
   const AppConfig._();
 }
