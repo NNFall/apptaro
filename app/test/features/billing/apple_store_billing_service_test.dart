@@ -10,9 +10,34 @@ import 'package:apptaro/features/billing/apple_store_billing_service.dart';
 import 'package:apptaro/features/billing/store_billing_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 
 void main() {
   group('AppleStoreBillingService', () {
+    test('extracts StoreKit 2 checkout metadata', () {
+      final purchase = SK2PurchaseDetails(
+        productID: 'weekly_readings',
+        purchaseID: 'sk2-metadata',
+        verificationData: PurchaseVerificationData(
+          localVerificationData: 'signed',
+          serverVerificationData: 'signed',
+          source: 'app_store',
+        ),
+        transactionDate: '1785542400000',
+        status: PurchaseStatus.purchased,
+        appAccountToken: _appAccountToken,
+      );
+
+      final metadata = ApplePurchaseDetailsMetadata.fromPurchase(purchase);
+
+      expect(metadata.isStoreKit2, isTrue);
+      expect(metadata.appAccountToken, _appAccountToken);
+      expect(
+        metadata.transactionTime,
+        DateTime.fromMillisecondsSinceEpoch(1785542400000, isUtc: true),
+      );
+    });
+
     test('uses at least one second as the production restore settlement delay',
         () {
       expect(
@@ -110,6 +135,56 @@ void main() {
       expect(result.transactionReference, 'app_store:tx-ordered');
     });
 
+    test('same-product stale StoreKit transaction is redelivery only',
+        () async {
+      final checkoutStart = DateTime.utc(2026, 8, 1, 12);
+      final harness = _Harness(
+        now: () => checkoutStart,
+        purchaseDetailsMetadata: (purchase) {
+          final isFresh = purchase.purchaseID == 'fresh-checkout';
+          return ApplePurchaseDetailsMetadata(
+            isStoreKit2: true,
+            appAccountToken: isFresh
+                ? _appAccountToken
+                : '223e4567-e89b-12d3-a456-426614174000',
+            transactionTime: isFresh
+                ? checkoutStart
+                : checkoutStart.subtract(const Duration(minutes: 1)),
+          );
+        },
+      );
+      addTearDown(harness.dispose);
+      var uiCompleted = false;
+
+      final purchase = harness.service.purchasePlan(_plan('week'))
+        ..then((_) => uiCompleted = true);
+      await harness.gateway.purchaseStarted.future;
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'stale-checkout',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await _waitFor(() => harness.gateway.completeCalls == 1);
+
+      expect(uiCompleted, isFalse);
+      expect(harness.repository.transactionIds, <String>['stale-checkout']);
+
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'fresh-checkout',
+          pendingCompletePurchase: true,
+        ),
+      );
+      final result = await purchase;
+
+      expect(result.transactionReference, 'app_store:fresh-checkout');
+      expect(harness.repository.verifyCalls, 2);
+      expect(harness.gateway.completeCalls, 2);
+    });
+
     test('does not complete a transaction rejected by the backend', () async {
       final harness = _Harness();
       addTearDown(harness.dispose);
@@ -201,6 +276,87 @@ void main() {
       expect(result?.transactionReference, 'app_store:restore-2');
     });
 
+    test('restore waits for queued backend verification after timeout',
+        () async {
+      final repository = _BlockingAppleRepository();
+      final gateway = _FakeAppleStorePurchaseGateway();
+      final service = AppleStoreBillingService(
+        repository: repository,
+        gateway: gateway,
+        restoreSettlementDelay: const Duration(milliseconds: 10),
+        restoreTimeout: const Duration(milliseconds: 25),
+      );
+      addTearDown(() async {
+        if (!repository.releaseVerification.isCompleted) {
+          repository.releaseVerification.complete();
+        }
+        await service.dispose();
+        await gateway.dispose();
+      });
+      var restoreCompleted = false;
+
+      final restore = service.restorePurchases()
+        ..then((_) => restoreCompleted = true);
+      await gateway.restoreStarted.future;
+      gateway.emit(
+        _purchase(
+          PurchaseStatus.restored,
+          'blocked-restore',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await repository.verificationStarted.future;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(restoreCompleted, isFalse);
+
+      repository.releaseVerification.complete();
+      final result = await restore;
+
+      expect(result?.transactionReference, 'app_store:blocked-restore');
+      expect(gateway.completeCalls, 1);
+    });
+
+    test('restore waits for native enumeration to finish', () async {
+      final gateway = _FakeAppleStorePurchaseGateway()
+        ..restoreRelease = Completer<void>();
+      final repository = _FakeAppleRepository();
+      final service = AppleStoreBillingService(
+        repository: repository,
+        gateway: gateway,
+        restoreSettlementDelay: const Duration(milliseconds: 15),
+        restoreTimeout: const Duration(milliseconds: 200),
+      );
+      addTearDown(() async {
+        if (!gateway.restoreRelease!.isCompleted) {
+          gateway.restoreRelease!.complete();
+        }
+        await service.dispose();
+        await gateway.dispose();
+      });
+      var restoreCompleted = false;
+
+      final restore = service.restorePurchases()
+        ..then((_) => restoreCompleted = true);
+      await gateway.restoreStarted.future;
+      gateway.emit(
+        _purchase(
+          PurchaseStatus.restored,
+          'native-enumeration',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await _waitFor(() => repository.verifyCalls == 1);
+      await Future<void>.delayed(const Duration(milliseconds: 35));
+
+      expect(restoreCompleted, isFalse);
+
+      gateway.restoreRelease!.complete();
+      final result = await restore;
+
+      expect(result?.transactionReference, 'app_store:native-enumeration');
+    });
+
     test('aggregates restored purchases from separate stream batches',
         () async {
       final harness = _Harness(
@@ -277,6 +433,40 @@ void main() {
       expect(harness.gateway.completeCalls, 2);
     });
 
+    test('returns partial restore result when another restored item fails',
+        () async {
+      final harness = _Harness(
+        restoreSettlementDelay: const Duration(milliseconds: 20),
+      );
+      addTearDown(harness.dispose);
+      harness.repository.failingTransactionIds.add('restore-bad');
+
+      final restore = harness.service.restorePurchases();
+      await harness.gateway.restoreStarted.future;
+      harness.gateway.emitAll(<PurchaseDetails>[
+        _purchase(
+          PurchaseStatus.restored,
+          'restore-bad',
+          pendingCompletePurchase: true,
+        ),
+        _purchase(
+          PurchaseStatus.restored,
+          'restore-good',
+          pendingCompletePurchase: true,
+        ),
+      ]);
+
+      final result = await restore;
+
+      expect(result, isNotNull);
+      expect(result?.transactionReference, 'app_store:restore-good');
+      expect(result?.partialFailureCount, 1);
+      expect(result?.warnings, hasLength(1));
+      expect(result?.warnings.single, contains('restore-bad'));
+      expect(harness.repository.verifyCalls, 2);
+      expect(harness.gateway.completeCalls, 1);
+    });
+
     test('processes a redelivered purchase without an active operation',
         () async {
       final harness = _Harness();
@@ -317,6 +507,30 @@ void main() {
 
       harness.gateway.emit(_purchase(PurchaseStatus.purchased, 'tx-finish'));
       await purchase;
+    });
+
+    test('fails when product query returns only a different product', () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.gateway.queryProductsOverride = <ProductDetails>[
+        _product('monthly_readings'),
+      ];
+      harness.gateway.buyResult = false;
+
+      await expectLater(
+        harness.service.purchasePlan(_plan('week')),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('weekly_readings'),
+          ),
+        ),
+      );
+
+      expect(harness.repository.accountTokenCalls, 0);
+      expect(harness.gateway.lastProduct, isNull);
+      expect(harness.gateway.purchaseStarted.isCompleted, isFalse);
     });
 
     test('serializes purchase stream batches and keeps the queue usable',
@@ -391,12 +605,17 @@ class _Harness {
   _Harness({
     Duration restoreSettlementDelay =
         AppleStoreBillingService.defaultRestoreSettlementDelay,
+    DateTime Function()? now,
+    ApplePurchaseDetailsMetadata Function(PurchaseDetails)?
+        purchaseDetailsMetadata,
   })  : gateway = _FakeAppleStorePurchaseGateway(),
         repository = _FakeAppleRepository() {
     service = AppleStoreBillingService(
       repository: repository,
       gateway: gateway,
       restoreSettlementDelay: restoreSettlementDelay,
+      now: now,
+      purchaseDetailsMetadata: purchaseDetailsMetadata,
     );
   }
 
@@ -419,6 +638,9 @@ class _FakeAppleStorePurchaseGateway implements AppleStorePurchaseGateway {
   String? lastAppAccountToken;
   ProductDetails? lastProduct;
   int completeCalls = 0;
+  List<ProductDetails>? queryProductsOverride;
+  bool buyResult = true;
+  Completer<void>? restoreRelease;
 
   @override
   Stream<List<PurchaseDetails>> get purchaseStream => _updates.stream;
@@ -430,7 +652,8 @@ class _FakeAppleStorePurchaseGateway implements AppleStorePurchaseGateway {
   Future<ProductDetailsResponse> queryProductDetails(
       Set<String> productIds) async {
     return ProductDetailsResponse(
-      productDetails: productIds.map(_product).toList(),
+      productDetails:
+          queryProductsOverride ?? productIds.map(_product).toList(),
       notFoundIDs: const <String>[],
     );
   }
@@ -446,7 +669,7 @@ class _FakeAppleStorePurchaseGateway implements AppleStorePurchaseGateway {
     if (!purchaseStarted.isCompleted) {
       purchaseStarted.complete();
     }
-    return true;
+    return buyResult;
   }
 
   @override
@@ -454,6 +677,7 @@ class _FakeAppleStorePurchaseGateway implements AppleStorePurchaseGateway {
     if (!restoreStarted.isCompleted) {
       restoreStarted.complete();
     }
+    await restoreRelease?.future;
   }
 
   @override
@@ -490,6 +714,7 @@ class _FakeAppleRepository extends AppSlidesRepository {
   int verifyCalls = 0;
   String appAccountToken = _appAccountToken;
   Object? verificationError;
+  final Set<String> failingTransactionIds = <String>{};
   final List<String> operations = <String>[];
   final List<String> transactionIds = <String>[];
   final List<String> clientSignedData = <String>[];
@@ -511,6 +736,9 @@ class _FakeAppleRepository extends AppSlidesRepository {
     operations.add(operation);
     transactionIds.add(transactionId);
     this.clientSignedData.add(clientSignedData);
+    if (failingTransactionIds.contains(transactionId)) {
+      throw StateError('Verification failed for $transactionId.');
+    }
     if (verificationError case final error?) {
       throw error;
     }

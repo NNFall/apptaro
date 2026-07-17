@@ -70,6 +70,39 @@ class InAppPurchaseAppleStoreGateway implements AppleStorePurchaseGateway {
   }
 }
 
+class ApplePurchaseDetailsMetadata {
+  const ApplePurchaseDetailsMetadata({
+    required this.isStoreKit2,
+    required this.appAccountToken,
+    required this.transactionTime,
+  });
+
+  final bool isStoreKit2;
+  final String? appAccountToken;
+  final DateTime? transactionTime;
+
+  static ApplePurchaseDetailsMetadata fromPurchase(PurchaseDetails purchase) {
+    if (purchase is! SK2PurchaseDetails) {
+      return const ApplePurchaseDetailsMetadata(
+        isStoreKit2: false,
+        appAccountToken: null,
+        transactionTime: null,
+      );
+    }
+    final milliseconds = int.tryParse(purchase.transactionDate ?? '');
+    return ApplePurchaseDetailsMetadata(
+      isStoreKit2: true,
+      appAccountToken: purchase.appAccountToken,
+      transactionTime: milliseconds == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true),
+    );
+  }
+}
+
+typedef ApplePurchaseDetailsMetadataExtractor = ApplePurchaseDetailsMetadata
+    Function(PurchaseDetails purchase);
+
 enum _AppleStoreOperation { purchase, restore }
 
 class AppleStoreBillingService implements StoreBillingService {
@@ -78,13 +111,21 @@ class AppleStoreBillingService implements StoreBillingService {
     AppleStorePurchaseGateway? gateway,
     InAppPurchase? inAppPurchase,
     Duration restoreSettlementDelay = defaultRestoreSettlementDelay,
+    Duration restoreTimeout = defaultRestoreTimeout,
+    DateTime Function()? now,
+    ApplePurchaseDetailsMetadataExtractor? purchaseDetailsMetadata,
   })  : assert(gateway == null || inAppPurchase == null),
         _repository = repository,
         _gateway = gateway ??
             InAppPurchaseAppleStoreGateway(inAppPurchase: inAppPurchase),
-        _restoreSettlementDelay = restoreSettlementDelay;
+        _restoreSettlementDelay = restoreSettlementDelay,
+        _restoreTimeout = restoreTimeout,
+        _now = now ?? DateTime.now,
+        _purchaseDetailsMetadata = purchaseDetailsMetadata ??
+            ApplePurchaseDetailsMetadata.fromPurchase;
 
   static const Duration defaultRestoreSettlementDelay = Duration(seconds: 1);
+  static const Duration defaultRestoreTimeout = Duration(seconds: 12);
 
   static const Map<String, String> defaultProductIdsByPlan = <String, String>{
     'week': 'weekly_readings',
@@ -96,6 +137,9 @@ class AppleStoreBillingService implements StoreBillingService {
   final AppSlidesRepository _repository;
   final AppleStorePurchaseGateway _gateway;
   final Duration _restoreSettlementDelay;
+  final Duration _restoreTimeout;
+  final DateTime Function() _now;
+  final ApplePurchaseDetailsMetadataExtractor _purchaseDetailsMetadata;
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Future<void> _purchaseUpdateQueue = Future<void>.value();
@@ -105,9 +149,16 @@ class AppleStoreBillingService implements StoreBillingService {
   Timer? _operationTimer;
   Timer? _restoreSettleTimer;
   String? _activeProductId;
+  String? _activeAppAccountToken;
+  DateTime? _activeCheckoutStartedAt;
   StoreBillingResult? _latestRestoreResult;
   Object? _restoreError;
   int _restoredItems = 0;
+  int _restoreVerifiedItems = 0;
+  int _restoreFailedItems = 0;
+  final List<String> _restoreWarnings = <String>[];
+  bool _nativeRestoreCompleted = false;
+  bool _restoreCompletionRequested = false;
   bool _disposed = false;
   Object? _lastError;
 
@@ -132,6 +183,7 @@ class AppleStoreBillingService implements StoreBillingService {
     final completer = Completer<StoreBillingResult>();
     _activeOperation = _AppleStoreOperation.purchase;
     _activePurchaseCompleter = completer;
+    _activeCheckoutStartedAt = _now().toUtc();
     _lastError = null;
     _operationTimer = Timer(
       const Duration(minutes: 5),
@@ -154,9 +206,14 @@ class AppleStoreBillingService implements StoreBillingService {
     _latestRestoreResult = null;
     _restoreError = null;
     _restoredItems = 0;
+    _restoreVerifiedItems = 0;
+    _restoreFailedItems = 0;
+    _restoreWarnings.clear();
+    _nativeRestoreCompleted = false;
+    _restoreCompletionRequested = false;
     _operationTimer = Timer(
-      const Duration(seconds: 12),
-      () => _finishRestore(completer),
+      _restoreTimeout,
+      () => _requestRestoreCompletion(completer),
     );
     unawaited(_startRestore(completer));
     return completer.future;
@@ -215,7 +272,14 @@ class AppleStoreBillingService implements StoreBillingService {
       if (response.error != null) {
         throw StateError(response.error!.message);
       }
-      if (response.productDetails.isEmpty) {
+      ProductDetails? product;
+      for (final candidate in response.productDetails) {
+        if (candidate.id == productId) {
+          product = candidate;
+          break;
+        }
+      }
+      if (product == null) {
         throw StateError('App Store product was not found: $productId');
       }
 
@@ -229,10 +293,7 @@ class AppleStoreBillingService implements StoreBillingService {
         );
       }
       _activeProductId = productId;
-      final product = response.productDetails.firstWhere(
-        (item) => item.id == productId,
-        orElse: () => response.productDetails.first,
-      );
+      _activeAppAccountToken = appAccountToken;
       final started = await _gateway.buyProduct(
         product,
         appAccountToken: appAccountToken,
@@ -258,15 +319,34 @@ class AppleStoreBillingService implements StoreBillingService {
         return;
       }
       if (!await _gateway.isAvailable()) {
-        _completeRestore(completer, null);
+        _enqueuePurchaseStreamAction(() async {
+          if (_isActiveRestore(completer)) {
+            _nativeRestoreCompleted = true;
+            _restoreCompletionRequested = true;
+            _finishRestore(completer);
+          }
+        });
         return;
       }
       if (!_isActiveRestore(completer)) {
         return;
       }
       await _gateway.restorePurchases();
+      _enqueuePurchaseStreamAction(() async {
+        if (!_isActiveRestore(completer)) {
+          return;
+        }
+        _nativeRestoreCompleted = true;
+        if (_restoreCompletionRequested) {
+          _finishRestore(completer);
+        }
+      });
     } catch (error) {
-      _failRestore(completer, error);
+      _enqueuePurchaseStreamAction(() async {
+        if (_isActiveRestore(completer)) {
+          _failRestore(completer, error);
+        }
+      });
     }
   }
 
@@ -305,7 +385,8 @@ class AppleStoreBillingService implements StoreBillingService {
             purchase.error?.message ?? 'App Store purchase failed.',
           );
           if (restoreCompleter != null && _isActiveRestore(restoreCompleter)) {
-            _restoreError ??= error;
+            _restoredItems += 1;
+            _recordRestoreFailure(error);
             sawRestoredItem = true;
           } else {
             _failMatchingActivePurchase(purchase, error);
@@ -314,7 +395,8 @@ class AppleStoreBillingService implements StoreBillingService {
         case PurchaseStatus.canceled:
           final error = StateError('App Store purchase was canceled.');
           if (restoreCompleter != null && _isActiveRestore(restoreCompleter)) {
-            _restoreError ??= error;
+            _restoredItems += 1;
+            _recordRestoreFailure(error);
             sawRestoredItem = true;
           } else {
             _failMatchingActivePurchase(purchase, error);
@@ -336,9 +418,10 @@ class AppleStoreBillingService implements StoreBillingService {
           _restoredItems += 1;
           try {
             _latestRestoreResult = await _processRestored(purchase);
+            _restoreVerifiedItems += 1;
           } catch (error) {
             _lastError = error;
-            _restoreError ??= error;
+            _recordRestoreFailure(error);
           }
           break;
       }
@@ -418,27 +501,55 @@ class AppleStoreBillingService implements StoreBillingService {
   ) {
     _restoreSettleTimer?.cancel();
     _restoreSettleTimer = Timer(_restoreSettlementDelay, () {
-      _enqueuePurchaseStreamAction(() async => _finishRestore(completer));
+      _requestRestoreCompletion(completer);
+    });
+  }
+
+  void _requestRestoreCompletion(
+    Completer<StoreBillingResult?> completer,
+  ) {
+    _enqueuePurchaseStreamAction(() async {
+      if (!_isActiveRestore(completer)) {
+        return;
+      }
+      _restoreCompletionRequested = true;
+      if (_nativeRestoreCompleted) {
+        _finishRestore(completer);
+      }
     });
   }
 
   void _finishRestore(Completer<StoreBillingResult?> completer) {
-    if (!_isActiveRestore(completer)) {
+    if (!_isActiveRestore(completer) || !_nativeRestoreCompleted) {
       return;
     }
-    final error = _restoreError;
-    if (error != null) {
-      _failRestore(completer, error);
+    final latestResult = _latestRestoreResult;
+    if (_restoreVerifiedItems > 0 && latestResult != null) {
+      _completeRestore(
+        completer,
+        StoreBillingResult(
+          summary: latestResult.summary,
+          transactionReference: latestResult.transactionReference,
+          warnings: List<String>.unmodifiable(_restoreWarnings),
+          partialFailureCount: _restoreFailedItems,
+        ),
+      );
       return;
     }
     if (_restoredItems == 0) {
       _completeRestore(completer, null);
       return;
     }
-    final result = _latestRestoreResult;
-    if (result != null) {
-      _completeRestore(completer, result);
-    }
+    _failRestore(
+      completer,
+      _restoreError ?? StateError('No App Store purchases could be restored.'),
+    );
+  }
+
+  void _recordRestoreFailure(Object error) {
+    _restoreError ??= error;
+    _restoreFailedItems += 1;
+    _restoreWarnings.add(error.toString());
   }
 
   void _handleStreamError(Object error) {
@@ -463,6 +574,23 @@ class AppleStoreBillingService implements StoreBillingService {
     if (_activeOperation != _AppleStoreOperation.purchase ||
         completer == null ||
         _activeProductId != purchase.productID) {
+      return null;
+    }
+    if (purchase.status != PurchaseStatus.purchased) {
+      return completer;
+    }
+    final metadata = _purchaseDetailsMetadata(purchase);
+    if (!metadata.isStoreKit2) {
+      return completer;
+    }
+    final expectedToken = _activeAppAccountToken;
+    final checkoutStartedAt = _activeCheckoutStartedAt;
+    final transactionTime = metadata.transactionTime;
+    if (expectedToken == null ||
+        checkoutStartedAt == null ||
+        metadata.appAccountToken != expectedToken ||
+        transactionTime == null ||
+        transactionTime.isBefore(checkoutStartedAt)) {
       return null;
     }
     return completer;
@@ -557,8 +685,15 @@ class AppleStoreBillingService implements StoreBillingService {
     _activePurchaseCompleter = null;
     _restoreCompleter = null;
     _activeProductId = null;
+    _activeAppAccountToken = null;
+    _activeCheckoutStartedAt = null;
     _latestRestoreResult = null;
     _restoreError = null;
     _restoredItems = 0;
+    _restoreVerifiedItems = 0;
+    _restoreFailedItems = 0;
+    _restoreWarnings.clear();
+    _nativeRestoreCompleted = false;
+    _restoreCompletionRequested = false;
   }
 }
