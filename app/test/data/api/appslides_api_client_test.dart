@@ -60,6 +60,30 @@ void main() {
     expect(recordingClient.lastJsonBody, <String, dynamic>{});
   });
 
+  test('rejects a nonempty noncanonical Apple app account token', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final recordingClient = _RecordingClient(
+      responseBody: '{"app_account_token":"not-a-canonical-uuid"}',
+    );
+    final client = AppSlidesApiClient(
+      client: recordingClient,
+      backendConfig: BackendConfigRepository(),
+      languageRepository: LanguageRepository(),
+      clientIdProvider: () async => 'at_test1234',
+    );
+
+    await expectLater(
+      client.fetchAppleAppAccountToken(),
+      throwsA(
+        isA<AppSlidesApiException>().having(
+          (error) => error.message,
+          'message',
+          contains('canonical UUID'),
+        ),
+      ),
+    );
+  });
+
   test('posts Apple transaction diagnostics and parses BillingSummary',
       () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});

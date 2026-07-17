@@ -13,6 +13,14 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 void main() {
   group('AppleStoreBillingService', () {
+    test('uses at least one second as the production restore settlement delay',
+        () {
+      expect(
+        AppleStoreBillingService.defaultRestoreSettlementDelay,
+        greaterThanOrEqualTo(const Duration(seconds: 1)),
+      );
+    });
+
     test('maps every billing plan to its App Store product', () {
       expect(AppleStoreBillingService.productIdForPlan(_plan('week')),
           'weekly_readings');
@@ -38,6 +46,27 @@ void main() {
 
       harness.gateway.emit(_purchase(PurchaseStatus.purchased, 'tx-token'));
       await purchase;
+    });
+
+    test('rejects malformed app account token before starting StoreKit',
+        () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.repository.appAccountToken = 'not-a-canonical-uuid';
+
+      await expectLater(
+        harness.service.purchasePlan(_plan('week')),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('canonical UUID'),
+          ),
+        ),
+      );
+
+      expect(harness.gateway.lastProduct, isNull);
+      expect(harness.gateway.purchaseStarted.isCompleted, isFalse);
     });
 
     test('verifies with backend before completing a purchased transaction',
@@ -172,6 +201,82 @@ void main() {
       expect(result?.transactionReference, 'app_store:restore-2');
     });
 
+    test('aggregates restored purchases from separate stream batches',
+        () async {
+      final harness = _Harness(
+        restoreSettlementDelay: const Duration(milliseconds: 80),
+      );
+      addTearDown(harness.dispose);
+
+      final restore = harness.service.restorePurchases();
+      await harness.gateway.restoreStarted.future;
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.restored,
+          'restore-batch-1',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.restored,
+          'restore-batch-2',
+          productId: 'monthly_readings',
+          pendingCompletePurchase: true,
+        ),
+      );
+
+      final result = await restore;
+
+      expect(
+        harness.repository.transactionIds,
+        <String>['restore-batch-1', 'restore-batch-2'],
+      );
+      expect(harness.repository.operations, <String>['restore', 'restore']);
+      expect(harness.gateway.completeCalls, 2);
+      expect(result?.transactionReference, 'app_store:restore-batch-2');
+    });
+
+    test('processes a restored redelivery after UI restore settlement',
+        () async {
+      final harness = _Harness(
+        restoreSettlementDelay: const Duration(milliseconds: 20),
+      );
+      addTearDown(harness.dispose);
+      var uiCompletions = 0;
+
+      final restore = harness.service.restorePurchases()
+        ..then((_) => uiCompletions += 1);
+      await harness.gateway.restoreStarted.future;
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.restored,
+          'restore-settled',
+          pendingCompletePurchase: true,
+        ),
+      );
+      final result = await restore;
+      expect(result?.transactionReference, 'app_store:restore-settled');
+
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.restored,
+          'restore-redelivery',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await _waitFor(() => harness.repository.verifyCalls == 2);
+
+      expect(uiCompletions, 1);
+      expect(
+        harness.repository.transactionIds,
+        <String>['restore-settled', 'restore-redelivery'],
+      );
+      expect(harness.repository.operations, <String>['restore', 'restore']);
+      expect(harness.gateway.completeCalls, 2);
+    });
+
     test('processes a redelivered purchase without an active operation',
         () async {
       final harness = _Harness();
@@ -283,12 +388,15 @@ void main() {
 }
 
 class _Harness {
-  _Harness()
-      : gateway = _FakeAppleStorePurchaseGateway(),
+  _Harness({
+    Duration restoreSettlementDelay =
+        AppleStoreBillingService.defaultRestoreSettlementDelay,
+  })  : gateway = _FakeAppleStorePurchaseGateway(),
         repository = _FakeAppleRepository() {
     service = AppleStoreBillingService(
       repository: repository,
       gateway: gateway,
+      restoreSettlementDelay: restoreSettlementDelay,
     );
   }
 
@@ -380,6 +488,7 @@ class _FakeAppleRepository extends AppSlidesRepository {
 
   int accountTokenCalls = 0;
   int verifyCalls = 0;
+  String appAccountToken = _appAccountToken;
   Object? verificationError;
   final List<String> operations = <String>[];
   final List<String> transactionIds = <String>[];
@@ -388,7 +497,7 @@ class _FakeAppleRepository extends AppSlidesRepository {
   @override
   Future<String> fetchAppleAppAccountToken() async {
     accountTokenCalls += 1;
-    return _appAccountToken;
+    return appAccountToken;
   }
 
   @override

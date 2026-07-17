@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 
+import '../../core/config/app_config.dart';
 import '../../data/repositories/appslides_repository.dart';
 import '../../domain/models/billing_plan.dart';
 import '../../domain/models/billing_summary.dart';
@@ -76,10 +77,14 @@ class AppleStoreBillingService implements StoreBillingService {
     required AppSlidesRepository repository,
     AppleStorePurchaseGateway? gateway,
     InAppPurchase? inAppPurchase,
+    Duration restoreSettlementDelay = defaultRestoreSettlementDelay,
   })  : assert(gateway == null || inAppPurchase == null),
         _repository = repository,
         _gateway = gateway ??
-            InAppPurchaseAppleStoreGateway(inAppPurchase: inAppPurchase);
+            InAppPurchaseAppleStoreGateway(inAppPurchase: inAppPurchase),
+        _restoreSettlementDelay = restoreSettlementDelay;
+
+  static const Duration defaultRestoreSettlementDelay = Duration(seconds: 1);
 
   static const Map<String, String> defaultProductIdsByPlan = <String, String>{
     'week': 'weekly_readings',
@@ -90,6 +95,7 @@ class AppleStoreBillingService implements StoreBillingService {
 
   final AppSlidesRepository _repository;
   final AppleStorePurchaseGateway _gateway;
+  final Duration _restoreSettlementDelay;
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Future<void> _purchaseUpdateQueue = Future<void>.value();
@@ -217,6 +223,11 @@ class AppleStoreBillingService implements StoreBillingService {
       if (!_isActivePurchase(completer)) {
         return;
       }
+      if (!AppConfig.isCanonicalUuid(appAccountToken)) {
+        throw StateError(
+          'Apple app account token must be a canonical UUID.',
+        );
+      }
       _activeProductId = productId;
       final product = response.productDetails.firstWhere(
         (item) => item.id == productId,
@@ -314,6 +325,11 @@ class AppleStoreBillingService implements StoreBillingService {
           break;
         case PurchaseStatus.restored:
           if (restoreCompleter == null || !_isActiveRestore(restoreCompleter)) {
+            try {
+              await _processRestored(purchase);
+            } catch (error) {
+              _lastError = error;
+            }
             continue;
           }
           sawRestoredItem = true;
@@ -401,7 +417,7 @@ class AppleStoreBillingService implements StoreBillingService {
     Completer<StoreBillingResult?> completer,
   ) {
     _restoreSettleTimer?.cancel();
-    _restoreSettleTimer = Timer(const Duration(milliseconds: 50), () {
+    _restoreSettleTimer = Timer(_restoreSettlementDelay, () {
       _enqueuePurchaseStreamAction(() async => _finishRestore(completer));
     });
   }

@@ -199,12 +199,12 @@ class AppSlidesApiClient {
       body: const <String, Object?>{},
     );
     final token = payload['app_account_token'];
-    if (token is String && token.trim().isNotEmpty) {
-      return token.trim();
+    if (token is String && AppConfig.isCanonicalUuid(token)) {
+      return token;
     }
     throw const AppSlidesApiException(
       statusCode: 500,
-      message: 'Invalid Apple app account token response',
+      message: 'Apple app account token must be a canonical UUID',
     );
   }
 
