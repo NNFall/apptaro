@@ -57,7 +57,19 @@ void main() {
     expect(billingController, contains('Future<void> restorePurchases()'));
     expect(
       googlePlayBillingService,
-      contains('restored: purchase.status == PurchaseStatus.restored'),
+      contains('case PurchaseStatus.purchased:'),
+    );
+    expect(
+      googlePlayBillingService,
+      contains('case PurchaseStatus.restored:'),
+    );
+    expect(
+      googlePlayBillingService,
+      contains('_verifyPurchase(purchase, restored: false)'),
+    );
+    expect(
+      googlePlayBillingService,
+      contains('_verifyPurchase(purchase, restored: true)'),
     );
     expect(
       googlePlayBillingService,

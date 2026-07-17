@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:apptaro/data/api/appslides_api_client.dart';
@@ -37,7 +39,7 @@ void main() {
       final store = _FakeStoreBillingService(
         restoreResult: StoreBillingResult(
           summary: restoredSummary,
-          paymentId: 'google_play:restore',
+          transactionReference: 'google_play:restore',
         ),
       );
       final controller = BillingController(
@@ -56,13 +58,14 @@ void main() {
 
     test('purchase uses the payment id returned by the store', () async {
       final plan = _plan();
-      final initialSummary = _summary(clientId: 'initial', plans: <BillingPlan>[plan]);
+      final initialSummary =
+          _summary(clientId: 'initial', plans: <BillingPlan>[plan]);
       final purchasedSummary = _summary(clientId: 'purchased');
       final repository = _FakeRepository(initialSummary);
       final store = _FakeStoreBillingService(
         purchaseResult: StoreBillingResult(
           summary: purchasedSummary,
-          paymentId: 'store:custom-payment-id',
+          transactionReference: 'store:custom-transaction-id',
         ),
       );
       final controller = BillingController(
@@ -75,9 +78,29 @@ void main() {
       expect(store.purchaseCalls, 1);
       expect(store.lastPurchasedPlan, same(plan));
       expect(controller.summary, same(purchasedSummary));
-      expect(controller.payment?.paymentId, 'store:custom-payment-id');
+      expect(controller.payment?.paymentId, 'store:custom-transaction-id');
       expect(controller.payment?.plan, same(plan));
       controller.dispose();
+    });
+
+    test('does not notify listeners after dispose', () async {
+      final repository = _DeferredRepository();
+      final store = _FakeStoreBillingService();
+      final controller = BillingController(
+        repository: repository,
+        storeBillingService: store,
+      );
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+
+      final refresh = controller.refreshSummary();
+      expect(notifications, 1);
+      controller.dispose();
+      repository.summaryCompleter.complete(_summary(clientId: 'late'));
+
+      await refresh;
+
+      expect(notifications, 1);
     });
   });
 }
@@ -139,6 +162,23 @@ class _FakeRepository extends AppSlidesRepository {
     fetchSummaryCalls += 1;
     return summary;
   }
+}
+
+class _DeferredRepository extends AppSlidesRepository {
+  _DeferredRepository()
+      : super(
+          api: AppSlidesApiClient(
+            backendConfig: BackendConfigRepository(),
+            languageRepository: LanguageRepository(),
+            clientIdProvider: () async => 'test-client',
+          ),
+        );
+
+  final Completer<BillingSummary> summaryCompleter =
+      Completer<BillingSummary>();
+
+  @override
+  Future<BillingSummary> fetchBillingSummary() => summaryCompleter.future;
 }
 
 BillingPlan _plan() {

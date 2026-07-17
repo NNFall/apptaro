@@ -24,6 +24,7 @@ class BillingController extends ChangeNotifier {
   BillingPayment? _payment;
   bool _loadingSummary = false;
   bool _creatingPayment = false;
+  bool _disposed = false;
   String? _error;
 
   BillingSummary? get summary => _summary;
@@ -43,7 +44,7 @@ class BillingController extends ChangeNotifier {
   Future<void> refreshSummary() async {
     _loadingSummary = true;
     _error = null;
-    notifyListeners();
+    _notifyListeners();
 
     try {
       _summary = await _repository.fetchBillingSummary();
@@ -51,14 +52,14 @@ class BillingController extends ChangeNotifier {
       _error = _describeError(error);
     } finally {
       _loadingSummary = false;
-      notifyListeners();
+      _notifyListeners();
     }
   }
 
   Future<void> startCheckout({required String planKey}) async {
     _creatingPayment = true;
     _error = null;
-    notifyListeners();
+    _notifyListeners();
 
     try {
       final currentSummary =
@@ -70,7 +71,7 @@ class BillingController extends ChangeNotifier {
       final result = await _storeBillingService.purchasePlan(plan);
       _summary = result.summary;
       _payment = BillingPayment(
-        paymentId: result.paymentId,
+        paymentId: result.transactionReference,
         status: 'paid',
         confirmationUrl: null,
         testMode: false,
@@ -81,21 +82,21 @@ class BillingController extends ChangeNotifier {
       _error = _describeError(error);
     } finally {
       _creatingPayment = false;
-      notifyListeners();
+      _notifyListeners();
     }
   }
 
   Future<void> restorePurchases() async {
     _loadingSummary = true;
     _error = null;
-    notifyListeners();
+    _notifyListeners();
 
     try {
       final result = await _storeBillingService.restorePurchases();
       if (result != null) {
         _summary = result.summary;
         _payment = BillingPayment(
-          paymentId: result.paymentId,
+          paymentId: result.transactionReference,
           status: 'paid',
           confirmationUrl: null,
           testMode: false,
@@ -106,13 +107,13 @@ class BillingController extends ChangeNotifier {
       _error = _describeError(error);
     } finally {
       _loadingSummary = false;
-      notifyListeners();
+      _notifyListeners();
     }
   }
 
   Future<void> redeemPromoCode(String code) async {
     _error = null;
-    notifyListeners();
+    _notifyListeners();
 
     try {
       _summary = await _repository.redeemPromoCode(code);
@@ -120,19 +121,29 @@ class BillingController extends ChangeNotifier {
       _error = _describeError(error);
       rethrow;
     } finally {
-      notifyListeners();
+      _notifyListeners();
     }
   }
 
   void clearPayment() {
     _payment = null;
-    notifyListeners();
+    _notifyListeners();
   }
 
   @override
   void dispose() {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
     unawaited(_storeBillingService.dispose());
     super.dispose();
+  }
+
+  void _notifyListeners() {
+    if (!_disposed) {
+      notifyListeners();
+    }
   }
 
   String _describeError(Object error) {

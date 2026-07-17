@@ -4,11 +4,11 @@ import '../../domain/models/billing_summary.dart';
 class StoreBillingResult {
   const StoreBillingResult({
     required this.summary,
-    required this.paymentId,
+    required this.transactionReference,
   });
 
   final BillingSummary summary;
-  final String paymentId;
+  final String transactionReference;
 }
 
 abstract interface class StoreBillingService {
