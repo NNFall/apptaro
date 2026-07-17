@@ -31,6 +31,12 @@ class AppConfig {
   static String conversionDownloadPath(String jobId) =>
       '${conversionJobPath(jobId)}/download';
 
+  static bool shouldRequireAppleBackend({
+    required bool isWeb,
+    required TargetPlatform targetPlatform,
+  }) =>
+      !isWeb && targetPlatform == TargetPlatform.iOS;
+
   static String resolveBackendBaseUrl({
     required bool isApplePlatform,
     required String appleBackendBaseUrl,
@@ -39,31 +45,55 @@ class AppConfig {
       return fixedBackendBaseUrl;
     }
 
-    final normalized = appleBackendBaseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    if (normalized.isEmpty) {
+    if (appleBackendBaseUrl.isEmpty) {
       throw StateError(
         'APPLE_BACKEND_BASE_URL is required for Apple builds.',
       );
     }
 
-    final uri = Uri.tryParse(normalized);
+    if (appleBackendBaseUrl != appleBackendBaseUrl.trim() ||
+        RegExp(r'\s').hasMatch(appleBackendBaseUrl)) {
+      throw _invalidAppleBackendUrl(appleBackendBaseUrl);
+    }
+
+    final uri = Uri.tryParse(appleBackendBaseUrl);
+    var validPort = true;
+    if (uri != null && uri.hasPort) {
+      try {
+        validPort = uri.port >= 1 && uri.port <= 65535;
+      } on FormatException {
+        validPort = false;
+      }
+    }
+
     if (uri == null ||
         !uri.isAbsolute ||
         uri.scheme != 'https' ||
-        uri.host.isEmpty) {
-      throw ArgumentError.value(
-        appleBackendBaseUrl,
-        'APPLE_BACKEND_BASE_URL',
-        'Apple builds require an absolute HTTPS URL.',
-      );
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        (uri.path.isNotEmpty && uri.path != '/') ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        !validPort) {
+      throw _invalidAppleBackendUrl(appleBackendBaseUrl);
     }
 
-    return normalized;
+    return uri.replace(path: '').toString();
+  }
+
+  static ArgumentError _invalidAppleBackendUrl(String value) {
+    return ArgumentError.value(
+      value,
+      'APPLE_BACKEND_BASE_URL',
+      'Apple builds require exactly one HTTPS origin.',
+    );
   }
 
   static String get defaultBackendBaseUrl => resolveBackendBaseUrl(
-        isApplePlatform: defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.macOS,
+        isApplePlatform: shouldRequireAppleBackend(
+          isWeb: kIsWeb,
+          targetPlatform: defaultTargetPlatform,
+        ),
         appleBackendBaseUrl: appleBackendBaseUrl,
       );
 

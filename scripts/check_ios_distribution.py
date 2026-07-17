@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import plistlib
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -37,9 +38,31 @@ def _validate_backend_url(value: str, errors: list[str]) -> None:
         errors.append('APPLE_BACKEND_BASE_URL is required for Apple distribution.')
         return
 
+    invalid = value != value.strip() or any(character.isspace() for character in value)
     parsed = urlparse(value)
-    if parsed.scheme != 'https' or not parsed.netloc or parsed.username or parsed.password:
-        errors.append('APPLE_BACKEND_BASE_URL must be an absolute HTTPS URL.')
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+        invalid = True
+
+    invalid = invalid or any(
+        (
+            parsed.scheme != 'https',
+            not parsed.hostname,
+            parsed.username is not None,
+            parsed.password is not None,
+            parsed.path not in ('', '/'),
+            bool(parsed.params),
+            bool(parsed.query),
+            bool(parsed.fragment),
+            port is not None and not 1 <= port <= 65535,
+        )
+    )
+    if invalid:
+        errors.append(
+            'APPLE_BACKEND_BASE_URL must be exactly one HTTPS origin.',
+        )
 
 
 def validate(repo_root: Path, apple_backend_base_url: str) -> list[str]:
@@ -48,8 +71,8 @@ def validate(repo_root: Path, apple_backend_base_url: str) -> list[str]:
 
     pubspec = _read(app_root / 'pubspec.yaml', errors)
     version_match = re.search(r'^version:\s*[^+\s]+\+(\d+)\s*$', pubspec, re.MULTILINE)
-    if not version_match or version_match.group(1) != '16':
-        errors.append('app/pubspec.yaml must use build number 16.')
+    if not version_match or int(version_match.group(1)) <= 15:
+        errors.append('app/pubspec.yaml build number must be greater than 15.')
 
     podfile = _read(app_root / 'ios' / 'Podfile', errors)
     if "platform :ios, '13.0'" not in podfile:
@@ -61,16 +84,38 @@ def validate(repo_root: Path, apple_backend_base_url: str) -> list[str]:
         app_root / 'ios' / 'Runner.xcodeproj' / 'project.pbxproj',
         errors,
     )
-    if f'PRODUCT_BUNDLE_IDENTIFIER = {EXPECTED_APP_BUNDLE_ID};' not in project:
+    bundle_ids = re.findall(
+        r'PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;\s]+)\s*;',
+        project,
+    )
+    if EXPECTED_APP_BUNDLE_ID not in bundle_ids:
         errors.append(f'Runner bundle identifier must be {EXPECTED_APP_BUNDLE_ID}.')
-    if f'PRODUCT_BUNDLE_IDENTIFIER = {EXPECTED_TEST_BUNDLE_ID};' not in project:
+    if EXPECTED_TEST_BUNDLE_ID not in bundle_ids:
         errors.append(f'RunnerTests bundle identifier must be {EXPECTED_TEST_BUNDLE_ID}.')
+    for bundle_id in bundle_ids:
+        if bundle_id not in (EXPECTED_APP_BUNDLE_ID, EXPECTED_TEST_BUNDLE_ID):
+            errors.append(f'Unexpected iOS bundle identifier: {bundle_id}.')
+
+    info_plist_path = app_root / 'ios' / 'Runner' / 'Info.plist'
+    info_plist_source = _read(info_plist_path, errors)
+    if info_plist_source:
+        try:
+            info_plist = plistlib.loads(info_plist_source.encode('utf-8'))
+        except plistlib.InvalidFileException:
+            errors.append(f'Invalid property list: {info_plist_path}')
+        else:
+            transport_security = info_plist.get('NSAppTransportSecurity', {})
+            if (
+                isinstance(transport_security, dict)
+                and transport_security.get('NSAllowsArbitraryLoads') is True
+            ):
+                errors.append('NSAllowsArbitraryLoads must not be enabled.')
 
     app_config = _read(app_root / 'lib' / 'core' / 'config' / 'app_config.dart', errors)
     if "String.fromEnvironment('APPLE_BACKEND_BASE_URL')" not in app_config:
         errors.append('AppConfig must read APPLE_BACKEND_BASE_URL at build time.')
 
-    _validate_backend_url(apple_backend_base_url.strip(), errors)
+    _validate_backend_url(apple_backend_base_url, errors)
     return errors
 
 
