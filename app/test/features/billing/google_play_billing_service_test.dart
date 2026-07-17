@@ -211,6 +211,75 @@ void main() {
       expect(harness.gateway.completeCalls, 1);
     });
 
+    test('orders stream errors behind active batches and keeps queue usable',
+        () async {
+      final gateway = _FakeStorePurchaseGateway();
+      final repository = _BlockingBillingRepository();
+      final service = GooglePlayBillingService(
+        repository: repository,
+        gateway: gateway,
+        packageName: 'com.nexwit.tarot',
+      );
+      addTearDown(() async {
+        if (!repository.releaseFirst.isCompleted) {
+          repository.releaseFirst.complete();
+        }
+        await service.dispose();
+        await gateway.dispose();
+      });
+
+      Object? purchaseOutcome;
+      final purchase = service.purchasePlan(_plan());
+      final observedPurchase = purchase.then<Object?>(
+        (result) {
+          purchaseOutcome = result;
+          return result;
+        },
+        onError: (Object error) {
+          purchaseOutcome = error;
+          return error;
+        },
+      );
+      await gateway.purchaseStarted.future;
+      gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'ordered-purchase',
+          token: 'batch-token-1',
+        ),
+      );
+      await repository.firstStarted.future;
+
+      gateway.emitError(StateError('Purchase stream failed.'));
+      await _flushEvents();
+      final outcomeBeforeRelease = purchaseOutcome;
+
+      repository.releaseFirst.complete();
+      final result = await observedPurchase;
+      gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'after-stream-error',
+          token: 'after-error-token',
+        ),
+      );
+      await _waitFor(
+        () => repository.completedTokens.contains('after-error-token'),
+      );
+
+      expect(outcomeBeforeRelease, isNull);
+      expect(result, isA<StoreBillingResult>());
+      expect(
+        (result as StoreBillingResult).transactionReference,
+        'google_play:ordered-purchase',
+      );
+      expect(
+        repository.startedTokens,
+        <String>['batch-token-1', 'after-error-token'],
+      );
+      expect(repository.maxConcurrent, 1);
+    });
+
     test('verifies and completes every restored item before one result',
         () async {
       final harness = _Harness();
@@ -475,6 +544,10 @@ class _FakeStorePurchaseGateway implements StorePurchaseGateway {
 
   void emitAll(List<PurchaseDetails> purchases) {
     _updates.add(purchases);
+  }
+
+  void emitError(Object error) {
+    _updates.addError(error);
   }
 
   Future<void> dispose() async {

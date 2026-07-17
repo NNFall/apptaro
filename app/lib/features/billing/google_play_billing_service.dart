@@ -127,7 +127,7 @@ class GooglePlayBillingService implements StoreBillingService {
     _ensureNotDisposed();
     _purchaseSubscription ??= _gateway.purchaseStream.listen(
       _enqueuePurchaseUpdates,
-      onError: _handleStreamError,
+      onError: _enqueuePurchaseStreamError,
     );
   }
 
@@ -328,11 +328,21 @@ class GooglePlayBillingService implements StoreBillingService {
   }
 
   void _enqueuePurchaseUpdates(List<PurchaseDetails> purchases) {
+    _enqueuePurchaseStreamAction(() => _handlePurchaseUpdates(purchases));
+  }
+
+  void _enqueuePurchaseStreamError(Object error, StackTrace stackTrace) {
+    _enqueuePurchaseStreamAction(() async {
+      _handleStreamError(error);
+    });
+  }
+
+  void _enqueuePurchaseStreamAction(Future<void> Function() action) {
     _purchaseUpdateQueue = _purchaseUpdateQueue.then((_) async {
       if (_disposed) {
         return;
       }
-      await _handlePurchaseUpdates(purchases);
+      await action();
     }).catchError((Object error, StackTrace stackTrace) {
       if (!_disposed) {
         _handleStreamError(error);
