@@ -110,6 +110,7 @@ class GooglePlayBillingService implements StoreBillingService {
   final String _packageName;
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  Future<void> _purchaseUpdateQueue = Future<void>.value();
   Completer<StoreBillingResult>? _activePurchaseCompleter;
   Completer<StoreBillingResult?>? _restoreCompleter;
   _StoreOperation? _activeOperation;
@@ -125,7 +126,7 @@ class GooglePlayBillingService implements StoreBillingService {
   Future<void> initialize() async {
     _ensureNotDisposed();
     _purchaseSubscription ??= _gateway.purchaseStream.listen(
-      (items) => unawaited(_handlePurchaseUpdates(items)),
+      _enqueuePurchaseUpdates,
       onError: _handleStreamError,
     );
   }
@@ -324,6 +325,19 @@ class GooglePlayBillingService implements StoreBillingService {
     } else if (restoredItems > 0 && latestRestoreResult != null) {
       _completeRestore(restoreCompleter, latestRestoreResult);
     }
+  }
+
+  void _enqueuePurchaseUpdates(List<PurchaseDetails> purchases) {
+    _purchaseUpdateQueue = _purchaseUpdateQueue.then((_) async {
+      if (_disposed) {
+        return;
+      }
+      await _handlePurchaseUpdates(purchases);
+    }).catchError((Object error, StackTrace stackTrace) {
+      if (!_disposed) {
+        _handleStreamError(error);
+      }
+    });
   }
 
   Future<void> _processPurchased(PurchaseDetails purchase) async {

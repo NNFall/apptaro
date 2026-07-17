@@ -124,6 +124,93 @@ void main() {
       expect(harness.gateway.completeCalls, 1);
     });
 
+    test('processes purchase stream batches sequentially and in order',
+        () async {
+      final gateway = _FakeStorePurchaseGateway();
+      final repository = _BlockingBillingRepository();
+      final service = GooglePlayBillingService(
+        repository: repository,
+        gateway: gateway,
+        packageName: 'com.nexwit.tarot',
+      );
+      addTearDown(() async {
+        if (!repository.releaseFirst.isCompleted) {
+          repository.releaseFirst.complete();
+        }
+        await service.dispose();
+        await gateway.dispose();
+      });
+      await service.initialize();
+
+      gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'batch-1',
+          token: 'batch-token-1',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await repository.firstStarted.future;
+      gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'batch-2',
+          token: 'batch-token-2',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await _flushEvents();
+      final concurrencyBeforeRelease = repository.maxConcurrent;
+      final startsBeforeRelease = List<String>.of(repository.startedTokens);
+
+      repository.releaseFirst.complete();
+      await _waitFor(() => repository.completedTokens.length == 2);
+
+      expect(concurrencyBeforeRelease, 1);
+      expect(startsBeforeRelease, <String>['batch-token-1']);
+      expect(
+        repository.startedTokens,
+        <String>['batch-token-1', 'batch-token-2'],
+      );
+      expect(
+        repository.completedTokens,
+        <String>['batch-token-1', 'batch-token-2'],
+      );
+      expect(gateway.completeCalls, 2);
+    });
+
+    test('continues processing batches after a verification error', () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.repository.failingTokens.add('bad-batch-token');
+      await harness.service.initialize();
+
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'bad-batch',
+          token: 'bad-batch-token',
+          pendingCompletePurchase: true,
+        ),
+      );
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'good-batch',
+          token: 'good-batch-token',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await _waitFor(() => harness.repository.verifyCalls == 2);
+      await _flushEvents();
+
+      expect(
+        harness.repository.purchaseTokens,
+        <String>['bad-batch-token', 'good-batch-token'],
+      );
+      expect(harness.gateway.completeCalls, 1);
+    });
+
     test('verifies and completes every restored item before one result',
         () async {
       final harness = _Harness();
@@ -411,6 +498,7 @@ class _FakeBillingRepository extends AppSlidesRepository {
   bool? lastRestored;
   Object? verificationError;
   final List<String> purchaseTokens = <String>[];
+  final Set<String> failingTokens = <String>{};
 
   @override
   Future<BillingSummary> verifyGooglePlayPurchase({
@@ -422,10 +510,53 @@ class _FakeBillingRepository extends AppSlidesRepository {
     verifyCalls += 1;
     lastRestored = restored;
     purchaseTokens.add(purchaseToken);
-    final error = verificationError;
+    final error = failingTokens.contains(purchaseToken)
+        ? StateError('Verification failed for $purchaseToken.')
+        : verificationError;
     if (error != null) {
       throw error;
     }
+    return _summary();
+  }
+}
+
+class _BlockingBillingRepository extends AppSlidesRepository {
+  _BlockingBillingRepository()
+      : super(
+          api: AppSlidesApiClient(
+            backendConfig: BackendConfigRepository(),
+            languageRepository: LanguageRepository(),
+            clientIdProvider: () async => 'test-client',
+          ),
+        );
+
+  final Completer<void> firstStarted = Completer<void>();
+  final Completer<void> releaseFirst = Completer<void>();
+  final List<String> startedTokens = <String>[];
+  final List<String> completedTokens = <String>[];
+  int concurrent = 0;
+  int maxConcurrent = 0;
+
+  @override
+  Future<BillingSummary> verifyGooglePlayPurchase({
+    required String productId,
+    required String purchaseToken,
+    required String packageName,
+    bool restored = false,
+  }) async {
+    startedTokens.add(purchaseToken);
+    concurrent += 1;
+    if (concurrent > maxConcurrent) {
+      maxConcurrent = concurrent;
+    }
+    if (purchaseToken == 'batch-token-1') {
+      if (!firstStarted.isCompleted) {
+        firstStarted.complete();
+      }
+      await releaseFirst.future;
+    }
+    completedTokens.add(purchaseToken);
+    concurrent -= 1;
     return _summary();
   }
 }
