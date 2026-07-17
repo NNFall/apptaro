@@ -89,15 +89,33 @@ class ApplePurchaseDetailsMetadata {
         transactionTime: null,
       );
     }
-    final milliseconds = int.tryParse(purchase.transactionDate ?? '');
     return ApplePurchaseDetailsMetadata(
       isStoreKit2: true,
       appAccountToken: purchase.appAccountToken,
-      transactionTime: milliseconds == null
-          ? null
-          : DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true),
+      transactionTime: _parseTransactionTime(purchase.transactionDate),
     );
   }
+
+  static DateTime? _parseTransactionTime(String? value) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    final milliseconds = int.tryParse(normalized);
+    if (milliseconds != null) {
+      try {
+        return DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true);
+      } on ArgumentError {
+        return null;
+      }
+    }
+    return DateTime.tryParse(normalized)?.toUtc();
+  }
+}
+
+String? _normalizeAppAccountToken(String? value) {
+  final normalized = value?.trim().toLowerCase();
+  return normalized == null || normalized.isEmpty ? null : normalized;
 }
 
 typedef ApplePurchaseDetailsMetadataExtractor = ApplePurchaseDetailsMetadata
@@ -588,7 +606,8 @@ class AppleStoreBillingService implements StoreBillingService {
     final transactionTime = metadata.transactionTime;
     if (expectedToken == null ||
         checkoutStartedAt == null ||
-        metadata.appAccountToken != expectedToken ||
+        _normalizeAppAccountToken(metadata.appAccountToken) !=
+            _normalizeAppAccountToken(expectedToken) ||
         transactionTime == null ||
         transactionTime.isBefore(checkoutStartedAt)) {
       return null;

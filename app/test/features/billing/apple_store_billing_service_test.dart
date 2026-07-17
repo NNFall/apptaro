@@ -38,6 +38,36 @@ void main() {
       );
     });
 
+    test('matches StoreKit date string and uppercase app account token',
+        () async {
+      final checkoutStart = DateTime.parse('2026-08-01 12:00:00').toUtc();
+      final harness = _Harness(now: () => checkoutStart);
+      addTearDown(harness.dispose);
+
+      final purchase = harness.service.purchasePlan(_plan('week'));
+      await harness.gateway.purchaseStarted.future;
+      harness.gateway.emit(
+        SK2PurchaseDetails(
+          productID: 'weekly_readings',
+          purchaseID: 'storekit-formatted',
+          verificationData: PurchaseVerificationData(
+            localVerificationData: 'signed',
+            serverVerificationData: 'signed',
+            source: 'app_store',
+          ),
+          transactionDate: '2026-08-01 12:00:01',
+          status: PurchaseStatus.purchased,
+          appAccountToken: _appAccountToken.toUpperCase(),
+        ),
+      );
+
+      final result = await purchase.timeout(const Duration(milliseconds: 200));
+
+      expect(result.transactionReference, 'app_store:storekit-formatted');
+      expect(harness.repository.verifyCalls, 1);
+      expect(harness.gateway.completeCalls, 1);
+    });
+
     test('uses at least one second as the production restore settlement delay',
         () {
       expect(
