@@ -10,6 +10,7 @@ import 'package:apptaro/data/repositories/language_repository.dart';
 import 'package:apptaro/domain/models/billing_plan.dart';
 import 'package:apptaro/domain/models/billing_summary.dart';
 import 'package:apptaro/features/billing/google_play_billing_service.dart';
+import 'package:apptaro/features/billing/store_billing_service.dart';
 
 void main() {
   group('GooglePlayBillingService', () {
@@ -90,14 +91,133 @@ void main() {
       await _flushEvents();
 
       expect(restoreCompleted, isFalse);
-      expect(harness.repository.verifyCalls, 1);
+      expect(harness.repository.verifyCalls, 2);
 
       harness.gateway.emit(_purchase(PurchaseStatus.restored, 'restore-2'));
       final restoreResult = await restore;
 
       expect(restoreResult?.transactionReference, 'google_play:restore-2');
-      expect(harness.repository.verifyCalls, 2);
+      expect(harness.repository.verifyCalls, 3);
       expect(harness.repository.lastRestored, isTrue);
+    });
+
+    test('processes a purchased redelivery without an active UI operation',
+        () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      await harness.service.initialize();
+
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.purchased,
+          'redelivery-1',
+          productId: 'one10_readings',
+          token: 'redelivery-token',
+          pendingCompletePurchase: true,
+        ),
+      );
+      await _flushEvents();
+
+      expect(harness.repository.verifyCalls, 1);
+      expect(harness.repository.purchaseTokens, <String>['redelivery-token']);
+      expect(harness.gateway.consumeCalls, 1);
+      expect(harness.gateway.completeCalls, 1);
+    });
+
+    test('verifies and completes every restored item before one result',
+        () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      var restoreResults = 0;
+      final restore = harness.service.restorePurchases()
+        ..then((_) => restoreResults += 1);
+      await harness.gateway.restoreStarted.future;
+
+      harness.gateway.emitAll(<PurchaseDetails>[
+        _purchase(
+          PurchaseStatus.restored,
+          'restore-batch-1',
+          token: 'restore-token-1',
+          pendingCompletePurchase: true,
+        ),
+        _purchase(
+          PurchaseStatus.restored,
+          'restore-batch-2',
+          token: 'restore-token-2',
+          pendingCompletePurchase: true,
+        ),
+      ]);
+      final result = await restore;
+
+      expect(harness.repository.verifyCalls, 2);
+      expect(
+        harness.repository.purchaseTokens,
+        <String>['restore-token-1', 'restore-token-2'],
+      );
+      expect(harness.gateway.completeCalls, 2);
+      expect(restoreResults, 1);
+      expect(result?.transactionReference, 'google_play:restore-batch-2');
+    });
+
+    test('ignores stale product errors for an active purchase', () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      Object? settled;
+      final purchase = harness.service.purchasePlan(_plan());
+      final observed = purchase.then<Object?>(
+        (result) {
+          settled = result;
+          return result;
+        },
+        onError: (Object error) {
+          settled = error;
+          return error;
+        },
+      );
+      await harness.gateway.purchaseStarted.future;
+
+      harness.gateway.emit(
+        _purchase(
+          PurchaseStatus.error,
+          'stale-error',
+          productId: 'monthly_readings',
+        ),
+      );
+      await _flushEvents();
+
+      expect(settled, isNull);
+
+      harness.gateway.emit(
+        _purchase(PurchaseStatus.purchased, 'purchase-after-stale'),
+      );
+      final result = await observed;
+      expect(result, isA<StoreBillingResult>());
+    });
+
+    test('restore verification failure completes with the backend error',
+        () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.repository.verificationError =
+          StateError('Backend rejected restored purchase.');
+      final restore = harness.service.restorePurchases();
+      final expectation = expectLater(
+        restore,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('Backend rejected'),
+          ),
+        ),
+      );
+      await harness.gateway.restoreStarted.future;
+
+      harness.gateway.emit(
+        _purchase(PurchaseStatus.restored, 'restore-failure'),
+      );
+
+      await expectation;
     });
 
     test('dispose fails a pending operation and rejects future operations',
@@ -127,17 +247,55 @@ void main() {
       );
     });
 
-    test('uses deterministic reference when purchase id is absent', () async {
+    test('fallback references differ for different purchase tokens', () async {
       final harness = _Harness();
       addTearDown(harness.dispose);
 
-      final purchase = harness.service.purchasePlan(_plan());
+      final firstPurchase = harness.service.purchasePlan(_plan());
       await harness.gateway.purchaseStarted.future;
-      harness.gateway.emit(_purchase(PurchaseStatus.purchased, null));
+      harness.gateway.emit(
+        _purchase(PurchaseStatus.purchased, null, token: 'fallback-token-a'),
+      );
+      final firstResult = await firstPurchase;
 
-      final result = await purchase;
+      final secondPurchase = harness.service.purchasePlan(_plan());
+      await _waitFor(() => harness.gateway.buyCalls == 2);
+      harness.gateway.emit(
+        _purchase(PurchaseStatus.purchased, null, token: 'fallback-token-b'),
+      );
+      final secondResult = await secondPurchase;
 
-      expect(result.transactionReference, 'google_play:weekly_readings');
+      expect(firstResult.transactionReference, startsWith('google_play:'));
+      expect(secondResult.transactionReference, startsWith('google_play:'));
+      expect(firstResult.transactionReference,
+          isNot(secondResult.transactionReference));
+      expect(firstResult.transactionReference,
+          isNot(contains('fallback-token-a')));
+      expect(secondResult.transactionReference,
+          isNot(contains('fallback-token-b')));
+    });
+
+    test('fallback reference is stable for the same token', () async {
+      final firstHarness = _Harness();
+      final secondHarness = _Harness();
+      addTearDown(firstHarness.dispose);
+      addTearDown(secondHarness.dispose);
+
+      final firstPurchase = firstHarness.service.purchasePlan(_plan());
+      final secondPurchase = secondHarness.service.purchasePlan(_plan());
+      await firstHarness.gateway.purchaseStarted.future;
+      await secondHarness.gateway.purchaseStarted.future;
+      firstHarness.gateway.emit(
+        _purchase(PurchaseStatus.purchased, null, token: 'repeated-token'),
+      );
+      secondHarness.gateway.emit(
+        _purchase(PurchaseStatus.purchased, null, token: 'repeated-token'),
+      );
+
+      expect(
+        (await firstPurchase).transactionReference,
+        (await secondPurchase).transactionReference,
+      );
     });
   });
 }
@@ -169,6 +327,9 @@ class _FakeStorePurchaseGateway implements StorePurchaseGateway {
 
   final Completer<void> purchaseStarted = Completer<void>();
   final Completer<void> restoreStarted = Completer<void>();
+  int buyCalls = 0;
+  int completeCalls = 0;
+  int consumeCalls = 0;
 
   @override
   Stream<List<PurchaseDetails>> get purchaseStream => _updates.stream;
@@ -188,6 +349,7 @@ class _FakeStorePurchaseGateway implements StorePurchaseGateway {
 
   @override
   Future<bool> buyNonConsumable(ProductDetails product) async {
+    buyCalls += 1;
     if (!purchaseStarted.isCompleted) {
       purchaseStarted.complete();
     }
@@ -196,6 +358,7 @@ class _FakeStorePurchaseGateway implements StorePurchaseGateway {
 
   @override
   Future<bool> buyConsumable(ProductDetails product) async {
+    buyCalls += 1;
     if (!purchaseStarted.isCompleted) {
       purchaseStarted.complete();
     }
@@ -210,13 +373,21 @@ class _FakeStorePurchaseGateway implements StorePurchaseGateway {
   }
 
   @override
-  Future<void> completePurchase(PurchaseDetails purchase) async {}
+  Future<void> completePurchase(PurchaseDetails purchase) async {
+    completeCalls += 1;
+  }
 
   @override
-  Future<void> consumePurchase(PurchaseDetails purchase) async {}
+  Future<void> consumePurchase(PurchaseDetails purchase) async {
+    consumeCalls += 1;
+  }
 
   void emit(PurchaseDetails purchase) {
     _updates.add(<PurchaseDetails>[purchase]);
+  }
+
+  void emitAll(List<PurchaseDetails> purchases) {
+    _updates.add(purchases);
   }
 
   Future<void> dispose() async {
@@ -238,6 +409,8 @@ class _FakeBillingRepository extends AppSlidesRepository {
 
   int verifyCalls = 0;
   bool? lastRestored;
+  Object? verificationError;
+  final List<String> purchaseTokens = <String>[];
 
   @override
   Future<BillingSummary> verifyGooglePlayPurchase({
@@ -248,6 +421,11 @@ class _FakeBillingRepository extends AppSlidesRepository {
   }) async {
     verifyCalls += 1;
     lastRestored = restored;
+    purchaseTokens.add(purchaseToken);
+    final error = verificationError;
+    if (error != null) {
+      throw error;
+    }
     return _summary();
   }
 }
@@ -275,18 +453,26 @@ ProductDetails _product(String id) {
   );
 }
 
-PurchaseDetails _purchase(PurchaseStatus status, String? purchaseId) {
-  return PurchaseDetails(
+PurchaseDetails _purchase(
+  PurchaseStatus status,
+  String? purchaseId, {
+  String productId = 'weekly_readings',
+  String token = 'server-token',
+  bool pendingCompletePurchase = false,
+}) {
+  final purchase = PurchaseDetails(
     purchaseID: purchaseId,
-    productID: 'weekly_readings',
+    productID: productId,
     verificationData: PurchaseVerificationData(
       localVerificationData: 'local-token',
-      serverVerificationData: 'server-token',
+      serverVerificationData: token,
       source: 'google_play',
     ),
     transactionDate: '1',
     status: status,
   );
+  purchase.pendingCompletePurchase = pendingCompletePurchase;
+  return purchase;
 }
 
 BillingSummary _summary() {
@@ -305,4 +491,14 @@ BillingSummary _summary() {
 Future<void> _flushEvents() async {
   await Future<void>.delayed(Duration.zero);
   await Future<void>.delayed(Duration.zero);
+}
+
+Future<void> _waitFor(bool Function() condition) async {
+  for (var attempt = 0; attempt < 20; attempt += 1) {
+    if (condition()) {
+      return;
+    }
+    await _flushEvents();
+  }
+  fail('Condition was not reached in time.');
 }

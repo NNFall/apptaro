@@ -7,6 +7,7 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import '../../core/config/app_config.dart';
 import '../../data/repositories/appslides_repository.dart';
 import '../../domain/models/billing_plan.dart';
+import '../../domain/models/billing_summary.dart';
 import 'store_billing_service.dart';
 
 abstract interface class StorePurchaseGateway {
@@ -269,100 +270,103 @@ class GooglePlayBillingService implements StoreBillingService {
   }
 
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
+    final restoreCompleter =
+        _activeOperation == _StoreOperation.restore ? _restoreCompleter : null;
+    StoreBillingResult? latestRestoreResult;
+    Object? restoreError;
+    var restoredItems = 0;
+
     for (final purchase in purchases) {
       switch (purchase.status) {
         case PurchaseStatus.pending:
           continue;
         case PurchaseStatus.error:
-          _handleOperationError(
-            StateError(
-              purchase.error?.message ?? 'Google Play purchase failed.',
-            ),
+          final error = StateError(
+            purchase.error?.message ?? 'Google Play purchase failed.',
           );
+          if (restoreCompleter != null && _isActiveRestore(restoreCompleter)) {
+            restoreError ??= error;
+          } else {
+            _failMatchingActivePurchase(purchase, error);
+          }
           break;
         case PurchaseStatus.canceled:
-          _handleOperationError(
-            StateError('Google Play purchase was canceled.'),
-          );
+          final error = StateError('Google Play purchase was canceled.');
+          if (restoreCompleter != null && _isActiveRestore(restoreCompleter)) {
+            restoreError ??= error;
+          } else {
+            _failMatchingActivePurchase(purchase, error);
+          }
           break;
         case PurchaseStatus.purchased:
-          final completer = _activePurchaseCompleter;
-          if (_activeOperation != _StoreOperation.purchase ||
-              completer == null ||
-              (_activeProductId != null &&
-                  _activeProductId != purchase.productID)) {
-            continue;
-          }
-          await _verifyAndCompletePurchase(purchase, completer);
+          await _processPurchased(purchase);
           break;
         case PurchaseStatus.restored:
-          final completer = _restoreCompleter;
-          if (_activeOperation != _StoreOperation.restore ||
-              completer == null) {
+          if (restoreCompleter == null || !_isActiveRestore(restoreCompleter)) {
             continue;
           }
-          await _verifyAndCompleteRestore(purchase, completer);
+          restoredItems += 1;
+          try {
+            latestRestoreResult = await _processRestored(purchase);
+          } catch (error) {
+            _lastError = error;
+            restoreError ??= error;
+          }
           break;
       }
     }
+
+    if (restoreCompleter == null || !_isActiveRestore(restoreCompleter)) {
+      return;
+    }
+    if (restoreError != null) {
+      _failRestore(restoreCompleter, restoreError);
+    } else if (restoredItems > 0 && latestRestoreResult != null) {
+      _completeRestore(restoreCompleter, latestRestoreResult);
+    }
   }
 
-  Future<void> _verifyAndCompletePurchase(
-    PurchaseDetails purchase,
-    Completer<StoreBillingResult> completer,
-  ) async {
+  Future<void> _processPurchased(PurchaseDetails purchase) async {
+    final completer = _matchingActivePurchase(purchase);
     try {
       final summary = await _verifyPurchase(purchase, restored: false);
-      if (!_isActivePurchase(completer)) {
-        return;
-      }
       if (_shouldConsume(purchase)) {
         await _gateway.consumePurchase(purchase);
       }
-      if (!_isActivePurchase(completer)) {
-        return;
-      }
       if (purchase.pendingCompletePurchase) {
         await _gateway.completePurchase(purchase);
       }
-      _completePurchase(
-        completer,
-        StoreBillingResult(
-          summary: summary,
-          transactionReference: _transactionReference(purchase),
-        ),
-      );
-    } catch (error) {
-      _failPurchase(completer, error);
-    }
-  }
-
-  Future<void> _verifyAndCompleteRestore(
-    PurchaseDetails purchase,
-    Completer<StoreBillingResult?> completer,
-  ) async {
-    try {
-      final summary = await _verifyPurchase(purchase, restored: true);
-      if (!_isActiveRestore(completer)) {
-        return;
+      if (completer != null && _isActivePurchase(completer)) {
+        _completePurchase(
+          completer,
+          StoreBillingResult(
+            summary: summary,
+            transactionReference: _transactionReference(purchase),
+          ),
+        );
       }
-      if (purchase.pendingCompletePurchase) {
-        await _gateway.completePurchase(purchase);
-      }
-      _completeRestore(
-        completer,
-        StoreBillingResult(
-          summary: summary,
-          transactionReference: _transactionReference(purchase),
-        ),
-      );
     } catch (error) {
       _lastError = error;
-      _completeRestore(completer, null);
+      if (completer != null && _isActivePurchase(completer)) {
+        _failPurchase(completer, error);
+      }
     }
   }
 
-  Future<dynamic> _verifyPurchase(
+  Future<StoreBillingResult> _processRestored(
+    PurchaseDetails purchase,
+  ) async {
+    final summary = await _verifyPurchase(purchase, restored: true);
+    if (purchase.pendingCompletePurchase) {
+      await _gateway.completePurchase(purchase);
+    }
+    return StoreBillingResult(
+      summary: summary,
+      transactionReference: _transactionReference(purchase),
+    );
+  }
+
+  Future<BillingSummary> _verifyPurchase(
     PurchaseDetails purchase, {
     required bool restored,
   }) {
@@ -391,6 +395,28 @@ class GooglePlayBillingService implements StoreBillingService {
     if (_activeOperation == _StoreOperation.restore &&
         restoreCompleter != null) {
       _failRestore(restoreCompleter, error);
+    }
+  }
+
+  Completer<StoreBillingResult>? _matchingActivePurchase(
+    PurchaseDetails purchase,
+  ) {
+    final completer = _activePurchaseCompleter;
+    if (_activeOperation != _StoreOperation.purchase ||
+        completer == null ||
+        _activeProductId != purchase.productID) {
+      return null;
+    }
+    return completer;
+  }
+
+  void _failMatchingActivePurchase(
+    PurchaseDetails purchase,
+    Object error,
+  ) {
+    final completer = _matchingActivePurchase(purchase);
+    if (completer != null) {
+      _failPurchase(completer, error);
     }
   }
 
@@ -500,9 +526,22 @@ class GooglePlayBillingService implements StoreBillingService {
     if (purchaseId != null && purchaseId.isNotEmpty) {
       return 'google_play:$purchaseId';
     }
-    if (purchase.status == PurchaseStatus.restored) {
-      return 'google_play:restore:${purchase.productID}';
+    final verificationData = purchase.verificationData.serverVerificationData;
+    final fingerprintSource = verificationData.isEmpty
+        ? '${purchase.productID}|${purchase.transactionDate ?? ''}|${purchase.status.name}'
+        : '${purchase.productID}|$verificationData';
+    return 'google_play:fallback:${_stableFingerprint(fingerprintSource)}';
+  }
+
+  static String _stableFingerprint(String value) {
+    var first = 0x1505;
+    var second = 0x45d9f3b;
+    for (final codeUnit in value.codeUnits) {
+      first = (((first << 5) - first) + codeUnit) & 0x7fffffff;
+      second = (((second << 5) + second) ^ codeUnit) & 0x7fffffff;
     }
-    return 'google_play:${purchase.productID}';
+    final firstHex = first.toRadixString(16).padLeft(8, '0');
+    final secondHex = second.toRadixString(16).padLeft(8, '0');
+    return '$firstHex$secondHex';
   }
 }
