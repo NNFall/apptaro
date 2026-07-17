@@ -45,8 +45,9 @@
 - [ ] **Step 1: Write failing identity/configuration guards**
 
 ```dart
-test('iOS distribution uses HTTPS and Apple bundle identity', () {
-  expect(AppConfig.backendBaseUrl.scheme, 'https');
+test('iOS distribution accepts only an explicitly supplied HTTPS backend', () {
+  expect(AppConfig.validateAppleBackendUrl('https://apple-api.example.test'), isTrue);
+  expect(AppConfig.validateAppleBackendUrl('http://185.171.83.116:8022'), isFalse);
   expect(AppConfig.iosBundleId, 'com.nexwit.tarot');
 });
 ```
@@ -74,13 +75,11 @@ Expected: FAIL because bundle IDs remain `com.apptaro.app` and `Podfile` is abse
 Use platform-aware immutable config:
 
 ```dart
-static final Uri backendBaseUrl = Uri.parse(
-  const String.fromEnvironment('BACKEND_BASE_URL', defaultValue: 'https://api.tarot-reader.ai'),
-);
+static const appleBackendBaseUrl = String.fromEnvironment('APPLE_BACKEND_BASE_URL');
 static const iosBundleId = 'com.nexwit.tarot';
 ```
 
-Create `Podfile` with `platform :ios, '13.0'`, `flutter_ios_podfile_setup`, the Runner target, and `flutter_install_all_ios_pods`. Update all Runner and RunnerTests bundle IDs. Increment `app/pubspec.yaml` build number above `15`.
+Create `Podfile` with `platform :ios, '13.0'`, `flutter_ios_podfile_setup`, the Runner target, and `flutter_install_all_ios_pods`. Update all Runner and RunnerTests bundle IDs. Increment `app/pubspec.yaml` build number above `15`. Preserve the existing Android endpoint; require the final owned HTTPS endpoint through `--dart-define=APPLE_BACKEND_BASE_URL=...` for iOS release builds rather than inventing a domain.
 
 - [ ] **Step 4: Run configuration checks GREEN**
 
@@ -574,4 +573,3 @@ Expected: remote branch exists and contains only intentional Apple commits.
 - [ ] **Step 4: Enforce the external completion gate**
 
 Do not mark the App Store goal complete until the signed IPA is accepted by App Store Connect, the TestFlight build launches, Sandbox purchase/restore and notifications are proven, IAP products are attached to the first version, and Apple accepts the version for App Review.
-
