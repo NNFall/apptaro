@@ -52,9 +52,19 @@ void main() {
 
     test('initialize starts the store and refreshes without restoring',
         () async {
-      final initialSummary = _summary(clientId: 'initial');
+      final plan = _plan();
+      final initialSummary =
+          _summary(clientId: 'initial', plans: <BillingPlan>[plan]);
       final repository = _FakeRepository(initialSummary);
-      final store = _FakeStoreBillingService();
+      final store = _FakeStoreBillingService(
+        products: const <StoreBillingProduct>[
+          StoreBillingProduct(
+            planKey: 'week',
+            productId: 'weekly_readings',
+            localizedPrice: r'$4.99',
+          ),
+        ],
+      );
       final controller = BillingController(
         repository: repository,
         storeBillingService: store,
@@ -63,9 +73,12 @@ void main() {
       await controller.initialize();
 
       expect(store.initializeCalls, 1);
+      expect(store.loadProductsCalls, 1);
+      expect(store.lastLoadedPlans, <BillingPlan>[plan]);
       expect(store.restoreCalls, 0);
       expect(repository.fetchSummaryCalls, 1);
       expect(controller.summary, same(initialSummary));
+      expect(controller.localizedPriceForPlan('week'), r'$4.99');
       controller.dispose();
     });
 
@@ -90,6 +103,43 @@ void main() {
       expect(controller.summary, same(restoredSummary));
       expect(controller.payment?.paymentId, 'google_play:restore');
       expect(controller.payment?.summary, same(restoredSummary));
+      expect(controller.restoreOutcome, BillingRestoreOutcome.restored);
+      controller.dispose();
+    });
+
+    test('explicit restore reports no purchases without creating payment',
+        () async {
+      final controller = BillingController(
+        repository: _FakeRepository(_summary(clientId: 'initial')),
+        storeBillingService: _FakeStoreBillingService(),
+      );
+
+      await controller.restorePurchases();
+
+      expect(controller.restoreOutcome, BillingRestoreOutcome.noPurchases);
+      expect(controller.payment, isNull);
+      controller.dispose();
+    });
+
+    test('explicit restore exposes partial warnings', () async {
+      final restoredSummary = _summary(clientId: 'restored');
+      final controller = BillingController(
+        repository: _FakeRepository(_summary(clientId: 'initial')),
+        storeBillingService: _FakeStoreBillingService(
+          restoreResult: StoreBillingResult(
+            summary: restoredSummary,
+            transactionReference: 'app_store:restore',
+            warnings: const <String>['one transaction failed'],
+            partialFailureCount: 1,
+          ),
+        ),
+      );
+
+      await controller.restorePurchases();
+
+      expect(controller.restoreOutcome, BillingRestoreOutcome.partial);
+      expect(controller.restoreWarnings, <String>['one transaction failed']);
+      expect(controller.restorePartialFailureCount, 1);
       controller.dispose();
     });
 
@@ -146,20 +196,33 @@ class _FakeStoreBillingService implements StoreBillingService {
   _FakeStoreBillingService({
     this.purchaseResult,
     this.restoreResult,
+    this.products = const <StoreBillingProduct>[],
   });
 
   final StoreBillingResult? purchaseResult;
   final StoreBillingResult? restoreResult;
+  final List<StoreBillingProduct> products;
 
   int initializeCalls = 0;
   int purchaseCalls = 0;
   int restoreCalls = 0;
+  int loadProductsCalls = 0;
   int disposeCalls = 0;
   BillingPlan? lastPurchasedPlan;
+  List<BillingPlan> lastLoadedPlans = const <BillingPlan>[];
 
   @override
   Future<void> initialize() async {
     initializeCalls += 1;
+  }
+
+  @override
+  Future<List<StoreBillingProduct>> loadProducts(
+    List<BillingPlan> plans,
+  ) async {
+    loadProductsCalls += 1;
+    lastLoadedPlans = List<BillingPlan>.of(plans);
+    return products;
   }
 
   @override

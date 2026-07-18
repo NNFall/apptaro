@@ -6,7 +6,6 @@ import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import '../../core/config/app_config.dart';
 import '../../data/repositories/appslides_repository.dart';
 import '../../domain/models/billing_plan.dart';
-import '../../domain/models/billing_summary.dart';
 import 'store_billing_service.dart';
 
 abstract interface class AppleStorePurchaseGateway {
@@ -158,6 +157,8 @@ class AppleStoreBillingService implements StoreBillingService {
   final Duration _restoreTimeout;
   final DateTime Function() _now;
   final ApplePurchaseDetailsMetadataExtractor _purchaseDetailsMetadata;
+  final Map<String, ProductDetails> _productsByPlanKey =
+      <String, ProductDetails>{};
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Future<void> _purchaseUpdateQueue = Future<void>.value();
@@ -193,6 +194,51 @@ class AppleStoreBillingService implements StoreBillingService {
       _enqueuePurchaseUpdates,
       onError: _enqueuePurchaseStreamError,
     );
+  }
+
+  @override
+  Future<List<StoreBillingProduct>> loadProducts(
+    List<BillingPlan> plans,
+  ) async {
+    _ensureNotDisposed();
+    await initialize();
+    if (!await _gateway.isAvailable()) {
+      throw StateError('App Store purchases are unavailable on this device.');
+    }
+
+    final plansByProductId = <String, BillingPlan>{};
+    for (final plan in plans) {
+      final productId = productIdForPlan(plan);
+      if (productId.isNotEmpty) {
+        plansByProductId[productId] = plan;
+      }
+    }
+    final missingProductIds = plansByProductId.entries
+        .where((entry) => !_productsByPlanKey.containsKey(entry.value.key))
+        .map((entry) => entry.key)
+        .toSet();
+    if (missingProductIds.isNotEmpty) {
+      final response = await _gateway.queryProductDetails(missingProductIds);
+      if (response.error != null) {
+        throw StateError(response.error!.message);
+      }
+      for (final product in response.productDetails) {
+        final plan = plansByProductId[product.id];
+        if (plan != null) {
+          _productsByPlanKey[plan.key] = product;
+        }
+      }
+    }
+
+    return <StoreBillingProduct>[
+      for (final plan in plans)
+        if (_productsByPlanKey[plan.key] case final product?)
+          StoreBillingProduct(
+            planKey: plan.key,
+            productId: product.id,
+            localizedPrice: product.price,
+          ),
+    ];
   }
 
   @override
@@ -252,6 +298,7 @@ class AppleStoreBillingService implements StoreBillingService {
 
     await _purchaseSubscription?.cancel();
     _purchaseSubscription = null;
+    _productsByPlanKey.clear();
 
     final error = StateError('Apple Store billing service is disposed.');
     if (purchaseCompleter != null && !purchaseCompleter.isCompleted) {
@@ -276,27 +323,11 @@ class AppleStoreBillingService implements StoreBillingService {
       if (productId.isEmpty) {
         throw StateError('App Store product id is missing for ${plan.key}.');
       }
-      if (!await _gateway.isAvailable()) {
-        throw StateError('App Store purchases are unavailable on this device.');
-      }
+      await loadProducts(<BillingPlan>[plan]);
       if (!_isActivePurchase(completer)) {
         return;
       }
-
-      final response = await _gateway.queryProductDetails(<String>{productId});
-      if (!_isActivePurchase(completer)) {
-        return;
-      }
-      if (response.error != null) {
-        throw StateError(response.error!.message);
-      }
-      ProductDetails? product;
-      for (final candidate in response.productDetails) {
-        if (candidate.id == productId) {
-          product = candidate;
-          break;
-        }
-      }
+      final product = _productsByPlanKey[plan.key];
       if (product == null) {
         throw StateError('App Store product was not found: $productId');
       }

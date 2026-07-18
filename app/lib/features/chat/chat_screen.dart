@@ -22,6 +22,7 @@ import '../../domain/models/remote_job.dart';
 import '../../domain/models/saved_file_entry.dart';
 import '../../l10n/app_language.dart';
 import '../../l10n/app_localizations.dart';
+import '../billing/apple_paywall_copy.dart';
 import '../billing/billing_controller.dart';
 import '../presentation/presentation_controller.dart';
 
@@ -67,6 +68,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _autoRenderOutlineKey;
 
   AppLanguage get _currentLanguage => AppScope.languageOf(context).current;
+  bool get _isRussian => _currentLanguage == AppLanguage.russian;
+  bool get _isNativeIos =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   String _copy({required String en, required String ru}) {
     return _currentLanguage == AppLanguage.russian ? ru : en;
@@ -100,6 +104,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String get _selectSubscriptionLabel => _copy(
         en: '✅ Choose subscription',
         ru: '✅ Выбрать подписку',
+      );
+
+  String get _restorePurchasesLabel => _copy(
+        en: 'Restore Purchases',
+        ru: 'Восстановить покупки',
       );
 
   @override
@@ -379,6 +388,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _showHistory();
         return;
       case '/promo':
+        if (_isNativeIos) {
+          _appendBotMessage(
+            _copy(
+              en: 'Promo codes are not supported on iOS.',
+              ru: 'Промокоды не поддерживаются на iOS.',
+            ),
+            keyboard: _mainMenuKeyboard(),
+          );
+          return;
+        }
         if (parts.length < 2 || parts[1].trim().isEmpty) {
           _appendBotMessage(
             _copy(
@@ -494,6 +513,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _redeemPromo(String code) async {
+    if (_isNativeIos) {
+      _appendBotMessage(
+        _copy(
+          en: 'Promo codes are not supported on iOS.',
+          ru: 'Промокоды не поддерживаются на iOS.',
+        ),
+        keyboard: _mainMenuKeyboard(),
+      );
+      return;
+    }
     final controller = _billingController;
     if (controller == null) {
       return;
@@ -1146,6 +1175,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
+    if (controller.restoreOutcome != BillingRestoreOutcome.idle) {
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
+
     final payment = controller.payment;
     if (payment != null) {
       final statusKey = '${payment.paymentId}:${payment.status}';
@@ -1259,6 +1295,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         en: '**Valid until:** ${_shortDate(active.endsAt)}',
         ru: '**Действует до:** ${_shortDate(active.endsAt)}',
       ));
+      if (_isNativeIos) {
+        buffer
+          ..writeln()
+          ..writeln(_applePaywallDisclosure());
+      }
       return buffer.toString().trim();
     }
 
@@ -1299,13 +1340,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     }
 
-    final offerUrl = summary.offerUrl.trim();
-    if (offerUrl.isNotEmpty) {
+    if (_isNativeIos) {
       buffer.writeln();
-      buffer.writeln(_copy(
-        en: 'Payment is handled securely by Google Play. By continuing, you agree to the [terms]($offerUrl).',
-        ru: 'Переходя к оплате, вы соглашаетесь с [офертой]($offerUrl).',
-      ));
+      buffer.writeln(_applePaywallDisclosure());
+    } else {
+      final offerUrl = summary.offerUrl.trim();
+      if (offerUrl.isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln(_copy(
+          en: 'Payment is handled securely by Google Play. By continuing, you agree to the [terms]($offerUrl).',
+          ru: 'Переходя к оплате, вы соглашаетесь с [офертой]($offerUrl).',
+        ));
+      }
     }
     return buffer.toString().trim();
   }
@@ -1324,6 +1370,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ]);
     }
 
+    if (_isNativeIos) {
+      rows.add([
+        _action(
+          _restorePurchasesLabel,
+          _restorePurchases,
+          actionKey: 'restore_purchases',
+          echoAsUser: false,
+        ),
+      ]);
+    }
+
     rows.add([
       _action(
         _mainMenuLabel,
@@ -1337,7 +1394,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _showPendingPresentationPaywall(BillingSummary summary) async {
     final rows = <List<_ChatAction>>[
-      for (final plan in _visibleBillingPlans(summary))
+      for (final plan in _visibleBillingPlans(summary).where(_canPurchasePlan))
         [
           _action(
             _planOptionLabel(plan),
@@ -1346,6 +1403,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             payload: <String, dynamic>{
               'plan_key': plan.key,
             },
+          ),
+        ],
+      if (_isNativeIos)
+        [
+          _action(
+            _restorePurchasesLabel,
+            _restorePurchases,
+            actionKey: 'restore_purchases',
+            echoAsUser: false,
           ),
         ],
       [
@@ -1358,13 +1424,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ],
     ];
 
+    final intro = _copy(
+      en: '**Your reading is almost ready!** ✅\n'
+          'Choose a subscription to unlock the full interpretation.',
+      ru: '**Расклад почти готов!** ✅\n'
+          'Выбери подписку, чтобы открыть полный разбор.',
+    );
     _appendBotMessage(
-      _copy(
-        en: '**Your reading is almost ready!** ✅\n'
-            'Choose a subscription to unlock the full interpretation.',
-        ru: '**Расклад почти готов!** ✅\n'
-            'Выбери подписку, чтобы открыть полный разбор.',
-      ),
+      _isNativeIos ? '$intro\n\n${_applePaywallDisclosure()}' : intro,
       keyboard: rows,
     );
   }
@@ -1373,6 +1440,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return summary.plans
         .where((plan) => plan.recurring)
         .toList(growable: false);
+  }
+
+  String? _applePrivacyPolicyUrl() {
+    try {
+      return AppConfig.resolveApplePrivacyPolicyUrl(
+        AppConfig.applePrivacyPolicyUrl,
+      ).toString();
+    } on Object {
+      return null;
+    }
+  }
+
+  String _applePaywallDisclosure() {
+    final privacyPolicyUrl = _applePrivacyPolicyUrl();
+    if (privacyPolicyUrl == null) {
+      return ApplePaywallCopy.privacyUnavailable(isRussian: _isRussian);
+    }
+    return ApplePaywallCopy.subscriptionDisclosure(
+      isRussian: _isRussian,
+      privacyPolicyUrl: privacyPolicyUrl,
+    );
+  }
+
+  bool _canPurchasePlan(BillingPlan plan) {
+    if (!_isNativeIos) {
+      return true;
+    }
+    final localizedPrice =
+        _billingController?.localizedPriceForPlan(plan.key)?.trim();
+    return _applePrivacyPolicyUrl() != null &&
+        localizedPrice != null &&
+        localizedPrice.isNotEmpty;
   }
 
   String _buildPaymentSuccessText(BillingSummary summary) {
@@ -1485,7 +1584,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     final plans = _visibleBillingPlans(summary);
     final rows = <List<_ChatAction>>[
-      for (final plan in plans)
+      for (final plan in plans.where(_canPurchasePlan))
         [
           _action(
             _planOptionLabel(plan),
@@ -1494,6 +1593,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             payload: <String, dynamic>{
               'plan_key': plan.key,
             },
+          ),
+        ],
+      if (_isNativeIos)
+        [
+          _action(
+            _restorePurchasesLabel,
+            _restorePurchases,
+            actionKey: 'restore_purchases',
+            echoAsUser: false,
           ),
         ],
       [
@@ -1506,11 +1614,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ],
     ];
 
+    final title = _copy(
+      en: '**Choose a subscription** 👇',
+      ru: '**Выбери подписку** 👇',
+    );
     _appendBotMessage(
-      _copy(
-        en: '**Choose a subscription** 👇',
-        ru: '**Выбери подписку** 👇',
-      ),
+      _isNativeIos ? '$title\n\n${_applePaywallDisclosure()}' : title,
       keyboard: rows,
     );
   }
@@ -1525,10 +1634,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     controller.clearPayment();
     _clearBillingProgressMessage();
     _billingProgressMessageId = _appendBotMessage(
-      _copy(
-        en: '_Opening Google Play checkout..._',
-        ru: '_Открываю оплату Google Play..._',
-      ),
+      _isNativeIos
+          ? ApplePaywallCopy.checkoutProgress(isRussian: _isRussian)
+          : _copy(
+              en: '_Opening Google Play checkout..._',
+              ru: '_Открываю оплату Google Play..._',
+            ),
       showLoadingAnimation: true,
     );
     await controller.startCheckout(planKey: planKey);
@@ -1536,6 +1647,53 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _clearBillingProgressMessage();
       _appendBotMessage('❌ ${controller.error!}');
     }
+  }
+
+  Future<void> _restorePurchases() async {
+    final controller = _billingController;
+    if (controller == null || !_isNativeIos) {
+      return;
+    }
+
+    _clearBillingProgressMessage();
+    _billingProgressMessageId = _appendBotMessage(
+      ApplePaywallCopy.restoreProgress(isRussian: _isRussian),
+      showLoadingAnimation: true,
+    );
+    await controller.restorePurchases();
+    _clearBillingProgressMessage();
+
+    final message = switch (controller.restoreOutcome) {
+      BillingRestoreOutcome.restored =>
+        ApplePaywallCopy.restoreSuccess(isRussian: _isRussian),
+      BillingRestoreOutcome.noPurchases =>
+        ApplePaywallCopy.restoreNoPurchases(isRussian: _isRussian),
+      BillingRestoreOutcome.partial => ApplePaywallCopy.restorePartial(
+          isRussian: _isRussian,
+          failedCount: controller.restorePartialFailureCount,
+        ),
+      BillingRestoreOutcome.failed => ApplePaywallCopy.restoreError(
+          isRussian: _isRussian,
+          error: controller.error ??
+              _copy(
+                  en: 'Unknown App Store error.',
+                  ru: 'Неизвестная ошибка App Store.'),
+        ),
+      BillingRestoreOutcome.idle =>
+        ApplePaywallCopy.restoreNoPurchases(isRussian: _isRussian),
+    };
+    final summary = controller.summary;
+    _appendBotMessage(
+      summary != null &&
+              (controller.restoreOutcome == BillingRestoreOutcome.restored ||
+                  controller.restoreOutcome == BillingRestoreOutcome.partial)
+          ? '$message\n${_copy(en: 'Available readings', ru: 'Доступно раскладов')}: '
+              '**${summary.remainingGenerations}**.'
+          : message,
+      keyboard: summary == null
+          ? _mainMenuOnlyKeyboard()
+          : _buildBalanceKeyboard(summary),
+    );
   }
 
   Future<void> _resumePendingPresentationAfterPayment() async {
@@ -1731,6 +1889,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   String _planTariffLine(BillingPlan plan) {
+    if (_isNativeIos) {
+      final localizedPrice =
+          _billingController?.localizedPriceForPlan(plan.key)?.trim();
+      if (localizedPrice == null || localizedPrice.isEmpty) {
+        return ApplePaywallCopy.priceUnavailable(isRussian: _isRussian);
+      }
+      return ApplePaywallCopy.planLine(
+        isRussian: _isRussian,
+        planKey: plan.key,
+        localizedPrice: localizedPrice,
+        includedReadings: plan.limit,
+      );
+    }
     return switch (plan.key) {
       'week' => _copy(
           en: 'Weekly plan - ${plan.limit} readings',
@@ -2245,8 +2416,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       case 'start_conversion':
         callback = () async => _appendBotMessage(
               _copy(
-                en: 'This file tool is not available in the Google Play version.',
-                ru: 'Этот инструмент для файлов недоступен в версии Google Play.',
+                en: _isNativeIos
+                    ? 'This file tool is not available in this version.'
+                    : 'This file tool is not available in the Google Play version.',
+                ru: _isNativeIos
+                    ? 'Этот инструмент для файлов недоступен в этой версии.'
+                    : 'Этот инструмент для файлов недоступен в версии Google Play.',
               ),
               keyboard: _mainMenuOnlyKeyboard(),
             );
@@ -2288,6 +2463,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         break;
       case 'show_plan_options':
         callback = _showPlanOptions;
+        break;
+      case 'restore_purchases':
+        callback = _restorePurchases;
         break;
       case 'start_billing_payment':
         final planKey = action.payload['plan_key'] as String?;

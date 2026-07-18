@@ -14,6 +14,8 @@ typedef StoreBillingServiceBuilder = StoreBillingService Function(
   AppSlidesRepository repository,
 );
 
+enum BillingRestoreOutcome { idle, restored, noPurchases, partial, failed }
+
 StoreBillingService createPlatformStoreBillingService({
   required AppSlidesRepository repository,
   required bool isWeb,
@@ -55,12 +57,24 @@ class BillingController extends ChangeNotifier {
   bool _creatingPayment = false;
   bool _disposed = false;
   String? _error;
+  final Map<String, StoreBillingProduct> _productsByPlanKey =
+      <String, StoreBillingProduct>{};
+  BillingRestoreOutcome _restoreOutcome = BillingRestoreOutcome.idle;
+  List<String> _restoreWarnings = const <String>[];
+  int _restorePartialFailureCount = 0;
 
   BillingSummary? get summary => _summary;
   BillingPayment? get payment => _payment;
   bool get loadingSummary => _loadingSummary;
   bool get creatingPayment => _creatingPayment;
   String? get error => _error;
+  BillingRestoreOutcome get restoreOutcome => _restoreOutcome;
+  List<String> get restoreWarnings => _restoreWarnings;
+  int get restorePartialFailureCount => _restorePartialFailureCount;
+
+  String? localizedPriceForPlan(String planKey) {
+    return _productsByPlanKey[planKey]?.localizedPrice;
+  }
 
   Future<void> initialize() async {
     if (_summary != null || _loadingSummary) {
@@ -76,7 +90,19 @@ class BillingController extends ChangeNotifier {
     _notifyListeners();
 
     try {
-      _summary = await _repository.fetchBillingSummary();
+      final summary = await _repository.fetchBillingSummary();
+      _summary = summary;
+      try {
+        final products = await _storeBillingService.loadProducts(summary.plans);
+        _productsByPlanKey
+          ..clear()
+          ..addEntries(products.map((product) => MapEntry(
+                product.planKey,
+                product,
+              )));
+      } catch (_) {
+        _productsByPlanKey.clear();
+      }
     } catch (error) {
       _error = _describeError(error);
     } finally {
@@ -88,6 +114,9 @@ class BillingController extends ChangeNotifier {
   Future<void> startCheckout({required String planKey}) async {
     _creatingPayment = true;
     _error = null;
+    _restoreOutcome = BillingRestoreOutcome.idle;
+    _restoreWarnings = const <String>[];
+    _restorePartialFailureCount = 0;
     _notifyListeners();
 
     try {
@@ -118,12 +147,24 @@ class BillingController extends ChangeNotifier {
   Future<void> restorePurchases() async {
     _loadingSummary = true;
     _error = null;
+    _payment = null;
+    _restoreOutcome = BillingRestoreOutcome.idle;
+    _restoreWarnings = const <String>[];
+    _restorePartialFailureCount = 0;
     _notifyListeners();
 
     try {
       final result = await _storeBillingService.restorePurchases();
-      if (result != null) {
+      if (result == null) {
+        _restoreOutcome = BillingRestoreOutcome.noPurchases;
+      } else {
         _summary = result.summary;
+        _restoreWarnings = List<String>.unmodifiable(result.warnings);
+        _restorePartialFailureCount = result.partialFailureCount;
+        _restoreOutcome =
+            result.partialFailureCount > 0 || result.warnings.isNotEmpty
+                ? BillingRestoreOutcome.partial
+                : BillingRestoreOutcome.restored;
         _payment = BillingPayment(
           paymentId: result.transactionReference,
           status: 'paid',
@@ -134,6 +175,7 @@ class BillingController extends ChangeNotifier {
       }
     } catch (error) {
       _error = _describeError(error);
+      _restoreOutcome = BillingRestoreOutcome.failed;
     } finally {
       _loadingSummary = false;
       _notifyListeners();

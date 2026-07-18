@@ -1,6 +1,29 @@
 import '../../domain/models/billing_plan.dart';
 import '../../domain/models/billing_summary.dart';
 
+class StoreBillingProduct {
+  const StoreBillingProduct({
+    required this.planKey,
+    required this.productId,
+    required this.localizedPrice,
+  });
+
+  final String planKey;
+  final String productId;
+  final String localizedPrice;
+
+  @override
+  bool operator ==(Object other) {
+    return other is StoreBillingProduct &&
+        other.planKey == planKey &&
+        other.productId == productId &&
+        other.localizedPrice == localizedPrice;
+  }
+
+  @override
+  int get hashCode => Object.hash(planKey, productId, localizedPrice);
+}
+
 class StoreBillingResult {
   const StoreBillingResult({
     required this.summary,
@@ -17,6 +40,8 @@ class StoreBillingResult {
 
 abstract interface class StoreBillingService {
   Future<void> initialize();
+
+  Future<List<StoreBillingProduct>> loadProducts(List<BillingPlan> plans);
 
   Future<StoreBillingResult> purchasePlan(BillingPlan plan);
 

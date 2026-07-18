@@ -10,6 +10,45 @@ void main() {
     );
     expect(AppConfig.billingAppleVerifyPath, '/v1/billing/apple/verify');
     expect(AppConfig.appleBundleId, 'com.nexwit.tarot');
+    expect(
+      AppConfig.appleTermsOfUseUrl,
+      'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+    );
+  });
+
+  group('AppConfig.resolveApplePrivacyPolicyUrl', () {
+    test('accepts an absolute HTTPS privacy policy URL', () {
+      expect(
+        AppConfig.resolveApplePrivacyPolicyUrl(
+          'https://example.test/legal/privacy?lang=en',
+        ).toString(),
+        'https://example.test/legal/privacy?lang=en',
+      );
+    });
+
+    test('rejects a missing privacy policy URL', () {
+      expect(
+        () => AppConfig.resolveApplePrivacyPolicyUrl(''),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    const invalidUrls = <String>[
+      ' http://example.test/privacy',
+      'http://example.test/privacy',
+      '/privacy',
+      'https://user:pass@example.test/privacy',
+      'https://example.test/privacy#section',
+    ];
+
+    for (final url in invalidUrls) {
+      test('rejects invalid privacy policy URL: $url', () {
+        expect(
+          () => AppConfig.resolveApplePrivacyPolicyUrl(url),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+    }
   });
 
   group('AppConfig.shouldRequireAppleBackend', () {

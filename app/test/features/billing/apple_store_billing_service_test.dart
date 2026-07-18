@@ -7,7 +7,6 @@ import 'package:apptaro/data/repositories/language_repository.dart';
 import 'package:apptaro/domain/models/billing_plan.dart';
 import 'package:apptaro/domain/models/billing_summary.dart';
 import 'package:apptaro/features/billing/apple_store_billing_service.dart';
-import 'package:apptaro/features/billing/store_billing_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
@@ -85,6 +84,26 @@ void main() {
           'one10_readings');
       expect(AppleStoreBillingService.productIdForPlan(_plan('one40')),
           'one40_readings');
+    });
+
+    test('loads and caches localized StoreKit product prices', () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+
+      final first = await harness.service.loadProducts(
+        <BillingPlan>[_plan('week'), _plan('month')],
+      );
+      final second = await harness.service.loadProducts(
+        <BillingPlan>[_plan('week'), _plan('month')],
+      );
+
+      expect(
+        first.map((product) => product.planKey),
+        <String>['week', 'month'],
+      );
+      expect(first.first.localizedPrice, r'$1.99');
+      expect(second, first);
+      expect(harness.gateway.queryCalls, 1);
     });
 
     test('attaches backend app account token to the StoreKit purchase',
@@ -668,6 +687,7 @@ class _FakeAppleStorePurchaseGateway implements AppleStorePurchaseGateway {
   String? lastAppAccountToken;
   ProductDetails? lastProduct;
   int completeCalls = 0;
+  int queryCalls = 0;
   List<ProductDetails>? queryProductsOverride;
   bool buyResult = true;
   Completer<void>? restoreRelease;
@@ -681,6 +701,7 @@ class _FakeAppleStorePurchaseGateway implements AppleStorePurchaseGateway {
   @override
   Future<ProductDetailsResponse> queryProductDetails(
       Set<String> productIds) async {
+    queryCalls += 1;
     return ProductDetailsResponse(
       productDetails:
           queryProductsOverride ?? productIds.map(_product).toList(),

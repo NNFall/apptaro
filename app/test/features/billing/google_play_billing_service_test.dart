@@ -14,6 +14,19 @@ import 'package:apptaro/features/billing/store_billing_service.dart';
 
 void main() {
   group('GooglePlayBillingService', () {
+    test('loads and caches localized Google Play product prices', () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+
+      final first = await harness.service.loadProducts(<BillingPlan>[_plan()]);
+      final second = await harness.service.loadProducts(<BillingPlan>[_plan()]);
+
+      expect(first.single.planKey, 'week');
+      expect(first.single.localizedPrice, r'$1.99');
+      expect(second, first);
+      expect(harness.gateway.queryCalls, 1);
+    });
+
     test('rejects every second operation while a purchase is active', () async {
       final harness = _Harness();
       addTearDown(harness.dispose);
@@ -486,6 +499,7 @@ class _FakeStorePurchaseGateway implements StorePurchaseGateway {
   int buyCalls = 0;
   int completeCalls = 0;
   int consumeCalls = 0;
+  int queryCalls = 0;
 
   @override
   Stream<List<PurchaseDetails>> get purchaseStream => _updates.stream;
@@ -497,6 +511,7 @@ class _FakeStorePurchaseGateway implements StorePurchaseGateway {
   Future<ProductDetailsResponse> queryProductDetails(
     Set<String> productIds,
   ) async {
+    queryCalls += 1;
     return ProductDetailsResponse(
       productDetails: productIds.map(_product).toList(),
       notFoundIDs: const <String>[],

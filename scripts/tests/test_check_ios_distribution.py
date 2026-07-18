@@ -60,7 +60,9 @@ def _write_distribution_fixture(
     )
     (app / 'lib' / 'core' / 'config' / 'app_config.dart').write_text(
         "static const String appleBackendBaseUrl = "
-        "String.fromEnvironment('APPLE_BACKEND_BASE_URL');\n",
+        "String.fromEnvironment('APPLE_BACKEND_BASE_URL');\n"
+        "static const String applePrivacyPolicyUrl = "
+        "String.fromEnvironment('APPLE_PRIVACY_POLICY_URL');\n",
         encoding='utf-8',
     )
 
@@ -87,6 +89,8 @@ def test_checker_accepts_valid_distribution_configuration(tmp_path: Path) -> Non
         tmp_path,
         '--apple-backend-base-url',
         'https://api.example.test',
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
@@ -99,6 +103,8 @@ def test_checker_accepts_build_number_above_15(tmp_path: Path) -> None:
         tmp_path,
         '--apple-backend-base-url',
         'https://api.example.test',
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
@@ -111,6 +117,8 @@ def test_checker_rejects_build_number_15(tmp_path: Path) -> None:
         tmp_path,
         '--apple-backend-base-url',
         'https://api.example.test',
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 1
@@ -120,7 +128,12 @@ def test_checker_rejects_build_number_15(tmp_path: Path) -> None:
 def test_checker_rejects_missing_apple_backend_url(tmp_path: Path) -> None:
     _write_distribution_fixture(tmp_path)
 
-    result = _run_checker(tmp_path, env={**os.environ, 'APPLE_BACKEND_BASE_URL': ''})
+    result = _run_checker(
+        tmp_path,
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
+        env={**os.environ, 'APPLE_BACKEND_BASE_URL': ''},
+    )
 
     assert result.returncode == 1
     assert 'APPLE_BACKEND_BASE_URL' in result.stdout
@@ -133,6 +146,8 @@ def test_checker_rejects_non_https_apple_backend_url(tmp_path: Path) -> None:
         tmp_path,
         '--apple-backend-base-url',
         'http://api.example.test',
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 1
@@ -164,6 +179,8 @@ def test_checker_rejects_invalid_apple_backend_origin(
         tmp_path,
         '--apple-backend-base-url',
         origin,
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 1
@@ -172,7 +189,11 @@ def test_checker_rejects_invalid_apple_backend_origin(
 
 def test_checker_reads_apple_backend_url_from_environment(tmp_path: Path) -> None:
     _write_distribution_fixture(tmp_path)
-    env = {**os.environ, 'APPLE_BACKEND_BASE_URL': 'https://api.example.test'}
+    env = {
+        **os.environ,
+        'APPLE_BACKEND_BASE_URL': 'https://api.example.test',
+        'APPLE_PRIVACY_POLICY_URL': 'https://example.test/privacy',
+    }
 
     result = _run_checker(tmp_path, env=env)
 
@@ -186,6 +207,8 @@ def test_checker_rejects_wrong_bundle_identifier(tmp_path: Path) -> None:
         tmp_path,
         '--apple-backend-base-url',
         'https://api.example.test',
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 1
@@ -199,6 +222,8 @@ def test_checker_rejects_bad_extra_bundle_configuration(tmp_path: Path) -> None:
         tmp_path,
         '--apple-backend-base-url',
         'https://api.example.test',
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 1
@@ -212,6 +237,8 @@ def test_checker_rejects_broad_ats_exception(tmp_path: Path) -> None:
         tmp_path,
         '--apple-backend-base-url',
         'https://api.example.test',
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 1
@@ -223,6 +250,50 @@ def test_repository_distribution_files_pass_with_injected_url() -> None:
         REPO_ROOT,
         '--apple-backend-base-url',
         'https://api.example.test',
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_checker_rejects_missing_privacy_policy_url(tmp_path: Path) -> None:
+    _write_distribution_fixture(tmp_path)
+
+    result = _run_checker(
+        tmp_path,
+        '--apple-backend-base-url',
+        'https://api.example.test',
+        env={**os.environ, 'APPLE_PRIVACY_POLICY_URL': ''},
+    )
+
+    assert result.returncode == 1
+    assert 'APPLE_PRIVACY_POLICY_URL' in result.stdout
+
+
+@pytest.mark.parametrize(
+    'url',
+    [
+        ' https://example.test/privacy',
+        'http://example.test/privacy',
+        '/privacy',
+        'https://user:pass@example.test/privacy',
+        'https://example.test/privacy#section',
+    ],
+)
+def test_checker_rejects_invalid_privacy_policy_url(
+    tmp_path: Path,
+    url: str,
+) -> None:
+    _write_distribution_fixture(tmp_path)
+
+    result = _run_checker(
+        tmp_path,
+        '--apple-backend-base-url',
+        'https://api.example.test',
+        '--apple-privacy-policy-url',
+        url,
+    )
+
+    assert result.returncode == 1
+    assert 'absolute HTTPS URL' in result.stdout

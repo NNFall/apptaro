@@ -5,6 +5,10 @@ class AppConfig {
   static const String fixedBackendBaseUrl = 'http://185.171.83.116:8022';
   static const String appleBackendBaseUrl =
       String.fromEnvironment('APPLE_BACKEND_BASE_URL');
+  static const String applePrivacyPolicyUrl =
+      String.fromEnvironment('APPLE_PRIVACY_POLICY_URL');
+  static const String appleTermsOfUseUrl =
+      'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
   static const String supportMaxUrl =
       'https://max.ru/u/f9LHodD0cOL1NLfuFBoMvvVMSgRmsLKspQSSM1d9_6ZR68W1oT3zfN20xA8';
   static const String healthPath = '/v1/health';
@@ -90,6 +94,45 @@ class AppConfig {
       value,
       'APPLE_BACKEND_BASE_URL',
       'Apple builds require exactly one HTTPS origin.',
+    );
+  }
+
+  static Uri resolveApplePrivacyPolicyUrl(String value) {
+    if (value.isEmpty) {
+      throw StateError(
+        'APPLE_PRIVACY_POLICY_URL is required for Apple builds.',
+      );
+    }
+    if (value != value.trim() || RegExp(r'\s').hasMatch(value)) {
+      throw _invalidApplePrivacyPolicyUrl(value);
+    }
+
+    final uri = Uri.tryParse(value);
+    var validPort = true;
+    if (uri != null && uri.hasPort) {
+      try {
+        validPort = uri.port >= 1 && uri.port <= 65535;
+      } on FormatException {
+        validPort = false;
+      }
+    }
+    if (uri == null ||
+        !uri.isAbsolute ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasFragment ||
+        !validPort) {
+      throw _invalidApplePrivacyPolicyUrl(value);
+    }
+    return uri;
+  }
+
+  static ArgumentError _invalidApplePrivacyPolicyUrl(String value) {
+    return ArgumentError.value(
+      value,
+      'APPLE_PRIVACY_POLICY_URL',
+      'Apple builds require an absolute HTTPS privacy policy URL.',
     );
   }
 

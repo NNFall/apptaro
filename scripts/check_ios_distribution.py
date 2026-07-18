@@ -22,6 +22,7 @@ def _parse_args() -> argparse.Namespace:
         default=Path(__file__).resolve().parents[1],
     )
     parser.add_argument('--apple-backend-base-url')
+    parser.add_argument('--apple-privacy-policy-url')
     return parser.parse_args()
 
 
@@ -65,7 +66,42 @@ def _validate_backend_url(value: str, errors: list[str]) -> None:
         )
 
 
-def validate(repo_root: Path, apple_backend_base_url: str) -> list[str]:
+def _validate_privacy_policy_url(value: str, errors: list[str]) -> None:
+    if not value:
+        errors.append(
+            'APPLE_PRIVACY_POLICY_URL is required for Apple distribution.',
+        )
+        return
+
+    invalid = value != value.strip() or any(character.isspace() for character in value)
+    parsed = urlparse(value)
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+        invalid = True
+
+    invalid = invalid or any(
+        (
+            parsed.scheme != 'https',
+            not parsed.hostname,
+            parsed.username is not None,
+            parsed.password is not None,
+            bool(parsed.fragment),
+            port is not None and not 1 <= port <= 65535,
+        )
+    )
+    if invalid:
+        errors.append(
+            'APPLE_PRIVACY_POLICY_URL must be an absolute HTTPS URL.',
+        )
+
+
+def validate(
+    repo_root: Path,
+    apple_backend_base_url: str,
+    apple_privacy_policy_url: str,
+) -> list[str]:
     errors: list[str] = []
     app_root = repo_root.resolve() / 'app'
 
@@ -114,8 +150,13 @@ def validate(repo_root: Path, apple_backend_base_url: str) -> list[str]:
     app_config = _read(app_root / 'lib' / 'core' / 'config' / 'app_config.dart', errors)
     if "String.fromEnvironment('APPLE_BACKEND_BASE_URL')" not in app_config:
         errors.append('AppConfig must read APPLE_BACKEND_BASE_URL at build time.')
+    if "String.fromEnvironment('APPLE_PRIVACY_POLICY_URL')" not in app_config:
+        errors.append(
+            'AppConfig must read APPLE_PRIVACY_POLICY_URL at build time.',
+        )
 
     _validate_backend_url(apple_backend_base_url, errors)
+    _validate_privacy_policy_url(apple_privacy_policy_url, errors)
     return errors
 
 
@@ -124,8 +165,11 @@ def main() -> int:
     backend_url = args.apple_backend_base_url
     if backend_url is None:
         backend_url = os.environ.get('APPLE_BACKEND_BASE_URL', '')
+    privacy_policy_url = args.apple_privacy_policy_url
+    if privacy_policy_url is None:
+        privacy_policy_url = os.environ.get('APPLE_PRIVACY_POLICY_URL', '')
 
-    errors = validate(args.repo_root, backend_url)
+    errors = validate(args.repo_root, backend_url, privacy_policy_url)
     if errors:
         print('iOS distribution configuration is invalid:')
         for error in errors:

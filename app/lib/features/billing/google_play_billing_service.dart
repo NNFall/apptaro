@@ -108,6 +108,8 @@ class GooglePlayBillingService implements StoreBillingService {
   final AppSlidesRepository _repository;
   final StorePurchaseGateway _gateway;
   final String _packageName;
+  final Map<String, ProductDetails> _productsByPlanKey =
+      <String, ProductDetails>{};
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Future<void> _purchaseUpdateQueue = Future<void>.value();
@@ -129,6 +131,53 @@ class GooglePlayBillingService implements StoreBillingService {
       _enqueuePurchaseUpdates,
       onError: _enqueuePurchaseStreamError,
     );
+  }
+
+  @override
+  Future<List<StoreBillingProduct>> loadProducts(
+    List<BillingPlan> plans,
+  ) async {
+    _ensureNotDisposed();
+    await initialize();
+    if (!await _gateway.isAvailable()) {
+      throw StateError(
+        'Google Play purchases are unavailable on this device.',
+      );
+    }
+
+    final plansByProductId = <String, BillingPlan>{};
+    for (final plan in plans) {
+      final productId = productIdForPlan(plan);
+      if (productId.isNotEmpty) {
+        plansByProductId[productId] = plan;
+      }
+    }
+    final missingProductIds = plansByProductId.entries
+        .where((entry) => !_productsByPlanKey.containsKey(entry.value.key))
+        .map((entry) => entry.key)
+        .toSet();
+    if (missingProductIds.isNotEmpty) {
+      final response = await _gateway.queryProductDetails(missingProductIds);
+      if (response.error != null) {
+        throw StateError(response.error!.message);
+      }
+      for (final product in response.productDetails) {
+        final plan = plansByProductId[product.id];
+        if (plan != null) {
+          _productsByPlanKey[plan.key] = product;
+        }
+      }
+    }
+
+    return <StoreBillingProduct>[
+      for (final plan in plans)
+        if (_productsByPlanKey[plan.key] case final product?)
+          StoreBillingProduct(
+            planKey: plan.key,
+            productId: product.id,
+            localizedPrice: product.price,
+          ),
+    ];
   }
 
   @override
@@ -179,6 +228,7 @@ class GooglePlayBillingService implements StoreBillingService {
 
     await _purchaseSubscription?.cancel();
     _purchaseSubscription = null;
+    _productsByPlanKey.clear();
 
     final error = StateError('Google Play billing service is disposed.');
     if (purchaseCompleter != null && !purchaseCompleter.isCompleted) {
@@ -212,29 +262,17 @@ class GooglePlayBillingService implements StoreBillingService {
           'Google Play product id is missing for plan ${plan.key}',
         );
       }
-      if (!await _gateway.isAvailable()) {
-        throw StateError(
-          'Google Play purchases are unavailable on this device.',
-        );
-      }
+      await loadProducts(<BillingPlan>[plan]);
       if (!_isActivePurchase(completer)) {
         return;
       }
-
-      final response = await _gateway.queryProductDetails(<String>{productId});
-      if (!_isActivePurchase(completer)) {
-        return;
-      }
-      if (response.error != null) {
-        throw StateError(response.error!.message);
-      }
-      if (response.productDetails.isEmpty) {
+      final product = _productsByPlanKey[plan.key];
+      if (product == null) {
         throw StateError('Google Play product was not found: $productId');
       }
 
       _activeProductId = productId;
       _activeProductIsConsumable = !plan.recurring;
-      final product = response.productDetails.first;
       final started = plan.recurring
           ? await _gateway.buyNonConsumable(product)
           : await _gateway.buyConsumable(product);
