@@ -418,6 +418,17 @@ def test_snapshot_uses_latest_signed_subscription_metadata_despite_arrival_order
     assert snapshot.product_type == 'subscription'
     assert snapshot.expires_at == (NOW + timedelta(days=30)).isoformat()
     assert snapshot.auto_renew is False
+    with connect() as conn:
+        chain_product = conn.execute(
+            '''
+            SELECT product_id
+            FROM apple_subscription_chains
+            WHERE original_transaction_id = ?
+            ''',
+            ('original-sub-1',),
+        ).fetchone()
+    assert chain_product is not None
+    assert chain_product['product_id'] == 'monthly_readings'
 
 
 def test_account_conflict_rolls_back_entire_apply(
@@ -621,6 +632,69 @@ def test_unseen_renewal_restore_transfers_existing_chain(
     assert stored_renewal is not None
     assert stored_renewal['client_id'] == old_client
     assert stored_renewal['app_account_token'] == old_token
+
+
+def test_restore_accepts_latest_product_after_subscription_upgrade(
+    repo: AppStoreBillingRepository,
+) -> None:
+    old_client = 'client_apple_upgrade_old'
+    old_token = repo.get_or_create_app_account_token(old_client)
+    original_transaction_id = 'original-subscription-upgrade'
+    weekly = subscription_transaction(
+        'tx-subscription-upgrade-weekly',
+        client_id=old_client,
+        account_token=old_token,
+        expires_at=NOW + timedelta(days=7),
+    )
+    weekly = VerifiedAppStoreTransaction(
+        **{
+            **weekly.__dict__,
+            'original_transaction_id': original_transaction_id,
+        },
+    )
+    monthly = subscription_transaction(
+        'tx-subscription-upgrade-monthly',
+        client_id=old_client,
+        account_token=old_token,
+        product_id='monthly_readings',
+        purchased_at=NOW + timedelta(days=1),
+        expires_at=NOW + timedelta(days=31),
+    )
+    monthly = VerifiedAppStoreTransaction(
+        **{
+            **monthly.__dict__,
+            'original_transaction_id': original_transaction_id,
+        },
+    )
+    repo.apply_verified_transaction(weekly)
+    repo.apply_verified_transaction(monthly)
+    target_client = 'client_apple_upgrade_new'
+    target_token = repo.get_or_create_app_account_token(target_client)
+
+    result = repo.restore_subscription_chain(
+        transaction=monthly,
+        target_client_id=target_client,
+        target_app_account_token=target_token,
+        at=NOW,
+    )
+
+    assert result.replayed is True
+    assert repo.remaining_readings(old_client, at=NOW) == 0
+    assert repo.remaining_readings(target_client, at=NOW) == 30
+    with connect() as conn:
+        chain = conn.execute(
+            '''
+            SELECT client_id, app_account_token, product_id
+            FROM apple_subscription_chains
+            WHERE original_transaction_id = ?
+            ''',
+            (original_transaction_id,),
+        ).fetchone()
+
+    assert chain is not None
+    assert chain['client_id'] == target_client
+    assert chain['app_account_token'] == old_token
+    assert chain['product_id'] == 'monthly_readings'
 
 
 def test_restore_rejects_consumable_and_expired_subscription(

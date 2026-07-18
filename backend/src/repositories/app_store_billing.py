@@ -833,9 +833,22 @@ class AppStoreBillingRepository:
                     ).fetchone()
                 if chain is None:  # pragma: no cover - transaction apply creates it
                     raise RuntimeError('subscription chain was not found')
+                _reconcile_subscription_chain_product(
+                    conn,
+                    transaction.original_transaction_id,
+                )
+                chain = conn.execute(
+                    '''
+                    SELECT client_id, app_account_token, product_id, environment
+                    FROM apple_subscription_chains
+                    WHERE original_transaction_id = ?
+                    ''',
+                    (transaction.original_transaction_id,),
+                ).fetchone()
+                if chain is None:  # pragma: no cover - defensive
+                    raise RuntimeError('subscription chain was not found')
                 if (
-                    str(chain['product_id']) != transaction.product_id
-                    or str(chain['environment']) != transaction.environment
+                    str(chain['environment']) != transaction.environment
                     or str(chain['app_account_token']) != transaction.app_account_token
                 ):
                     raise ValueError('subscription chain payload does not match')
@@ -1022,6 +1035,11 @@ def _apply_verified_transaction(
             created_at,
         ),
     )
+    if transaction.product_type == 'subscription':
+        _reconcile_subscription_chain_product(
+            conn,
+            transaction.original_transaction_id,
+        )
     if enqueue_admin and not terminal_before_grant:
         conn.execute(
             '''
@@ -1301,6 +1319,41 @@ def _ensure_subscription_chain(
     _reconcile_subscription_renewal_status(
         conn,
         transaction.original_transaction_id,
+    )
+
+
+def _reconcile_subscription_chain_product(
+    conn: sqlite3.Connection,
+    original_transaction_id: str,
+) -> None:
+    conn.execute(
+        '''
+        UPDATE apple_subscription_chains
+        SET product_id = (
+            SELECT product_id
+            FROM apple_transactions
+            WHERE original_transaction_id = ?
+              AND product_type = 'subscription'
+            ORDER BY
+                purchased_at DESC,
+                COALESCE(expires_at, '') DESC,
+                created_at DESC,
+                transaction_id DESC
+            LIMIT 1
+        )
+        WHERE original_transaction_id = ?
+          AND EXISTS (
+              SELECT 1
+              FROM apple_transactions
+              WHERE original_transaction_id = ?
+                AND product_type = 'subscription'
+          )
+        ''',
+        (
+            original_transaction_id,
+            original_transaction_id,
+            original_transaction_id,
+        ),
     )
 
 
