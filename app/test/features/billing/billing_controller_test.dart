@@ -187,6 +187,208 @@ void main() {
       controller.dispose();
     });
 
+    test('rapid double checkout starts one store operation', () async {
+      final plan = _plan();
+      final purchasedSummary = _summary(clientId: 'purchased');
+      final purchaseCompleter = Completer<StoreBillingResult>();
+      final store = _FakeStoreBillingService(
+        purchaseFuture: purchaseCompleter.future,
+      );
+      final controller = BillingController(
+        repository: _FakeRepository(
+          _summary(clientId: 'initial', plans: <BillingPlan>[plan]),
+        ),
+        storeBillingService: store,
+      );
+
+      final first = controller.startCheckout(planKey: plan.key);
+      final second = controller.startCheckout(planKey: plan.key);
+      await _flushAsyncWork();
+
+      expect(store.purchaseCalls, 1);
+      expect(controller.creatingPayment, isTrue);
+      expect(controller.loadingSummary, isFalse);
+      expect(controller.error, isNull);
+
+      purchaseCompleter.complete(
+        StoreBillingResult(
+          summary: purchasedSummary,
+          transactionReference: 'app_store:first-purchase',
+        ),
+      );
+      final results = await Future.wait(<Future<bool>>[first, second]);
+
+      expect(store.purchaseCalls, 1);
+      expect(results, <bool>[true, false]);
+      expect(controller.creatingPayment, isFalse);
+      expect(controller.error, isNull);
+      expect(controller.payment?.paymentId, 'app_store:first-purchase');
+      expect(controller.summary, same(purchasedSummary));
+      controller.dispose();
+    });
+
+    test('rapid double restore starts one store operation', () async {
+      final restoredSummary = _summary(clientId: 'restored');
+      final restoreCompleter = Completer<StoreBillingResult?>();
+      final store = _FakeStoreBillingService(
+        restoreFuture: restoreCompleter.future,
+      );
+      final controller = BillingController(
+        repository: _FakeRepository(_summary(clientId: 'initial')),
+        storeBillingService: store,
+      );
+
+      final first = controller.restorePurchases();
+      final second = controller.restorePurchases();
+      await _flushAsyncWork();
+
+      expect(store.restoreCalls, 1);
+      expect(controller.loadingSummary, isTrue);
+      expect(controller.creatingPayment, isFalse);
+      expect(controller.error, isNull);
+
+      restoreCompleter.complete(
+        StoreBillingResult(
+          summary: restoredSummary,
+          transactionReference: 'app_store:restore',
+        ),
+      );
+      final results = await Future.wait(<Future<bool>>[first, second]);
+
+      expect(store.restoreCalls, 1);
+      expect(results, <bool>[true, false]);
+      expect(controller.loadingSummary, isFalse);
+      expect(controller.error, isNull);
+      expect(controller.restoreOutcome, BillingRestoreOutcome.restored);
+      expect(controller.payment?.paymentId, 'app_store:restore');
+      controller.dispose();
+    });
+
+    test('restore cannot overlap checkout or overwrite its final result',
+        () async {
+      final plan = _plan();
+      final purchasedSummary = _summary(clientId: 'purchased');
+      final purchaseCompleter = Completer<StoreBillingResult>();
+      final restoreCompleter = Completer<StoreBillingResult?>();
+      final store = _FakeStoreBillingService(
+        purchaseFuture: purchaseCompleter.future,
+        restoreFuture: restoreCompleter.future,
+      );
+      final controller = BillingController(
+        repository: _FakeRepository(
+          _summary(clientId: 'initial', plans: <BillingPlan>[plan]),
+        ),
+        storeBillingService: store,
+      );
+
+      final purchase = controller.startCheckout(planKey: plan.key);
+      final restore = controller.restorePurchases();
+      await _flushAsyncWork();
+
+      expect(store.purchaseCalls, 1);
+      expect(store.restoreCalls, 0);
+      expect(controller.creatingPayment, isTrue);
+      expect(controller.loadingSummary, isFalse);
+      expect(controller.restoreOutcome, BillingRestoreOutcome.idle);
+      expect(controller.error, isNull);
+
+      purchaseCompleter.complete(
+        StoreBillingResult(
+          summary: purchasedSummary,
+          transactionReference: 'app_store:winning-purchase',
+        ),
+      );
+      restoreCompleter.complete(null);
+      final results = await Future.wait(<Future<bool>>[purchase, restore]);
+
+      expect(results, <bool>[true, false]);
+      expect(controller.payment?.paymentId, 'app_store:winning-purchase');
+      expect(controller.summary, same(purchasedSummary));
+      expect(controller.restoreOutcome, BillingRestoreOutcome.idle);
+      expect(controller.error, isNull);
+      controller.dispose();
+    });
+
+    test('checkout and clearPayment cannot mutate an active restore', () async {
+      final plan = _plan();
+      final initialPurchaseSummary = _summary(clientId: 'first-purchase');
+      final restoreCompleter = Completer<StoreBillingResult?>();
+      final store = _FakeStoreBillingService(
+        purchaseResult: StoreBillingResult(
+          summary: initialPurchaseSummary,
+          transactionReference: 'app_store:existing-payment',
+        ),
+        restoreFuture: restoreCompleter.future,
+      );
+      final controller = BillingController(
+        repository: _FakeRepository(
+          _summary(clientId: 'initial', plans: <BillingPlan>[plan]),
+        ),
+        storeBillingService: store,
+      );
+      await controller.startCheckout(planKey: plan.key);
+      expect(controller.payment?.paymentId, 'app_store:existing-payment');
+
+      final restore = controller.restorePurchases();
+      final overlappingCheckout = controller.startCheckout(planKey: plan.key);
+      controller.clearPayment();
+      await _flushAsyncWork();
+
+      expect(store.purchaseCalls, 1);
+      expect(store.restoreCalls, 1);
+      expect(controller.loadingSummary, isTrue);
+      expect(controller.creatingPayment, isFalse);
+      expect(controller.payment?.paymentId, 'app_store:existing-payment');
+
+      restoreCompleter.complete(null);
+      final results =
+          await Future.wait(<Future<bool>>[restore, overlappingCheckout]);
+
+      expect(results, <bool>[true, false]);
+      expect(controller.restoreOutcome, BillingRestoreOutcome.noPurchases);
+      expect(controller.payment?.paymentId, 'app_store:existing-payment');
+      expect(controller.summary, same(initialPurchaseSummary));
+      expect(controller.error, isNull);
+      controller.dispose();
+    });
+
+    test('dispose during checkout ignores late result safely', () async {
+      final plan = _plan();
+      final purchaseCompleter = Completer<StoreBillingResult>();
+      final store = _FakeStoreBillingService(
+        purchaseFuture: purchaseCompleter.future,
+      );
+      final controller = BillingController(
+        repository: _FakeRepository(
+          _summary(clientId: 'initial', plans: <BillingPlan>[plan]),
+        ),
+        storeBillingService: store,
+      );
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+
+      final checkout = controller.startCheckout(planKey: plan.key);
+      await _flushAsyncWork();
+      expect(store.purchaseCalls, 1);
+      expect(controller.creatingPayment, isTrue);
+      final notificationsBeforeDispose = notifications;
+
+      controller.dispose();
+      purchaseCompleter.complete(
+        StoreBillingResult(
+          summary: _summary(clientId: 'late-purchase'),
+          transactionReference: 'app_store:late-purchase',
+        ),
+      );
+      expect(await checkout, isFalse);
+      await _flushAsyncWork();
+
+      expect(controller.payment, isNull);
+      expect(controller.creatingPayment, isFalse);
+      expect(notifications, notificationsBeforeDispose);
+      expect(store.disposeCalls, 1);
+    });
+
     test('does not notify listeners after dispose', () async {
       final repository = _DeferredRepository();
       final store = _FakeStoreBillingService();
@@ -212,13 +414,17 @@ void main() {
 class _FakeStoreBillingService implements StoreBillingService {
   _FakeStoreBillingService({
     this.purchaseResult,
+    this.purchaseFuture,
     this.restoreResult,
+    this.restoreFuture,
     this.restoreError,
     this.products = const <StoreBillingProduct>[],
   });
 
   final StoreBillingResult? purchaseResult;
+  final Future<StoreBillingResult>? purchaseFuture;
   final StoreBillingResult? restoreResult;
+  final Future<StoreBillingResult?>? restoreFuture;
   final Object? restoreError;
   final List<StoreBillingProduct> products;
 
@@ -248,6 +454,9 @@ class _FakeStoreBillingService implements StoreBillingService {
   Future<StoreBillingResult> purchasePlan(BillingPlan plan) async {
     purchaseCalls += 1;
     lastPurchasedPlan = plan;
+    if (purchaseFuture case final future?) {
+      return future;
+    }
     return purchaseResult!;
   }
 
@@ -257,6 +466,9 @@ class _FakeStoreBillingService implements StoreBillingService {
     if (restoreError case final error?) {
       throw error;
     }
+    if (restoreFuture case final future?) {
+      return future;
+    }
     return restoreResult;
   }
 
@@ -264,6 +476,11 @@ class _FakeStoreBillingService implements StoreBillingService {
   Future<void> dispose() async {
     disposeCalls += 1;
   }
+}
+
+Future<void> _flushAsyncWork() async {
+  await Future<void>.delayed(Duration.zero);
+  await Future<void>.delayed(Duration.zero);
 }
 
 class _FakeRepository extends AppSlidesRepository {

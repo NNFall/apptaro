@@ -16,6 +16,8 @@ typedef StoreBillingServiceBuilder = StoreBillingService Function(
 
 enum BillingRestoreOutcome { idle, restored, noPurchases, partial, failed }
 
+enum _BillingOperation { refreshSummary, checkout, restore, redeemPromo }
+
 StoreBillingService createPlatformStoreBillingService({
   required AppSlidesRepository repository,
   required bool isWeb,
@@ -56,6 +58,7 @@ class BillingController extends ChangeNotifier {
   bool _loadingSummary = false;
   bool _creatingPayment = false;
   bool _disposed = false;
+  _BillingOperation? _activeBillingOperation;
   String? _error;
   final Map<String, StoreBillingProduct> _productsByPlanKey =
       <String, StoreBillingProduct>{};
@@ -77,7 +80,7 @@ class BillingController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
-    if (_summary != null || _loadingSummary) {
+    if (_disposed || _summary != null || _loadingSummary) {
       return;
     }
     await _storeBillingService.initialize();
@@ -85,15 +88,25 @@ class BillingController extends ChangeNotifier {
   }
 
   Future<void> refreshSummary() async {
+    const operation = _BillingOperation.refreshSummary;
+    if (!_tryBeginBillingOperation(operation)) {
+      return;
+    }
     _loadingSummary = true;
     _error = null;
     _notifyListeners();
 
     try {
       final summary = await _repository.fetchBillingSummary();
+      if (_disposed) {
+        return;
+      }
       _summary = summary;
       try {
         final products = await _storeBillingService.loadProducts(summary.plans);
+        if (_disposed) {
+          return;
+        }
         _productsByPlanKey
           ..clear()
           ..addEntries(products.map((product) => MapEntry(
@@ -101,17 +114,26 @@ class BillingController extends ChangeNotifier {
                 product,
               )));
       } catch (_) {
-        _productsByPlanKey.clear();
+        if (!_disposed) {
+          _productsByPlanKey.clear();
+        }
       }
     } catch (error) {
-      _error = _describeError(error);
+      if (!_disposed) {
+        _error = _describeError(error);
+      }
     } finally {
       _loadingSummary = false;
+      _finishBillingOperation(operation);
       _notifyListeners();
     }
   }
 
-  Future<void> startCheckout({required String planKey}) async {
+  Future<bool> startCheckout({required String planKey}) async {
+    const operation = _BillingOperation.checkout;
+    if (!_tryBeginBillingOperation(operation)) {
+      return false;
+    }
     _creatingPayment = true;
     _error = null;
     _restoreOutcome = BillingRestoreOutcome.idle;
@@ -122,11 +144,17 @@ class BillingController extends ChangeNotifier {
     try {
       final currentSummary =
           _summary ?? await _repository.fetchBillingSummary();
+      if (_disposed) {
+        return false;
+      }
       final plan = currentSummary.plans.firstWhere(
         (item) => item.key == planKey,
         orElse: () => throw StateError('Billing plan was not found: $planKey'),
       );
       final result = await _storeBillingService.purchasePlan(plan);
+      if (_disposed) {
+        return false;
+      }
       _summary = result.summary;
       _payment = BillingPayment(
         paymentId: result.transactionReference,
@@ -136,18 +164,27 @@ class BillingController extends ChangeNotifier {
         summary: result.summary,
         plan: plan,
       );
+      return true;
     } catch (error) {
+      if (_disposed) {
+        return false;
+      }
       _error = _describeError(error);
+      return true;
     } finally {
       _creatingPayment = false;
+      _finishBillingOperation(operation);
       _notifyListeners();
     }
   }
 
-  Future<void> restorePurchases() async {
+  Future<bool> restorePurchases() async {
+    const operation = _BillingOperation.restore;
+    if (!_tryBeginBillingOperation(operation)) {
+      return false;
+    }
     _loadingSummary = true;
     _error = null;
-    _payment = null;
     _restoreOutcome = BillingRestoreOutcome.idle;
     _restoreWarnings = const <String>[];
     _restorePartialFailureCount = 0;
@@ -155,6 +192,9 @@ class BillingController extends ChangeNotifier {
 
     try {
       final result = await _storeBillingService.restorePurchases();
+      if (_disposed) {
+        return false;
+      }
       if (result == null) {
         _restoreOutcome = BillingRestoreOutcome.noPurchases;
       } else {
@@ -173,30 +213,52 @@ class BillingController extends ChangeNotifier {
           summary: result.summary,
         );
       }
+      return true;
     } catch (error) {
+      if (_disposed) {
+        return false;
+      }
       _error = _describeError(error);
       _restoreOutcome = BillingRestoreOutcome.failed;
+      return true;
     } finally {
       _loadingSummary = false;
+      _finishBillingOperation(operation);
       _notifyListeners();
     }
   }
 
-  Future<void> redeemPromoCode(String code) async {
+  Future<bool> redeemPromoCode(String code) async {
+    const operation = _BillingOperation.redeemPromo;
+    if (!_tryBeginBillingOperation(operation)) {
+      return false;
+    }
     _error = null;
     _notifyListeners();
 
     try {
-      _summary = await _repository.redeemPromoCode(code);
+      final summary = await _repository.redeemPromoCode(code);
+      if (_disposed) {
+        return false;
+      }
+      _summary = summary;
+      return true;
     } catch (error) {
+      if (_disposed) {
+        return false;
+      }
       _error = _describeError(error);
       rethrow;
     } finally {
+      _finishBillingOperation(operation);
       _notifyListeners();
     }
   }
 
   void clearPayment() {
+    if (_disposed || _activeBillingOperation != null) {
+      return;
+    }
     _payment = null;
     _notifyListeners();
   }
@@ -214,6 +276,20 @@ class BillingController extends ChangeNotifier {
   void _notifyListeners() {
     if (!_disposed) {
       notifyListeners();
+    }
+  }
+
+  bool _tryBeginBillingOperation(_BillingOperation operation) {
+    if (_disposed || _activeBillingOperation != null) {
+      return false;
+    }
+    _activeBillingOperation = operation;
+    return true;
+  }
+
+  void _finishBillingOperation(_BillingOperation operation) {
+    if (_activeBillingOperation == operation) {
+      _activeBillingOperation = null;
     }
   }
 

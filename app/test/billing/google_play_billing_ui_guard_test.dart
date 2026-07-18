@@ -54,7 +54,6 @@ void main() {
 
     expect(billingController, isNot(contains('restorePurchases(silent: true)')));
     expect(billingController, isNot(contains('restoreGooglePlayPurchases')));
-    expect(billingController, contains('Future<void> restorePurchases()'));
     expect(
       googlePlayBillingService,
       contains('case PurchaseStatus.purchased:'),

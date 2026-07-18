@@ -541,7 +541,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     try {
-      await controller.redeemPromoCode(code);
+      if (!await controller.redeemPromoCode(code)) {
+        return;
+      }
       final summary = controller.summary;
       if (summary == null) {
         _appendBotMessage(
@@ -1643,7 +1645,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
       showLoadingAnimation: true,
     );
-    await controller.startCheckout(planKey: planKey);
+    if (!await controller.startCheckout(planKey: planKey)) {
+      _clearBillingProgressMessage();
+      return;
+    }
     if (controller.payment == null && controller.error != null) {
       _clearBillingProgressMessage();
       _appendBotMessage('❌ ${controller.error!}');
@@ -1661,7 +1666,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ApplePaywallCopy.restoreProgress(isRussian: _isRussian),
       showLoadingAnimation: true,
     );
-    await controller.restorePurchases();
+    if (!await controller.restorePurchases()) {
+      _clearBillingProgressMessage();
+      return;
+    }
     _clearBillingProgressMessage();
 
     final message = switch (controller.restoreOutcome) {
