@@ -1,4 +1,5 @@
 import 'package:apptaro/core/policies/billing_platform_policy.dart';
+import 'package:apptaro/domain/models/billing_plan.dart';
 import 'package:apptaro/features/billing/billing_chat_presentation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,5 +53,33 @@ void main() {
     expect(presentation.showsRestorePurchases, isFalse);
     expect(presentation.applePrivacyPolicy, isNull);
     expect(presentation.legalDisclosure, isNull);
+  });
+
+  test('paywall keeps subscriptions and consumable reading packs visible', () {
+    const plans = <BillingPlan>[
+      BillingPlan(
+        key: 'week',
+        title: 'Weekly',
+        priceRub: 0,
+        limit: 15,
+        days: 7,
+        recurring: true,
+        googleProductId: 'weekly_readings',
+      ),
+      BillingPlan(
+        key: 'one10',
+        title: '10 readings',
+        priceRub: 0,
+        limit: 10,
+        days: 0,
+        recurring: false,
+        googleProductId: 'one10_readings',
+      ),
+    ];
+
+    expect(
+      BillingChatPresentation.visiblePlans(plans).map((plan) => plan.key),
+      <String>['week', 'one10'],
+    );
   });
 }

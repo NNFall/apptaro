@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/policies/billing_platform_policy.dart';
+import '../../domain/models/billing_plan.dart';
 import 'apple_paywall_copy.dart';
 
 enum BillingChatAction { restorePurchases }
@@ -54,4 +55,8 @@ class BillingChatPresentation {
 
   bool get showsRestorePurchases =>
       actions.contains(BillingChatAction.restorePurchases);
+
+  static List<BillingPlan> visiblePlans(Iterable<BillingPlan> plans) {
+    return List<BillingPlan>.unmodifiable(plans);
+  }
 }

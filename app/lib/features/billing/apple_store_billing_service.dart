@@ -633,10 +633,17 @@ class AppleStoreBillingService implements StoreBillingService {
         _normalizeAppAccountToken(metadata.appAccountToken) !=
             _normalizeAppAccountToken(expectedToken) ||
         transactionTime == null ||
-        transactionTime.isBefore(checkoutStartedAt)) {
+        transactionTime.isBefore(_truncateToSeconds(checkoutStartedAt))) {
       return null;
     }
     return completer;
+  }
+
+  static DateTime _truncateToSeconds(DateTime value) {
+    return DateTime.fromMillisecondsSinceEpoch(
+      (value.toUtc().millisecondsSinceEpoch ~/ 1000) * 1000,
+      isUtc: true,
+    );
   }
 
   void _failMatchingActivePurchase(PurchaseDetails purchase, Object error) {

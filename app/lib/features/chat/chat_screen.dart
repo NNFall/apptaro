@@ -1459,9 +1459,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   List<BillingPlan> _visibleBillingPlans(BillingSummary summary) {
-    return summary.plans
-        .where((plan) => plan.recurring)
-        .toList(growable: false);
+    return BillingChatPresentation.visiblePlans(summary.plans);
   }
 
   bool _canPurchasePlan(BillingPlan plan) {
