@@ -143,6 +143,23 @@ void main() {
       controller.dispose();
     });
 
+    test('explicit restore reports store unavailable as failed', () async {
+      final controller = BillingController(
+        repository: _FakeRepository(_summary(clientId: 'initial')),
+        storeBillingService: _FakeStoreBillingService(
+          restoreError: StateError(
+            'App Store purchases are unavailable on this device.',
+          ),
+        ),
+      );
+
+      await controller.restorePurchases();
+
+      expect(controller.restoreOutcome, BillingRestoreOutcome.failed);
+      expect(controller.error, contains('App Store purchases are unavailable'));
+      controller.dispose();
+    });
+
     test('purchase uses the payment id returned by the store', () async {
       final plan = _plan();
       final initialSummary =
@@ -196,11 +213,13 @@ class _FakeStoreBillingService implements StoreBillingService {
   _FakeStoreBillingService({
     this.purchaseResult,
     this.restoreResult,
+    this.restoreError,
     this.products = const <StoreBillingProduct>[],
   });
 
   final StoreBillingResult? purchaseResult;
   final StoreBillingResult? restoreResult;
+  final Object? restoreError;
   final List<StoreBillingProduct> products;
 
   int initializeCalls = 0;
@@ -235,6 +254,9 @@ class _FakeStoreBillingService implements StoreBillingService {
   @override
   Future<StoreBillingResult?> restorePurchases() async {
     restoreCalls += 1;
+    if (restoreError case final error?) {
+      throw error;
+    }
     return restoreResult;
   }
 

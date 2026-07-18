@@ -368,14 +368,7 @@ class AppleStoreBillingService implements StoreBillingService {
         return;
       }
       if (!await _gateway.isAvailable()) {
-        _enqueuePurchaseStreamAction(() async {
-          if (_isActiveRestore(completer)) {
-            _nativeRestoreCompleted = true;
-            _restoreCompletionRequested = true;
-            _finishRestore(completer);
-          }
-        });
-        return;
+        throw StateError('App Store purchases are unavailable on this device.');
       }
       if (!_isActiveRestore(completer)) {
         return;

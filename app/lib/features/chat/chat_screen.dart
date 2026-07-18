@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/config/app_config.dart';
+import '../../core/policies/billing_platform_policy.dart';
 import '../../data/repositories/backend_config_repository.dart';
 import '../../data/repositories/chat_transcript_repository.dart';
 import '../../data/repositories/client_session_repository.dart';
@@ -39,6 +40,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = <_ChatMessage>[];
   final Set<String> _savingAttachmentIds = <String>{};
+  final BillingPlatformPolicy _billingPlatformPolicy =
+      BillingPlatformPolicy.current();
 
   PresentationController? _presentationController;
   BillingController? _billingController;
@@ -69,8 +72,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   AppLanguage get _currentLanguage => AppScope.languageOf(context).current;
   bool get _isRussian => _currentLanguage == AppLanguage.russian;
-  bool get _isNativeIos =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  bool get _isNativeIos => _billingPlatformPolicy.isNativeIos;
+
+  Map<String, dynamic> _billingActionPayload([
+    Map<String, dynamic> payload = const <String, dynamic>{},
+  ]) {
+    return _billingPlatformPolicy.decorateBillingActionPayload(payload);
+  }
 
   String _copy({required String en, required String ru}) {
     return _currentLanguage == AppLanguage.russian ? ru : en;
@@ -388,28 +396,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _showHistory();
         return;
       case '/promo':
-        if (_isNativeIos) {
-          _appendBotMessage(
-            _copy(
-              en: 'Promo codes are not supported on iOS.',
-              ru: 'Промокоды не поддерживаются на iOS.',
-            ),
-            keyboard: _mainMenuKeyboard(),
-          );
-          return;
+        final outcome = await _billingPlatformPolicy.executePromoCommand(
+          code: parts.length < 2 ? '' : parts[1],
+          redeem: _redeemPromo,
+        );
+        switch (outcome) {
+          case PromoCommandOutcome.unsupported:
+            _appendBotMessage(
+              _copy(
+                en: 'Promo codes are not supported on iOS.',
+                ru: 'Промокоды не поддерживаются на iOS.',
+              ),
+              keyboard: _mainMenuKeyboard(),
+            );
+            return;
+          case PromoCommandOutcome.usage:
+            _appendBotMessage(
+              _copy(
+                en: 'Usage: `/promo XXXXXX`',
+                ru: 'Использование: `/promo XXXXXX`',
+              ),
+              keyboard: _mainMenuKeyboard(),
+            );
+            return;
+          case PromoCommandOutcome.redeemed:
+            return;
         }
-        if (parts.length < 2 || parts[1].trim().isEmpty) {
-          _appendBotMessage(
-            _copy(
-              en: 'Usage: `/promo XXXXXX`',
-              ru: 'Использование: `/promo XXXXXX`',
-            ),
-            keyboard: _mainMenuKeyboard(),
-          );
-          return;
-        }
-        await _redeemPromo(parts[1].trim());
-        return;
       default:
         _appendBotMessage(
           _copy(
@@ -513,14 +525,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _redeemPromo(String code) async {
-    if (_isNativeIos) {
-      _appendBotMessage(
-        _copy(
-          en: 'Promo codes are not supported on iOS.',
-          ru: 'Промокоды не поддерживаются на iOS.',
-        ),
-        keyboard: _mainMenuKeyboard(),
-      );
+    if (!_billingPlatformPolicy.promoSupported) {
       return;
     }
     final controller = _billingController;
@@ -1220,6 +1225,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     _selectSubscriptionLabel,
                     _showPlanOptions,
                     actionKey: 'show_plan_options',
+                    payload: _billingActionPayload(),
                   ),
                 ],
                 [
@@ -1246,6 +1252,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     _selectSubscriptionLabel,
                     _showPlanOptions,
                     actionKey: 'show_plan_options',
+                    payload: _billingActionPayload(),
                   ),
                 ],
                 [
@@ -1366,17 +1373,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _selectSubscriptionLabel,
           _showPlanOptions,
           actionKey: 'show_plan_options',
+          payload: _billingActionPayload(),
         ),
       ]);
     }
 
-    if (_isNativeIos) {
+    if (_billingPlatformPolicy.restorePurchasesVisible) {
       rows.add([
         _action(
           _restorePurchasesLabel,
           _restorePurchases,
           actionKey: 'restore_purchases',
           echoAsUser: false,
+          payload: _billingActionPayload(),
         ),
       ]);
     }
@@ -1400,18 +1409,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _planOptionLabel(plan),
             () async => _startBillingPayment(plan.key),
             actionKey: 'start_billing_payment',
-            payload: <String, dynamic>{
-              'plan_key': plan.key,
-            },
+            payload: _billingActionPayload(
+              <String, dynamic>{'plan_key': plan.key},
+            ),
           ),
         ],
-      if (_isNativeIos)
+      if (_billingPlatformPolicy.restorePurchasesVisible)
         [
           _action(
             _restorePurchasesLabel,
             _restorePurchases,
             actionKey: 'restore_purchases',
             echoAsUser: false,
+            payload: _billingActionPayload(),
           ),
         ],
       [
@@ -1444,9 +1454,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   String? _applePrivacyPolicyUrl() {
     try {
-      return AppConfig.resolveApplePrivacyPolicyUrl(
-        AppConfig.applePrivacyPolicyUrl,
-      ).toString();
+      return _billingPlatformPolicy
+          .appleLegalLinks(AppConfig.applePrivacyPolicyUrl)
+          ?.privacyPolicy
+          .toString();
     } on Object {
       return null;
     }
@@ -1590,18 +1601,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _planOptionLabel(plan),
             () async => _startBillingPayment(plan.key),
             actionKey: 'start_billing_payment',
-            payload: <String, dynamic>{
-              'plan_key': plan.key,
-            },
+            payload: _billingActionPayload(
+              <String, dynamic>{'plan_key': plan.key},
+            ),
           ),
         ],
-      if (_isNativeIos)
+      if (_billingPlatformPolicy.restorePurchasesVisible)
         [
           _action(
             _restorePurchasesLabel,
             _restorePurchases,
             actionKey: 'restore_purchases',
             echoAsUser: false,
+            payload: _billingActionPayload(),
           ),
         ],
       [
@@ -1651,7 +1663,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _restorePurchases() async {
     final controller = _billingController;
-    if (controller == null || !_isNativeIos) {
+    if (controller == null || !_billingPlatformPolicy.restorePurchasesVisible) {
       return;
     }
 
@@ -2395,6 +2407,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   _ChatAction? _actionFromTranscript(ChatTranscriptAction action) {
+    if (!_billingPlatformPolicy.allowsPersistedAction(
+      actionKey: action.actionKey,
+      payload: action.payload,
+    )) {
+      return null;
+    }
     Future<void> Function()? callback;
 
     switch (action.actionKey) {

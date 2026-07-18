@@ -3,10 +3,22 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/policies/billing_platform_policy.dart';
 import '../../domain/models/chat_transcript_entry.dart';
 import '../storage/chat_transcript_store.dart';
 
 class ChatTranscriptRepository extends ChangeNotifier {
+  ChatTranscriptRepository({
+    ChatTranscriptStore? store,
+    BillingPlatformPolicy? billingPlatformPolicy,
+  })  : _store = store ??
+            createChatTranscriptStore(
+              storageKey: _storageKey,
+              legacyStorageKeys: _legacyStorageKeys,
+            ),
+        _billingPlatformPolicy =
+            billingPlatformPolicy ?? BillingPlatformPolicy.current();
+
   static const String _storageKey = 'apptaro.chat.transcript.v1';
   static const List<String> _legacyStorageKeys = <String>[
     'appslides.chat.transcript.v2',
@@ -21,10 +33,8 @@ class ChatTranscriptRepository extends ChangeNotifier {
   };
   static const int _maxEntries = 250;
 
-  final ChatTranscriptStore _store = createChatTranscriptStore(
-    storageKey: _storageKey,
-    legacyStorageKeys: _legacyStorageKeys,
-  );
+  final ChatTranscriptStore _store;
+  final BillingPlatformPolicy _billingPlatformPolicy;
   final List<ChatTranscriptEntry> _entries = <ChatTranscriptEntry>[];
 
   bool _isLoaded = false;
@@ -154,10 +164,12 @@ class ChatTranscriptRepository extends ChangeNotifier {
   }
 
   void _applyDecodedEntries(List<ChatTranscriptEntry> parsedEntries) {
+    final platformEntries =
+        _billingPlatformPolicy.sanitizeTranscriptEntries(parsedEntries);
     _entries
       ..clear()
       ..addAll(
-        parsedEntries.map(
+        platformEntries.map(
           (entry) => entry.withoutActionKeys(_obsoleteRestoredActionKeys),
         ),
       );

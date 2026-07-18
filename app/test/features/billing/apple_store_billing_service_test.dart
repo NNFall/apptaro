@@ -106,6 +106,23 @@ void main() {
       expect(harness.gateway.queryCalls, 1);
     });
 
+    test('restore fails distinctly when App Store is unavailable', () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.gateway.available = false;
+
+      expect(
+        harness.service.restorePurchases(),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('App Store purchases are unavailable'),
+          ),
+        ),
+      );
+    });
+
     test('attaches backend app account token to the StoreKit purchase',
         () async {
       final harness = _Harness();
@@ -688,6 +705,7 @@ class _FakeAppleStorePurchaseGateway implements AppleStorePurchaseGateway {
   ProductDetails? lastProduct;
   int completeCalls = 0;
   int queryCalls = 0;
+  bool available = true;
   List<ProductDetails>? queryProductsOverride;
   bool buyResult = true;
   Completer<void>? restoreRelease;
@@ -696,7 +714,7 @@ class _FakeAppleStorePurchaseGateway implements AppleStorePurchaseGateway {
   Stream<List<PurchaseDetails>> get purchaseStream => _updates.stream;
 
   @override
-  Future<bool> isAvailable() async => true;
+  Future<bool> isAvailable() async => available;
 
   @override
   Future<ProductDetailsResponse> queryProductDetails(
