@@ -133,6 +133,13 @@ class Settings:
     google_play_service_account_file: str
     google_play_service_account_json: str
     google_play_test_mode: bool
+    app_store_bundle_id: str
+    app_store_app_apple_id: int
+    app_store_key_id: str
+    app_store_issuer_id: str
+    app_store_private_key_path: Path
+    app_store_root_certificates_dir: Path
+    app_store_enable_online_checks: bool
     admin_bot_token: str
     admin_ids: list[str]
 
@@ -144,6 +151,7 @@ def load_settings() -> Settings:
     default_templates_dir = BACKEND_DIR / 'runtime' / 'templates'
     default_tarot_dir = BACKEND_DIR / 'runtime' / 'tarot'
     default_fonts_dir = BACKEND_DIR / 'runtime' / 'fonts'
+    default_app_store_secrets_dir = BACKEND_DIR / 'secrets' / 'apple'
     return Settings(
         app_name=os.getenv('APP_NAME', 'apptaro Backend'),
         app_env=os.getenv('APP_ENV', 'development'),
@@ -213,6 +221,19 @@ def load_settings() -> Settings:
         google_play_service_account_file=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_FILE', '').strip(),
         google_play_service_account_json=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', '').strip(),
         google_play_test_mode=os.getenv('GOOGLE_PLAY_TEST_MODE', '0') == '1',
+        app_store_bundle_id=os.getenv('APP_STORE_BUNDLE_ID', 'com.nexwit.tarot').strip(),
+        app_store_app_apple_id=int(os.getenv('APP_STORE_APPLE_ID', '0') or 0),
+        app_store_key_id=os.getenv('APP_STORE_KEY_ID', '').strip(),
+        app_store_issuer_id=os.getenv('APP_STORE_ISSUER_ID', '').strip(),
+        app_store_private_key_path=_resolve_path(
+            os.getenv('APP_STORE_PRIVATE_KEY_PATH', ''),
+            default_app_store_secrets_dir / 'AuthKey.p8',
+        ),
+        app_store_root_certificates_dir=_resolve_path(
+            os.getenv('APP_STORE_ROOT_CERTIFICATES_DIR', ''),
+            default_app_store_secrets_dir / 'root-certificates',
+        ),
+        app_store_enable_online_checks=os.getenv('APP_STORE_ENABLE_ONLINE_CHECKS', '0') == '1',
         admin_bot_token=os.getenv('ADMIN_BOT_TOKEN', '').strip(),
         admin_ids=_split_strings(os.getenv('ADMIN_IDS', '')),
     )

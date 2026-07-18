@@ -1,0 +1,24 @@
+{
+  "production_weekly": {
+    "signed": "signed-production-weekly",
+    "transactionId": "tx-production-weekly",
+    "originalTransactionId": "original-production-weekly",
+    "bundleId": "com.nexwit.tarot",
+    "productId": "weekly_readings",
+    "appAccountToken": "0f8fad5b-d9cb-469f-a165-70867728950e",
+    "purchaseDate": 1780000000000,
+    "expiresDate": 4102444800000,
+    "environment": "Production"
+  },
+  "sandbox_consumable": {
+    "signed": "signed-sandbox-consumable",
+    "transactionId": "tx-sandbox-consumable",
+    "originalTransactionId": "tx-sandbox-consumable",
+    "bundleId": "com.nexwit.tarot",
+    "productId": "one10_readings",
+    "appAccountToken": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "purchaseDate": 1780000000000,
+    "expiresDate": null,
+    "environment": "Sandbox"
+  }
+}
