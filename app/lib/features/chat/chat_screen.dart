@@ -2777,14 +2777,17 @@ class _MessageLinkPreview {
   final String url;
 }
 
-class _MessageMarkdown extends StatelessWidget {
-  const _MessageMarkdown({
+class ChatMessageMarkdown extends StatelessWidget {
+  const ChatMessageMarkdown({
+    super.key,
     required this.data,
     required this.textColor,
+    this.launchLink,
   });
 
   final String data;
   final Color textColor;
+  final Future<void> Function(Uri uri)? launchLink;
 
   @override
   Widget build(BuildContext context) {
@@ -2836,6 +2839,10 @@ class _MessageMarkdown extends StatelessWidget {
         }
         final uri = Uri.tryParse(href);
         if (uri == null) {
+          return;
+        }
+        if (launchLink case final launcher?) {
+          await launcher(uri);
           return;
         }
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -3123,7 +3130,7 @@ class _ChatMessageCard extends StatelessWidget {
                           ),
                         ],
                         if (message.text.trim().isNotEmpty)
-                          _MessageMarkdown(
+                          ChatMessageMarkdown(
                             data: message.text,
                             textColor: isUser
                                 ? const Color(0xFF273226)
@@ -3545,7 +3552,7 @@ class _KeyboardRow extends StatelessWidget {
             .map(
               (action) => SizedBox(
                 width: width,
-                child: _KeyboardButton(
+                child: ChatKeyboardButton(
                   label: action.label,
                   compact: compact,
                   onPressed: () => onActionTap(action, action.onTap),
@@ -3578,8 +3585,9 @@ class _KeyboardRow extends StatelessWidget {
   }
 }
 
-class _KeyboardButton extends StatelessWidget {
-  const _KeyboardButton({
+class ChatKeyboardButton extends StatelessWidget {
+  const ChatKeyboardButton({
+    super.key,
     required this.label,
     required this.compact,
     required this.onPressed,

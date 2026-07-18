@@ -40,6 +40,11 @@ void main() {
       ],
     ],
   );
+  final mixedBotHistory = _entry(
+    id: 'mixed-bot-history',
+    text: 'Your reading said: "My reading cost 199 ₽ and mentioned a '
+        'Google Play payment through YooKassa."',
+  );
   const iosPolicy = BillingPlatformPolicy(
     isWeb: false,
     targetPlatform: TargetPlatform.iOS,
@@ -58,6 +63,7 @@ void main() {
       legacyPaywall.toJson(),
       legacyProgress.toJson(),
       unrelatedWithLegacyAction.toJson(),
+      mixedBotHistory.toJson(),
       compliantPaywall.toJson(),
     ],
     'composer_mode': 'idle',
@@ -75,7 +81,12 @@ void main() {
 
     expect(
       repository.entries.map((entry) => entry.id),
-      <String>['history', 'mixed-history', 'app-store-paywall'],
+      <String>[
+        'history',
+        'mixed-history',
+        'mixed-bot-history',
+        'app-store-paywall',
+      ],
     );
     expect(
       repository.entries[1].keyboard.single.map((action) => action.actionKey),
@@ -84,6 +95,39 @@ void main() {
     expect(
       repository.entries.last.keyboard.single.single.actionKey,
       'start_billing_payment',
+    );
+  });
+
+  test('native iOS preserves user-authored store and currency text verbatim',
+      () async {
+    final userEntries = <ChatTranscriptEntry>[
+      _entry(
+        id: 'user-rub',
+        sender: ChatTranscriptSender.user,
+        text: 'My reading cost 199 ₽',
+      ),
+      _entry(
+        id: 'user-stores',
+        sender: ChatTranscriptSender.user,
+        text: 'I mentioned Google Play and YooKassa in my question.',
+      ),
+    ];
+    final repository = ChatTranscriptRepository(
+      store: _MemoryTranscriptStore(
+        jsonEncode(<String, dynamic>{
+          'entries': userEntries.map((entry) => entry.toJson()).toList(),
+          'composer_mode': 'idle',
+        }),
+      ),
+      billingPlatformPolicy: iosPolicy,
+    );
+    addTearDown(repository.dispose);
+
+    await repository.restore();
+
+    expect(
+      repository.entries.map((entry) => entry.toJson()),
+      userEntries.map((entry) => entry.toJson()),
     );
   });
 
@@ -107,6 +151,7 @@ void main() {
         'legacy-paywall',
         'legacy-progress',
         'mixed-history',
+        'mixed-bot-history',
         'app-store-paywall',
       ],
     );
@@ -116,12 +161,13 @@ void main() {
 ChatTranscriptEntry _entry({
   required String id,
   required String text,
+  ChatTranscriptSender sender = ChatTranscriptSender.bot,
   String? actionKey,
   Map<String, dynamic> payload = const <String, dynamic>{},
 }) {
   return ChatTranscriptEntry(
     id: id,
-    sender: ChatTranscriptSender.bot,
+    sender: sender,
     text: text,
     sentAt: DateTime.utc(2026, 7, 18),
     keyboard: actionKey == null

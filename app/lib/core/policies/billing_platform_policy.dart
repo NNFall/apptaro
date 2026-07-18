@@ -100,6 +100,10 @@ class BillingPlatformPolicy {
 
     final sanitized = <ChatTranscriptEntry>[];
     for (final entry in entries) {
+      if (entry.sender != ChatTranscriptSender.bot) {
+        sanitized.add(entry);
+        continue;
+      }
       final deniedKeys = <String>{
         for (final row in entry.keyboard)
           for (final action in row)
@@ -110,12 +114,12 @@ class BillingPlatformPolicy {
               action.actionKey,
       };
       if (deniedKeys.isNotEmpty) {
-        if (!_isLegacyStoreCopy(entry.text)) {
+        if (!_isLegacyBotBillingCopy(entry.text)) {
           sanitized.add(entry.withoutActionKeys(deniedKeys));
         }
         continue;
       }
-      if (!_isLegacyStoreCopy(entry.text)) {
+      if (!_isLegacyBotBillingCopy(entry.text)) {
         sanitized.add(entry);
       }
     }
@@ -129,25 +133,26 @@ class BillingPlatformPolicy {
         normalized.contains('продлевается автоматически');
   }
 
-  bool _isLegacyStoreCopy(String text) {
+  bool _isLegacyBotBillingCopy(String text) {
     final normalized = text.toLowerCase();
     if (normalized.contains('opening google play checkout') ||
         normalized.contains('открываю оплату google play') ||
         normalized.contains('payment is handled securely by google play') ||
-        normalized.contains('yookassa') ||
-        normalized.contains('юkassa')) {
+        normalized.contains('opening yookassa checkout') ||
+        normalized.contains('opening юkassa checkout') ||
+        normalized.contains('открываю оплату yookassa') ||
+        normalized.contains('открываю оплату юkassa') ||
+        normalized.contains('payment is handled securely by yookassa') ||
+        normalized.contains('payment is handled securely by юkassa')) {
       return true;
     }
-    final isBillingCopy = normalized.contains('subscription') ||
-        normalized.contains('подписк') ||
-        normalized.contains('week') ||
-        normalized.contains('недел') ||
-        normalized.contains('month') ||
-        normalized.contains('месяц') ||
-        normalized.contains('reading') ||
-        normalized.contains('расклад');
-    return isBillingCopy &&
-        text.contains('₽') &&
-        !_isCompliantApplePaywallCopy(text);
+    final isRubSubscription = text.contains('₽') &&
+        (normalized.contains('subscription') ||
+            normalized.contains('подписк') ||
+            RegExp(
+              r'₽\s*/\s*(week|month|недел|месяц)',
+              caseSensitive: false,
+            ).hasMatch(text));
+    return isRubSubscription && !_isCompliantApplePaywallCopy(text);
   }
 }
