@@ -114,45 +114,47 @@ class BillingPlatformPolicy {
               action.actionKey,
       };
       if (deniedKeys.isNotEmpty) {
-        if (!_isLegacyBotBillingCopy(entry.text)) {
-          sanitized.add(entry.withoutActionKeys(deniedKeys));
+        final withoutDeniedActions = entry.withoutActionKeys(deniedKeys);
+        if (!_isExactLegacyBotProcessCopy(entry.text) &&
+            withoutDeniedActions.keyboard.isNotEmpty) {
+          sanitized.add(withoutDeniedActions);
         }
         continue;
       }
-      if (!_isLegacyBotBillingCopy(entry.text)) {
+      if (!_isExactLegacyBotProcessCopy(entry.text)) {
         sanitized.add(entry);
       }
     }
     return sanitized;
   }
 
-  bool _isCompliantApplePaywallCopy(String text) {
-    final normalized = text.toLowerCase();
-    return normalized.contains(AppConfig.appleTermsOfUseUrl.toLowerCase()) ||
-        normalized.contains('automatically renews') ||
-        normalized.contains('продлевается автоматически');
-  }
-
-  bool _isLegacyBotBillingCopy(String text) {
-    final normalized = text.toLowerCase();
-    if (normalized.contains('opening google play checkout') ||
-        normalized.contains('открываю оплату google play') ||
-        normalized.contains('payment is handled securely by google play') ||
-        normalized.contains('opening yookassa checkout') ||
-        normalized.contains('opening юkassa checkout') ||
-        normalized.contains('открываю оплату yookassa') ||
-        normalized.contains('открываю оплату юkassa') ||
-        normalized.contains('payment is handled securely by yookassa') ||
-        normalized.contains('payment is handled securely by юkassa')) {
+  bool _isExactLegacyBotProcessCopy(String text) {
+    var normalized = text.trim().toLowerCase();
+    if (normalized.length >= 2 &&
+        normalized.startsWith('_') &&
+        normalized.endsWith('_')) {
+      normalized = normalized.substring(1, normalized.length - 1).trim();
+    }
+    const processMessages = <String>{
+      'opening google play checkout...',
+      'opening google play checkout…',
+      'открываю оплату google play...',
+      'открываю оплату google play…',
+      'opening yookassa checkout...',
+      'opening yookassa checkout…',
+      'opening юkassa checkout...',
+      'opening юkassa checkout…',
+      'открываю оплату yookassa...',
+      'открываю оплату yookassa…',
+      'открываю оплату юkassa...',
+      'открываю оплату юkassa…',
+    };
+    if (processMessages.contains(normalized)) {
       return true;
     }
-    final isRubSubscription = text.contains('₽') &&
-        (normalized.contains('subscription') ||
-            normalized.contains('подписк') ||
-            RegExp(
-              r'₽\s*/\s*(week|month|недел|месяц)',
-              caseSensitive: false,
-            ).hasMatch(text));
-    return isRubSubscription && !_isCompliantApplePaywallCopy(text);
+    return RegExp(
+      r'^payment is handled securely by (google play|yookassa|юkassa)\. '
+      r'by continuing, you agree to the \[terms\]\([^)]+\)\.$',
+    ).hasMatch(normalized);
   }
 }

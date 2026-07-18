@@ -19,6 +19,10 @@ void main() {
     id: 'legacy-progress',
     text: '_Opening Google Play checkout..._',
   );
+  final legacyYooKassaProgress = _entry(
+    id: 'legacy-yookassa-progress',
+    text: '_Opening YooKassa checkout..._',
+  );
   final unrelatedWithLegacyAction = ChatTranscriptEntry(
     id: 'mixed-history',
     sender: ChatTranscriptSender.bot,
@@ -62,6 +66,7 @@ void main() {
       unrelated.toJson(),
       legacyPaywall.toJson(),
       legacyProgress.toJson(),
+      legacyYooKassaProgress.toJson(),
       unrelatedWithLegacyAction.toJson(),
       mixedBotHistory.toJson(),
       compliantPaywall.toJson(),
@@ -131,6 +136,38 @@ void main() {
     );
   });
 
+  test('native iOS preserves bot subscription and ruble discussion verbatim',
+      () async {
+    final botEntries = <ChatTranscriptEntry>[
+      _entry(
+        id: 'bot-rub-en',
+        text: 'You asked whether the subscription costs 199 ₽; here is your '
+            'reading...',
+      ),
+      _entry(
+        id: 'bot-rub-ru',
+        text: 'Вы спросили, стоит ли подписка 199 ₽; вот ваш расклад...',
+      ),
+    ];
+    final repository = ChatTranscriptRepository(
+      store: _MemoryTranscriptStore(
+        jsonEncode(<String, dynamic>{
+          'entries': botEntries.map((entry) => entry.toJson()).toList(),
+          'composer_mode': 'idle',
+        }),
+      ),
+      billingPlatformPolicy: iosPolicy,
+    );
+    addTearDown(repository.dispose);
+
+    await repository.restore();
+
+    expect(
+      repository.entries.map((entry) => entry.toJson()),
+      botEntries.map((entry) => entry.toJson()),
+    );
+  });
+
   test('Android migration preserves legacy paywalls and unrelated history',
       () async {
     final repository = ChatTranscriptRepository(
@@ -150,6 +187,7 @@ void main() {
         'history',
         'legacy-paywall',
         'legacy-progress',
+        'legacy-yookassa-progress',
         'mixed-history',
         'mixed-bot-history',
         'app-store-paywall',
