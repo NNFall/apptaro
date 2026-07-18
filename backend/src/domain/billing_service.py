@@ -9,6 +9,7 @@ from src.integrations.admin_notifier import AdminNotifier
 from src.integrations.google_play_gateway import GooglePlayGateway
 from src.integrations.yookassa_gateway import YooKassaGateway, YooKassaPaymentInfo
 from src.repositories import billing as billing_repo
+from src.repositories.app_store_billing import AppStoreBillingRepository
 
 
 PaymentStatus = Literal['pending', 'paid', 'canceled', 'failed', 'succeeded']
@@ -42,6 +43,7 @@ class BillingService:
         *,
         gateway: YooKassaGateway,
         google_play_gateway: GooglePlayGateway | None = None,
+        app_store_repository: AppStoreBillingRepository | None = None,
         offer_url: str,
         support_username: str,
         support_max_url: str,
@@ -52,6 +54,7 @@ class BillingService:
     ) -> None:
         self._gateway = gateway
         self._google_play_gateway = google_play_gateway
+        self._app_store_repository = app_store_repository
         self._offer_url = offer_url
         self._support_username = support_username
         self._support_max_url = support_max_url
@@ -69,6 +72,28 @@ class BillingService:
         await self._sync_open_payments(client_id)
         active = billing_repo.get_active_subscription(client_id)
         latest = active or billing_repo.get_latest_valid_subscription(client_id)
+        if active is None and self._app_store_repository is not None:
+            apple_snapshot = self._app_store_repository.entitlement_snapshot(client_id)
+            if apple_snapshot is not None:
+                try:
+                    plan = get_plan_by_google_product_id(apple_snapshot.product_id)
+                    plan_key = plan.key
+                except ValueError:  # pragma: no cover - repository contains reviewed products only
+                    plan_key = 'apple'
+                active = billing_repo.StoredSubscription(
+                    id=-1,
+                    client_id=client_id,
+                    plan_key=plan_key,
+                    starts_at=apple_snapshot.starts_at,
+                    ends_at=apple_snapshot.expires_at or '9999-12-31T23:59:59+00:00',
+                    remaining=apple_snapshot.remaining,
+                    status='active',
+                    auto_renew=1 if apple_snapshot.product_type == 'subscription' else 0,
+                    payment_method_id=None,
+                    provider='app_store',
+                    created_at=apple_snapshot.starts_at,
+                )
+                latest = active
         return BillingSummary(
             client_id=client_id,
             plans=list_plans(),
@@ -83,7 +108,12 @@ class BillingService:
     async def can_start_generation(self, client_id: str) -> bool:
         billing_repo.touch_client(client_id)
         await self._sync_open_payments(client_id)
-        return billing_repo.get_subscription_for_use(client_id) is not None
+        if billing_repo.get_subscription_for_use(client_id) is not None:
+            return True
+        return (
+            self._app_store_repository is not None
+            and self._app_store_repository.remaining_readings(client_id) > 0
+        )
 
     async def should_show_trial_teaser(self, client_id: str) -> bool:
         billing_repo.touch_client(client_id)
@@ -98,7 +128,12 @@ class BillingService:
         billing_repo.mark_free_trial_used(client_id)
 
     async def consume_generation(self, client_id: str) -> bool:
-        return billing_repo.decrement_subscription(client_id)
+        if billing_repo.decrement_subscription(client_id):
+            return True
+        return (
+            self._app_store_repository is not None
+            and self._app_store_repository.consume_reading(client_id)
+        )
 
     async def create_payment(
         self,

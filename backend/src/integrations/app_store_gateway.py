@@ -14,7 +14,9 @@ from appstoreserverlibrary.models.Environment import Environment
 from appstoreserverlibrary.signed_data_verifier import (
     SignedDataVerifier,
     VerificationException,
+    VerificationStatus,
 )
+from requests import RequestException
 
 
 APP_STORE_PRODUCT_IDS = frozenset({
@@ -66,6 +68,7 @@ class VerifiedAppStoreTransaction:
     expires_date_ms: int | None
     revocation_date_ms: int | None
     transaction_type: object | None
+    signed_transaction: str
 
 
 class AppStoreGateway:
@@ -156,6 +159,10 @@ class AppStoreGateway:
                 raise AppStoreGatewayError(
                     f'Apple Production transaction lookup failed ({exc.http_status_code})'
                 ) from exc
+        except RequestException as exc:
+            raise AppStoreGatewayError(
+                'Apple Production transaction lookup failed due to a network error'
+            ) from exc
         else:
             return self._verify_response(
                 response,
@@ -169,6 +176,10 @@ class AppStoreGateway:
         except APIException as exc:
             raise AppStoreGatewayError(
                 f'Apple Sandbox transaction lookup failed ({exc.http_status_code})'
+            ) from exc
+        except RequestException as exc:
+            raise AppStoreGatewayError(
+                'Apple Sandbox transaction lookup failed due to a network error'
             ) from exc
         return self._verify_response(
             response,
@@ -220,12 +231,19 @@ class AppStoreGateway:
     ) -> VerifiedAppStoreTransaction:
         try:
             payload = verifier.verify_and_decode_signed_transaction(signed_transaction)
-        except (VerificationException, ValueError, TypeError) as exc:
+        except VerificationException as exc:
+            if exc.status == VerificationStatus.RETRYABLE_VERIFICATION_FAILURE:
+                raise AppStoreGatewayError(
+                    'Apple transaction verification is temporarily unavailable'
+                ) from exc
+            raise AppStoreValidationError('Apple transaction signature verification failed') from exc
+        except (ValueError, TypeError) as exc:
             raise AppStoreValidationError('Apple transaction signature verification failed') from exc
         return self._validate_payload(
             payload,
             requested_transaction_id=requested_transaction_id,
             expected_environment=expected_environment,
+            signed_transaction=signed_transaction,
         )
 
     def _validate_payload(
@@ -234,6 +252,7 @@ class AppStoreGateway:
         *,
         requested_transaction_id: str | None,
         expected_environment: Environment,
+        signed_transaction: str,
     ) -> VerifiedAppStoreTransaction:
         transaction_id = _required_string(payload, 'transactionId', 'transaction id')
         if requested_transaction_id is not None and transaction_id != requested_transaction_id:
@@ -275,6 +294,7 @@ class AppStoreGateway:
             expires_date_ms=expires_date_ms,
             revocation_date_ms=revocation_date_ms,
             transaction_type=getattr(payload, 'type', None),
+            signed_transaction=signed_transaction,
         )
 
     def _verifier_for(self, environment: Environment) -> _TransactionVerifier:

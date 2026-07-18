@@ -12,6 +12,7 @@ from unittest.mock import patch
 from appstoreserverlibrary.api_client import APIError, APIException
 from appstoreserverlibrary.models.Environment import Environment
 from appstoreserverlibrary.signed_data_verifier import VerificationException, VerificationStatus
+from requests import RequestException
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -19,6 +20,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from src.core.settings import get_settings  # noqa: E402
+from src.core import dependencies  # noqa: E402
 from src.integrations.app_store_gateway import (  # noqa: E402
     AppStoreGateway,
     AppStoreGatewayConfig,
@@ -79,6 +81,7 @@ class AppStoreGatewayTests(unittest.TestCase):
         self.assertEqual(result.bundle_id, 'com.nexwit.tarot')
         self.assertEqual(result.product_id, 'weekly_readings')
         self.assertEqual(result.environment, Environment.PRODUCTION)
+        self.assertEqual(result.signed_transaction, 'signed-production-weekly')
         self.assertEqual(production_client.calls, ['tx-production-weekly'])
         self.assertEqual(sandbox_client.calls, [])
 
@@ -143,6 +146,44 @@ class AppStoreGatewayTests(unittest.TestCase):
 
         with self.assertRaisesRegex(AppStoreValidationError, 'signature'):
             gateway.get_verified_transaction('tx-production-weekly')
+
+    def test_maps_retryable_signature_verification_failure_to_gateway_error(self) -> None:
+        failure = VerificationException(
+            VerificationStatus.RETRYABLE_VERIFICATION_FAILURE,
+        )
+        gateway, _, _ = self._gateway(
+            production_outcome='signed-invalid',
+            extra_payloads={'signed-invalid': failure},
+        )
+
+        with self.assertRaisesRegex(AppStoreGatewayError, 'temporarily') as raised:
+            gateway.get_verified_transaction('tx-production-weekly')
+
+        self.assertNotIsInstance(raised.exception, AppStoreValidationError)
+
+    def test_wraps_production_transport_failure_without_sandbox_fallback(self) -> None:
+        gateway, _, sandbox_client = self._gateway(
+            production_outcome=RequestException('TLS handshake failed'),
+        )
+
+        with self.assertRaisesRegex(AppStoreGatewayError, 'Production') as raised:
+            gateway.get_verified_transaction('tx-production-weekly')
+
+        self.assertNotIsInstance(raised.exception, AppStoreValidationError)
+        self.assertEqual(sandbox_client.calls, [])
+
+    def test_wraps_sandbox_transport_failure_after_not_found_fallback(self) -> None:
+        not_found = APIException(404, APIError.TRANSACTION_ID_NOT_FOUND.value, 'not found')
+        gateway, _, sandbox_client = self._gateway(
+            production_outcome=not_found,
+            sandbox_outcome=RequestException('DNS lookup failed'),
+        )
+
+        with self.assertRaisesRegex(AppStoreGatewayError, 'Sandbox') as raised:
+            gateway.get_verified_transaction('tx-sandbox-consumable')
+
+        self.assertNotIsInstance(raised.exception, AppStoreValidationError)
+        self.assertEqual(sandbox_client.calls, ['tx-sandbox-consumable'])
 
     def test_builds_official_clients_and_verifiers_from_mounted_files(self) -> None:
         client_calls: list[tuple[bytes, str, str, str, Environment]] = []
@@ -217,6 +258,29 @@ class AppStoreGatewayTests(unittest.TestCase):
         self.assertTrue(settings.app_store_enable_online_checks)
         get_settings.cache_clear()
 
+    def test_dependency_treats_gateway_construction_error_as_unconfigured(self) -> None:
+        settings = SimpleNamespace(
+            app_store_key_id='KEY123',
+            app_store_issuer_id='issuer-123',
+            app_store_app_apple_id=1234567890,
+            app_store_private_key_path=Path(__file__),
+            app_store_root_certificates_dir=Path(__file__).parent,
+            app_store_bundle_id='com.nexwit.tarot',
+            app_store_enable_online_checks=False,
+        )
+        dependencies.get_app_store_gateway.cache_clear()
+        try:
+            with (
+                patch.object(dependencies, 'get_settings', return_value=settings),
+                patch.object(
+                    dependencies,
+                    'AppStoreGateway',
+                    side_effect=AppStoreGatewayError('bad mounted key'),
+                ),
+            ):
+                self.assertIsNone(dependencies.get_app_store_gateway())
+        finally:
+            dependencies.get_app_store_gateway.cache_clear()
     def test_rejects_an_expanded_product_allowlist(self) -> None:
         with self.assertRaisesRegex(ValueError, 'four App Store product ids'):
             AppStoreGateway.from_dependencies(

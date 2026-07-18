@@ -71,3 +71,11 @@ def get_plan_by_google_product_id(product_id: str) -> BillingPlan:
         if plan.google_product_id == normalized:
             return plan
     raise ValueError(f'Unknown Google Play product: {product_id}')
+
+
+def get_plan_by_store_product_id(product_id: str) -> BillingPlan:
+    normalized = product_id.strip()
+    for plan in PLANS.values():
+        if plan.google_product_id == normalized:
+            return plan
+    raise ValueError(f'Unknown store product: {product_id}')

@@ -84,3 +84,21 @@ class GooglePlayVerifyRequest(BaseModel):
     purchase_token: Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=4096)]
     package_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=255)]
     restored: bool = False
+
+
+class AppleAccountTokenResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    app_account_token: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=36, max_length=36),
+    ]
+
+
+class AppleVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    transaction_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
+    product_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=128)]
+    operation: Literal['purchase', 'restore']
+    client_signed_data: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=16384)]

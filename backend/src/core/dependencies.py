@@ -6,14 +6,22 @@ from fastapi import Depends, Header, HTTPException, status
 
 from src.core.settings import get_settings
 from src.domain.billing_service import BillingService
+from src.domain.app_store_billing_service import AppStoreBillingService
 from src.domain.conversion_service import ConversionService
 from src.domain.presentation_outline_service import PresentationOutlineService
 from src.domain.presentation_render_service import PresentationRenderService
 from src.integrations.admin_notifier import AdminNotifier
 from src.integrations.google_play_gateway import GooglePlayGateway
+from src.integrations.app_store_gateway import (
+    APP_STORE_PRODUCT_IDS,
+    AppStoreGateway,
+    AppStoreGatewayConfig,
+    AppStoreGatewayError,
+)
 from src.integrations.yookassa_gateway import YooKassaGateway
 from src.integrations.text_generation import PresentationGenerationClient
 from src.repositories import billing as billing_repo
+from src.repositories.app_store_billing import AppStoreBillingRepository
 
 
 @lru_cache(maxsize=1)
@@ -104,11 +112,45 @@ def get_google_play_gateway() -> GooglePlayGateway:
 
 
 @lru_cache(maxsize=1)
+def get_app_store_billing_repository() -> AppStoreBillingRepository:
+    return AppStoreBillingRepository()
+
+
+@lru_cache(maxsize=1)
+def get_app_store_gateway() -> AppStoreGateway | None:
+    settings = get_settings()
+    if not all((
+        settings.app_store_key_id,
+        settings.app_store_issuer_id,
+        settings.app_store_app_apple_id > 0,
+        settings.app_store_private_key_path.is_file(),
+        settings.app_store_root_certificates_dir.is_dir(),
+    )):
+        return None
+    try:
+        return AppStoreGateway(
+            config=AppStoreGatewayConfig(
+                private_key_path=settings.app_store_private_key_path,
+                key_id=settings.app_store_key_id,
+                issuer_id=settings.app_store_issuer_id,
+                bundle_id=settings.app_store_bundle_id,
+                app_apple_id=settings.app_store_app_apple_id,
+                root_certificates_dir=settings.app_store_root_certificates_dir,
+                allowed_product_ids=APP_STORE_PRODUCT_IDS,
+                enable_online_checks=settings.app_store_enable_online_checks,
+            )
+        )
+    except (AppStoreGatewayError, OSError, ValueError):
+        return None
+
+
+@lru_cache(maxsize=1)
 def get_billing_service() -> BillingService:
     settings = get_settings()
     return BillingService(
         gateway=get_yookassa_gateway(),
         google_play_gateway=get_google_play_gateway(),
+        app_store_repository=get_app_store_billing_repository(),
         offer_url=settings.offer_url,
         support_username=settings.support_username,
         support_max_url=settings.support_max_url,
@@ -116,6 +158,15 @@ def get_billing_service() -> BillingService:
         test_mode=settings.google_play_test_mode,
         legacy_yookassa_enabled=settings.legacy_yookassa_billing_enabled,
         notifier=get_admin_notifier(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_app_store_billing_service() -> AppStoreBillingService:
+    return AppStoreBillingService(
+        repository=get_app_store_billing_repository(),
+        gateway=get_app_store_gateway(),
+        billing_service=get_billing_service(),
     )
 
 

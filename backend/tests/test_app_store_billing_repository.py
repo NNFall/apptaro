@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 
@@ -92,6 +93,28 @@ def test_apply_transaction_is_idempotent_and_grants_once(
         assert conn.execute('SELECT COUNT(*) FROM apple_transactions').fetchone()[0] == 1
         assert conn.execute('SELECT COUNT(*) FROM entitlement_lots').fetchone()[0] == 1
         assert conn.execute('SELECT COUNT(*) FROM admin_outbox').fetchone()[0] == 1
+
+
+def test_replay_accepts_a_fresh_apple_signature_for_the_same_transaction(
+    repo: AppStoreBillingRepository,
+) -> None:
+    original = subscription_transaction()
+    repo.apply_verified_transaction(original)
+    resigned = VerifiedAppStoreTransaction(
+        **{**original.__dict__, 'signed_transaction': 'fresh-apple-jws'},
+    )
+
+    replay = repo.apply_verified_transaction(resigned)
+
+    assert replay.replayed is True
+    assert replay.granted == 0
+    assert repo.remaining_readings(CLIENT_ID, at=NOW) == 15
+    with connect() as conn:
+        row = conn.execute(
+            'SELECT signed_transaction FROM apple_transactions WHERE transaction_id = ?',
+            (original.transaction_id,),
+        ).fetchone()
+        assert row['signed_transaction'] == original.signed_transaction
 
 
 @pytest.mark.parametrize(
@@ -233,3 +256,75 @@ def test_rejects_subscription_without_signed_expiry(
 
     with connect() as conn:
         assert conn.execute('SELECT COUNT(*) FROM apple_transactions').fetchone()[0] == 0
+
+
+def test_account_token_is_stable_canonical_uuid(repo: AppStoreBillingRepository) -> None:
+    first = repo.get_or_create_app_account_token(CLIENT_ID)
+    second = repo.get_or_create_app_account_token(CLIENT_ID)
+
+    assert first == second
+    assert str(UUID(first)) == first
+
+
+def test_consume_reading_uses_active_lots_atomically(repo: AppStoreBillingRepository) -> None:
+    repo.apply_verified_transaction(consumable_transaction('tx-pack-10', 10))
+
+    assert repo.consume_reading(CLIENT_ID, at=NOW) is True
+    assert repo.remaining_readings(CLIENT_ID, at=NOW) == 9
+    for _ in range(9):
+        assert repo.consume_reading(CLIENT_ID, at=NOW) is True
+    assert repo.consume_reading(CLIENT_ID, at=NOW) is False
+
+
+def test_restore_transfers_only_active_subscription_chain(
+    repo: AppStoreBillingRepository,
+) -> None:
+    old_client = 'client_apple_old'
+    old_token = repo.get_or_create_app_account_token(old_client)
+    new_client = 'client_apple_new'
+    new_token = repo.get_or_create_app_account_token(new_client)
+    transaction = subscription_transaction(
+        client_id=old_client,
+        account_token=old_token,
+        expires_at=NOW + timedelta(days=3),
+    )
+    repo.apply_verified_transaction(transaction)
+
+    result = repo.restore_subscription_chain(
+        transaction=transaction,
+        target_client_id=new_client,
+        target_app_account_token=new_token,
+        at=NOW,
+    )
+
+    assert result.replayed is True
+    assert result.granted == 0
+    assert repo.remaining_readings(old_client, at=NOW) == 0
+    assert repo.remaining_readings(new_client, at=NOW) == 15
+
+
+def test_restore_rejects_consumable_and_expired_subscription(
+    repo: AppStoreBillingRepository,
+) -> None:
+    target_client = 'client_apple_restore'
+    target_token = repo.get_or_create_app_account_token(target_client)
+
+    with pytest.raises(ValueError, match='consumable'):
+        repo.restore_subscription_chain(
+            transaction=consumable_transaction('tx-pack-restore', 10),
+            target_client_id=target_client,
+            target_app_account_token=target_token,
+            at=NOW,
+        )
+
+    expired = subscription_transaction(expires_at=NOW - timedelta(seconds=1))
+    expired = VerifiedAppStoreTransaction(
+        **{**expired.__dict__, 'purchased_at': NOW - timedelta(days=1)},
+    )
+    with pytest.raises(ValueError, match='active'):
+        repo.restore_subscription_chain(
+            transaction=expired,
+            target_client_id=target_client,
+            target_app_account_token=target_token,
+            at=NOW,
+        )
