@@ -14,8 +14,10 @@ import '../../data/repositories/chat_transcript_repository.dart';
 import '../../data/repositories/client_session_repository.dart';
 import '../../data/repositories/local_history_repository.dart';
 import '../../data/repositories/saved_files_repository.dart';
+import '../../domain/models/billing_payment.dart';
 import '../../domain/models/billing_plan.dart';
 import '../../domain/models/billing_summary.dart';
+import '../../domain/models/billing_subscription.dart';
 import '../../domain/models/chat_transcript_entry.dart';
 import '../../domain/models/job_artifact.dart';
 import '../../domain/models/presentation_template.dart';
@@ -117,8 +119,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
 
   String get _selectSubscriptionLabel => _copy(
-        en: '✅ Choose subscription',
-        ru: '✅ Выбрать подписку',
+        en: _isNativeIos
+            ? '✅ Choose plan or reading pack'
+            : '✅ Choose subscription',
+        ru: _isNativeIos
+            ? '✅ Выбрать тариф или пакет раскладов'
+            : '✅ Выбрать подписку',
       );
 
   String get _restorePurchasesLabel => _copy(
@@ -1208,7 +1214,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           case 'paid':
             _clearBillingProgressMessage();
             _appendBotMessage(
-              _buildPaymentSuccessText(payment.summary),
+              _buildPaymentSuccessText(payment),
               keyboard: _mainMenuOnlyKeyboard(),
             );
             if (_pendingTemplateAfterPayment != null ||
@@ -1293,6 +1299,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     if (active != null && active.isActive) {
       final plan = _findBillingPlan(summary, active.planKey);
+      if (_isNativeIos) {
+        final isOneTime = BillingChatPresentation.isOneTimeEntitlement(
+          plans: summary.plans,
+          planKey: active.planKey,
+        );
+        final text = ApplePaywallCopy.activeBalance(
+          isRussian: _isRussian,
+          recurring: !isOneTime,
+          autoRenew: active.autoRenew,
+          planLine: plan == null ? active.planKey : _planTariffLine(plan),
+          remainingReadings: summary.remainingGenerations,
+          validUntil: _shortDate(active.endsAt),
+          subscriptionDisclosure:
+              _billingChatPresentation.appleSubscriptionDisclosure ?? '',
+        );
+        return _billingChatPresentation.withApplePurchaseLegalCopy(text);
+      }
       buffer.writeln(_copy(
         en: '**✅ Subscription active**',
         ru: '**✅ Подписка активна**',
@@ -1311,13 +1334,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         en: '**Valid until:** ${_shortDate(active.endsAt)}',
         ru: '**Действует до:** ${_shortDate(active.endsAt)}',
       ));
-      final legalDisclosure = _billingChatPresentation.legalDisclosure;
-      if (legalDisclosure != null) {
-        buffer
-          ..writeln()
-          ..writeln(legalDisclosure);
-      }
       return buffer.toString().trim();
+    }
+
+    if (_isNativeIos) {
+      return _buildAppleInactiveBalance(summary, latest);
     }
 
     final remaining = latest?.remaining ?? 0;
@@ -1357,19 +1378,112 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     }
 
-    final legalDisclosure = _billingChatPresentation.legalDisclosure;
-    if (legalDisclosure != null) {
+    final offerUrl = summary.offerUrl.trim();
+    if (offerUrl.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln(legalDisclosure);
-    } else {
-      final offerUrl = summary.offerUrl.trim();
-      if (offerUrl.isNotEmpty) {
-        buffer.writeln();
-        buffer.writeln(_copy(
-          en: 'Payment is handled securely by Google Play. By continuing, you agree to the [terms]($offerUrl).',
-          ru: 'Переходя к оплате, вы соглашаетесь с [офертой]($offerUrl).',
-        ));
+      buffer.writeln(_copy(
+        en: 'Payment is handled securely by Google Play. By continuing, you agree to the [terms]($offerUrl).',
+        ru: 'Переходя к оплате, вы соглашаетесь с [офертой]($offerUrl).',
+      ));
+    }
+    return buffer.toString().trim();
+  }
+
+  String _buildAppleInactiveBalance(
+    BillingSummary summary,
+    BillingSubscription? latest,
+  ) {
+    if (latest != null &&
+        BillingChatPresentation.isOneTimeEntitlement(
+          plans: summary.plans,
+          planKey: latest.planKey,
+        )) {
+      final plan = _findBillingPlan(summary, latest.planKey);
+      final text = ApplePaywallCopy.activeBalance(
+        isRussian: _isRussian,
+        recurring: false,
+        autoRenew: false,
+        planLine: plan == null ? latest.planKey : _planTariffLine(plan),
+        remainingReadings: summary.remainingGenerations,
+        validUntil: '',
+        subscriptionDisclosure: '',
+      );
+      return _billingChatPresentation.withApplePurchaseLegalCopy(text);
+    }
+
+    if (latest != null && latest.isCanceled) {
+      final plan = _findBillingPlan(summary, latest.planKey);
+      final text = ApplePaywallCopy.canceledSubscriptionBalance(
+        isRussian: _isRussian,
+        planLine: plan == null ? latest.planKey : _planTariffLine(plan),
+        remainingReadings: summary.remainingGenerations,
+        validUntil: _shortDate(latest.endsAt),
+      );
+      return _billingChatPresentation.withApplePurchaseLegalCopy(text);
+    }
+
+    final buffer = StringBuffer(_copy(
+      en: '**No active subscription or reading pack credits**\n',
+      ru: '**Нет активной подписки или доступных раскладов из пакета**\n',
+    ));
+    buffer.writeln(_copy(
+      en: '**Total readings available:** ${summary.remainingGenerations}',
+      ru: '**Всего доступно раскладов:** ${summary.remainingGenerations}',
+    ));
+    buffer
+      ..writeln()
+      ..write(_buildApplePaywallText(_visibleBillingPlans(summary)));
+    return buffer.toString().trim();
+  }
+
+  String _buildApplePaywallText(
+    List<BillingPlan> plans, {
+    String? intro,
+  }) {
+    final subscriptions = BillingChatPresentation.subscriptionPlans(plans);
+    final readingPacks = BillingChatPresentation.readingPackPlans(plans);
+    final buffer = StringBuffer();
+    if (intro != null && intro.isNotEmpty) {
+      buffer
+        ..writeln(intro)
+        ..writeln();
+    }
+    buffer.writeln(ApplePaywallCopy.paywallTitle(
+      isRussian: _isRussian,
+      offersSubscriptions: subscriptions.isNotEmpty,
+      offersReadingPacks: readingPacks.isNotEmpty,
+    ));
+    if (subscriptions.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln(
+          ApplePaywallCopy.subscriptionSectionTitle(isRussian: _isRussian),
+        );
+      for (final plan in subscriptions) {
+        buffer.writeln('- ${_planTariffLine(plan)}');
       }
+      final disclosure = _billingChatPresentation.appleSubscriptionDisclosure;
+      if (disclosure != null && disclosure.isNotEmpty) {
+        buffer
+          ..writeln()
+          ..writeln(disclosure);
+      }
+    }
+    if (readingPacks.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln(
+          ApplePaywallCopy.readingPackSectionTitle(isRussian: _isRussian),
+        );
+      for (final plan in readingPacks) {
+        buffer.writeln('- ${_planTariffLine(plan)}');
+      }
+    }
+    final legalCopy = _billingChatPresentation.applePurchaseLegalCopy;
+    if (legalCopy != null && legalCopy.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln(legalCopy);
     }
     return buffer.toString().trim();
   }
@@ -1378,7 +1492,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final rows = <List<_ChatAction>>[];
     final active = summary.activeSubscription;
 
-    if (active == null || !active.isActive) {
+    if (BillingChatPresentation.showsPlanOptionsOnBalance(
+      platformPolicy: _billingPlatformPolicy,
+      hasActiveEntitlement: active?.isActive == true,
+    )) {
       rows.add([
         _action(
           _selectSubscriptionLabel,
@@ -1445,15 +1562,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ],
     ];
 
-    final intro = _copy(
-      en: '**Your reading is almost ready!** ✅\n'
-          'Choose a subscription to unlock the full interpretation.',
-      ru: '**Расклад почти готов!** ✅\n'
-          'Выбери подписку, чтобы открыть полный разбор.',
-    );
-    final legalDisclosure = _billingChatPresentation.legalDisclosure;
+    if (_isNativeIos) {
+      final intro = _copy(
+        en: '**Your reading is almost ready!** ✅\n'
+            'Choose a subscription or one-time reading pack to unlock the full interpretation.',
+        ru: '**Расклад почти готов!** ✅\n'
+            'Выбери подписку или разовый пакет раскладов, чтобы открыть полный разбор.',
+      );
+      _appendBotMessage(
+        _buildApplePaywallText(
+          _visibleBillingPlans(summary),
+          intro: intro,
+        ),
+        keyboard: rows,
+      );
+      return;
+    }
+
     _appendBotMessage(
-      legalDisclosure == null ? intro : '$intro\n\n$legalDisclosure',
+      _copy(
+        en: '**Your reading is almost ready!** ✅\n'
+            'Choose a subscription to unlock the full interpretation.',
+        ru: '**Расклад почти готов!** ✅\n'
+            'Выбери подписку, чтобы открыть полный разбор.',
+      ),
       keyboard: rows,
     );
   }
@@ -1473,10 +1605,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         localizedPrice.isNotEmpty;
   }
 
-  String _buildPaymentSuccessText(BillingSummary summary) {
+  String _buildPaymentSuccessText(BillingPayment payment) {
+    final summary = payment.summary;
     final active = summary.activeSubscription;
     final plan =
         active == null ? null : _findBillingPlan(summary, active.planKey);
+    if (_isNativeIos) {
+      final text = _billingChatPresentation.applePaymentSuccessText(
+        payment: payment,
+        isRussian: _isRussian,
+        planLineFor: _planTariffLine,
+        formatDate: _shortDate,
+      );
+      if (text != null) {
+        return text;
+      }
+    }
     final buffer = StringBuffer(_copy(
       en: '**Payment completed successfully.** ✅\n\n',
       ru: '**Оплата прошла успешно.** ✅\n\n',
@@ -1614,13 +1758,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ],
     ];
 
-    final title = _copy(
-      en: '**Choose a subscription** 👇',
-      ru: '**Выбери подписку** 👇',
-    );
-    final legalDisclosure = _billingChatPresentation.legalDisclosure;
     _appendBotMessage(
-      legalDisclosure == null ? title : '$title\n\n$legalDisclosure',
+      _isNativeIos
+          ? _buildApplePaywallText(plans)
+          : _copy(
+              en: '**Choose a subscription** 👇',
+              ru: '**Выбери подписку** 👇',
+            ),
       keyboard: rows,
     );
   }
@@ -1883,6 +2027,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   String _planOptionLabel(BillingPlan plan) {
+    if (_isNativeIos) {
+      return ApplePaywallCopy.planButtonLabel(
+        isRussian: _isRussian,
+        recurring: plan.recurring,
+        planLine: _planTariffLine(plan),
+      );
+    }
     return switch (plan.key) {
       'week' => '🔥 ${_planTariffLine(plan)}',
       'month' => '⭐ ${_planTariffLine(plan)}',
@@ -1905,6 +2056,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return ApplePaywallCopy.planLine(
         isRussian: _isRussian,
         planKey: plan.key,
+        recurring: plan.recurring,
         localizedPrice: localizedPrice,
         includedReadings: plan.limit,
       );
