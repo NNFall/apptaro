@@ -43,6 +43,10 @@ class _TransactionClient(Protocol):
 class _TransactionVerifier(Protocol):
     def verify_and_decode_signed_transaction(self, signed_transaction: str) -> object: ...
 
+    def verify_and_decode_notification(self, signed_payload: str) -> object: ...
+
+    def verify_and_decode_renewal_info(self, signed_renewal_info: str) -> object: ...
+
 
 @dataclass(frozen=True)
 class AppStoreGatewayConfig:
@@ -69,6 +73,30 @@ class VerifiedAppStoreTransaction:
     revocation_date_ms: int | None
     transaction_type: object | None
     signed_transaction: str
+
+
+@dataclass(frozen=True)
+class VerifiedAppStoreRenewalInfo:
+    original_transaction_id: str
+    product_id: str
+    environment: Environment
+    app_account_token: str | None
+    grace_period_expires_date_ms: int | None
+    is_in_billing_retry_period: bool
+    expiration_intent: object | None
+    signed_renewal_info: str
+
+
+@dataclass(frozen=True)
+class VerifiedAppStoreNotification:
+    notification_uuid: str
+    notification_type: str
+    subtype: str | None
+    signed_date_ms: int | None
+    environment: Environment
+    transaction: VerifiedAppStoreTransaction | None
+    renewal_info: VerifiedAppStoreRenewalInfo | None
+    signed_payload: str
 
 
 class AppStoreGateway:
@@ -203,6 +231,125 @@ class AppStoreGateway:
             verifier=verifier,
         )
 
+    def verify_notification(self, signed_payload: str) -> VerifiedAppStoreNotification:
+        normalized_payload = signed_payload.strip()
+        if not normalized_payload:
+            raise AppStoreValidationError('Apple notification signed payload is required')
+
+        try:
+            return self._verify_notification_with(
+                normalized_payload,
+                expected_environment=Environment.PRODUCTION,
+                verifier=self._production_verifier,
+            )
+        except AppStoreValidationError:
+            return self._verify_notification_with(
+                normalized_payload,
+                expected_environment=Environment.SANDBOX,
+                verifier=self._sandbox_verifier,
+            )
+
+    def _verify_notification_with(
+        self,
+        signed_payload: str,
+        *,
+        expected_environment: Environment,
+        verifier: _TransactionVerifier,
+    ) -> VerifiedAppStoreNotification:
+        try:
+            payload = verifier.verify_and_decode_notification(signed_payload)
+        except VerificationException as exc:
+            _raise_verification_error(exc, 'notification')
+        except AppStoreGatewayError:
+            raise
+        except (ValueError, TypeError) as exc:
+            raise AppStoreValidationError(
+                'Apple notification signature verification failed'
+            ) from exc
+
+        environment = _notification_environment(payload)
+        if environment != expected_environment:
+            raise AppStoreValidationError(
+                'Apple notification environment does not match its signature verifier'
+            )
+
+        data = getattr(payload, 'data', None)
+        transaction: VerifiedAppStoreTransaction | None = None
+        renewal_info: VerifiedAppStoreRenewalInfo | None = None
+        if data is not None:
+            signed_transaction = _optional_string(data, 'signedTransactionInfo')
+            if signed_transaction is not None:
+                transaction = self._verify_signed_transaction(
+                    signed_transaction,
+                    requested_transaction_id=None,
+                    expected_environment=expected_environment,
+                    verifier=verifier,
+                    allow_inactive=True,
+                )
+            signed_renewal = _optional_string(data, 'signedRenewalInfo')
+            if signed_renewal is not None:
+                renewal_info = self._verify_renewal_info(
+                    signed_renewal,
+                    expected_environment=expected_environment,
+                    verifier=verifier,
+                )
+
+        notification_uuid = _required_string(payload, 'notificationUUID', 'notification UUID')
+        notification_type = (
+            _enum_or_raw_value(payload, 'notificationType', 'rawNotificationType')
+            or 'UNKNOWN'
+        )
+        subtype = _enum_or_raw_value(payload, 'subtype', 'rawSubtype')
+        return VerifiedAppStoreNotification(
+            notification_uuid=notification_uuid,
+            notification_type=notification_type,
+            subtype=subtype,
+            signed_date_ms=_optional_int(payload, 'signedDate'),
+            environment=environment,
+            transaction=transaction,
+            renewal_info=renewal_info,
+            signed_payload=signed_payload,
+        )
+
+    def _verify_renewal_info(
+        self,
+        signed_renewal_info: str,
+        *,
+        expected_environment: Environment,
+        verifier: _TransactionVerifier,
+    ) -> VerifiedAppStoreRenewalInfo:
+        try:
+            payload = verifier.verify_and_decode_renewal_info(signed_renewal_info)
+        except VerificationException as exc:
+            _raise_verification_error(exc, 'renewal info')
+        except (ValueError, TypeError) as exc:
+            raise AppStoreValidationError(
+                'Apple renewal info signature verification failed'
+            ) from exc
+
+        environment = getattr(payload, 'environment', None)
+        if environment != expected_environment:
+            raise AppStoreValidationError('Apple renewal environment does not match notification')
+        product_id = _required_string(payload, 'productId', 'renewal product id')
+        if product_id not in self._allowed_product_ids:
+            raise AppStoreValidationError('Apple renewal product is not allowed')
+        return VerifiedAppStoreRenewalInfo(
+            original_transaction_id=_required_string(
+                payload,
+                'originalTransactionId',
+                'renewal original transaction id',
+            ),
+            product_id=product_id,
+            environment=environment,
+            app_account_token=_optional_string(payload, 'appAccountToken'),
+            grace_period_expires_date_ms=_optional_int(payload, 'gracePeriodExpiresDate'),
+            is_in_billing_retry_period=bool(
+                getattr(payload, 'isInBillingRetryPeriod', False)
+            ),
+            expiration_intent=getattr(payload, 'expirationIntent', None),
+            signed_renewal_info=signed_renewal_info,
+        )
+
     def _verify_response(
         self,
         response: object,
@@ -228,6 +375,7 @@ class AppStoreGateway:
         requested_transaction_id: str | None,
         expected_environment: Environment,
         verifier: _TransactionVerifier,
+        allow_inactive: bool = False,
     ) -> VerifiedAppStoreTransaction:
         try:
             payload = verifier.verify_and_decode_signed_transaction(signed_transaction)
@@ -244,6 +392,7 @@ class AppStoreGateway:
             requested_transaction_id=requested_transaction_id,
             expected_environment=expected_environment,
             signed_transaction=signed_transaction,
+            allow_inactive=allow_inactive,
         )
 
     def _validate_payload(
@@ -253,6 +402,7 @@ class AppStoreGateway:
         requested_transaction_id: str | None,
         expected_environment: Environment,
         signed_transaction: str,
+        allow_inactive: bool = False,
     ) -> VerifiedAppStoreTransaction:
         transaction_id = _required_string(payload, 'transactionId', 'transaction id')
         if requested_transaction_id is not None and transaction_id != requested_transaction_id:
@@ -271,11 +421,11 @@ class AppStoreGateway:
             raise AppStoreValidationError('Apple transaction product is not allowed')
 
         revocation_date_ms = _optional_int(payload, 'revocationDate')
-        if revocation_date_ms is not None:
+        if revocation_date_ms is not None and not allow_inactive:
             raise AppStoreValidationError('Apple transaction was revoked')
 
         expires_date_ms = _optional_int(payload, 'expiresDate')
-        if product_id in SUBSCRIPTION_PRODUCT_IDS:
+        if product_id in SUBSCRIPTION_PRODUCT_IDS and not allow_inactive:
             now_ms = int(self._clock() * 1000)
             if expires_date_ms is None or expires_date_ms <= now_ms:
                 raise AppStoreValidationError('Apple subscription transaction is expired')
@@ -375,3 +525,30 @@ def _optional_int(payload: object, attribute: str) -> int | None:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise AppStoreValidationError(f'Apple transaction has invalid {attribute}') from exc
+
+
+def _raise_verification_error(exc: VerificationException, label: str) -> None:
+    if exc.status == VerificationStatus.RETRYABLE_VERIFICATION_FAILURE:
+        raise AppStoreGatewayError(
+            f'Apple {label} verification is temporarily unavailable'
+        ) from exc
+    raise AppStoreValidationError(f'Apple {label} signature verification failed') from exc
+
+
+def _notification_environment(payload: object) -> Environment:
+    for container_name in ('data', 'summary', 'appData'):
+        container = getattr(payload, container_name, None)
+        environment = getattr(container, 'environment', None) if container is not None else None
+        if environment in (Environment.PRODUCTION, Environment.SANDBOX):
+            return environment
+    raise AppStoreValidationError('Apple notification environment is missing')
+
+
+def _enum_or_raw_value(payload: object, enum_attribute: str, raw_attribute: str) -> str | None:
+    value = getattr(payload, enum_attribute, None)
+    if value is not None:
+        resolved = getattr(value, 'value', value)
+        text = str(resolved).strip()
+        if text:
+            return text
+    return _optional_string(payload, raw_attribute)

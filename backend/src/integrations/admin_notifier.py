@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import html
 import logging
 from datetime import datetime
@@ -9,6 +10,9 @@ import httpx
 
 
 logger = logging.getLogger(__name__)
+
+APP_STORE_TELEGRAM_HTTP_TIMEOUT_SECONDS = 10.0
+_SAFE_TELEGRAM_ENDPOINT = 'https://api.telegram.org/sendMessage'
 
 
 def _unique(ids: Iterable[str]) -> list[str]:
@@ -55,6 +59,34 @@ def _bold(value: str) -> str:
     return f"<b>{html.escape(value)}</b>"
 
 
+def _sanitized_telegram_error(exc: Exception) -> Exception:
+    safe_request = httpx.Request('POST', _SAFE_TELEGRAM_ENDPOINT)
+    if isinstance(exc, httpx.HTTPStatusError):
+        status_code = exc.response.status_code
+        safe_response = httpx.Response(status_code, request=safe_request)
+        return httpx.HTTPStatusError(
+            f'Telegram API returned HTTP {status_code}',
+            request=safe_request,
+            response=safe_response,
+        )
+    if isinstance(exc, httpx.ConnectError):
+        return httpx.ConnectError(
+            'Telegram connection failed',
+            request=safe_request,
+        )
+    if isinstance(exc, (httpx.TimeoutException, TimeoutError)):
+        return httpx.TimeoutException(
+            'Telegram request timed out',
+            request=safe_request,
+        )
+    if isinstance(exc, httpx.RequestError):
+        return httpx.RequestError(
+            'Telegram request failed',
+            request=safe_request,
+        )
+    return RuntimeError(f'Telegram delivery failed ({type(exc).__name__})')
+
+
 class AdminNotifier:
     def __init__(self, *, bot_token: str, admin_ids: list[str]) -> None:
         self._bot_token = bot_token.strip()
@@ -64,29 +96,154 @@ class AdminNotifier:
     def enabled(self) -> bool:
         return bool(self._bot_token and self._admin_ids)
 
+    @property
+    def delivery_recipients(self) -> tuple[str, ...]:
+        return tuple(self._admin_ids)
+
+    @property
+    def delivery_timeout_seconds(self) -> float:
+        return APP_STORE_TELEGRAM_HTTP_TIMEOUT_SECONDS
+
     async def notify(self, text: str) -> None:
+        await self._notify(text, propagate_errors=False)
+
+    async def _notify(
+        self,
+        text: str,
+        *,
+        propagate_errors: bool,
+        recipient_ids: Iterable[str] | None = None,
+    ) -> None:
         if not self.enabled:
+            if propagate_errors:
+                raise RuntimeError('Admin notifier is not configured')
             return
 
+        recipients = _unique(recipient_ids if recipient_ids is not None else self._admin_ids)
+        if not recipients:
+            if propagate_errors:
+                raise RuntimeError('Admin notifier is not configured')
+            return
         api_url = f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
-        timeout = httpx.Timeout(10.0, connect=5.0)
-        try:
+        timeout = httpx.Timeout(
+            APP_STORE_TELEGRAM_HTTP_TIMEOUT_SECONDS,
+            connect=5.0,
+        )
+
+        async def send_recipient(client: httpx.AsyncClient, admin_id: str) -> None:
+            async with asyncio.timeout(APP_STORE_TELEGRAM_HTTP_TIMEOUT_SECONDS):
+                response = await client.post(
+                    api_url,
+                    json={
+                        "chat_id": admin_id,
+                        "text": text,
+                        "parse_mode": "HTML",
+                        "disable_web_page_preview": True,
+                    },
+                )
+            response.raise_for_status()
+
+        if not propagate_errors:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                for admin_id in self._admin_ids:
+                for admin_id in recipients:
+                    safe_error: Exception | None = None
                     try:
-                        await client.post(
-                            api_url,
-                            json={
-                                "chat_id": admin_id,
-                                "text": text,
-                                "parse_mode": "HTML",
-                                "disable_web_page_preview": True,
-                            },
+                        await send_recipient(client, admin_id)
+                    except Exception as exc:  # noqa: BLE001
+                        safe_error = _sanitized_telegram_error(exc)
+                    if safe_error is not None:
+                        logger.error(
+                            'Admin notification delivery failed for recipient %s: %s',
+                            admin_id,
+                            safe_error,
                         )
-                    except Exception:  # noqa: BLE001
-                        logger.exception("Failed to send admin notification to %s", admin_id)
-        except Exception:  # noqa: BLE001
-            logger.exception("Admin notify failed")
+            return
+
+        async def send_all() -> None:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                for admin_id in recipients:
+                    await send_recipient(client, admin_id)
+
+        safe_error: Exception | None = None
+        try:
+            await send_all()
+        except Exception as exc:  # noqa: BLE001
+            safe_error = _sanitized_telegram_error(exc)
+        if safe_error is not None:
+            raise safe_error
+
+    async def notify_app_store_event(
+        self,
+        *,
+        event_type: str,
+        client_id: str,
+        product_id: str,
+        transaction_id: str,
+        notification_uuid: str,
+        detail: str,
+    ) -> None:
+        text = self._app_store_event_text(
+            event_type=event_type,
+            client_id=client_id,
+            product_id=product_id,
+            transaction_id=transaction_id,
+            detail=detail,
+        )
+        await self._notify(text, propagate_errors=True)
+
+    async def notify_app_store_event_to(
+        self,
+        recipient_id: str,
+        *,
+        event_type: str,
+        client_id: str,
+        product_id: str,
+        transaction_id: str,
+        notification_uuid: str,
+        detail: str,
+    ) -> None:
+        text = self._app_store_event_text(
+            event_type=event_type,
+            client_id=client_id,
+            product_id=product_id,
+            transaction_id=transaction_id,
+            detail=detail,
+        )
+        await self._notify(
+            text,
+            propagate_errors=True,
+            recipient_ids=[recipient_id],
+        )
+
+    @staticmethod
+    def _app_store_event_text(
+        *,
+        event_type: str,
+        client_id: str,
+        product_id: str,
+        transaction_id: str,
+        detail: str,
+    ) -> str:
+        titles = {
+            'purchase': 'App Store purchase',
+            'restore': 'App Store restore',
+            'renewal': 'App Store renewal',
+            'expiration': 'App Store subscription expired',
+            'refund': 'App Store refund',
+            'revocation': 'App Store entitlement revoked',
+            'billing_retry': 'App Store billing retry',
+            'validation_failure': 'App Store validation failure',
+        }
+        lines = [_bold(titles.get(event_type, 'App Store event'))]
+        if client_id:
+            lines.append(f"{_bold('User ID:')} {_code(_display_client_id(client_id))}")
+        if product_id:
+            lines.append(f"{_bold('Product ID:')} {_code(product_id)}")
+        if transaction_id:
+            lines.append(f"{_bold('Transaction ID:')} {_code(transaction_id)}")
+        if detail:
+            lines.append(f"{_bold('Event:')} {html.escape(_shorten_text(detail, 160))}")
+        return "\n".join(lines)
 
     async def notify_new_client(self, client_id: str, tag: str = "без метки") -> None:
         await self.notify(
