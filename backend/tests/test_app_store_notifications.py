@@ -24,6 +24,7 @@ if str(BACKEND_DIR) not in sys.path:
 from src.core.dependencies import get_admin_notifier, get_app_store_billing_service  # noqa: E402
 import src.api.app_store_billing as apple_api_module  # noqa: E402
 from src.domain.app_store_billing_service import AppStoreBillingService  # noqa: E402
+from src.domain.billing_service import BillingService  # noqa: E402
 from src.integrations.admin_notifier import AdminNotifier  # noqa: E402
 from src.integrations.app_store_gateway import (  # noqa: E402
     APP_STORE_PRODUCT_IDS,
@@ -43,6 +44,7 @@ from src.repositories.storage import connect, init_storage  # noqa: E402
 
 
 NOW = datetime.now(UTC)
+MISSING = object()
 
 
 class FakeBillingService:
@@ -118,6 +120,8 @@ def _renewal(
     *,
     grace_expires_at: datetime | None = None,
     billing_retry: bool = False,
+    auto_renew: bool | None = None,
+    signed_at: datetime | None = NOW,
 ) -> VerifiedAppStoreRenewalInfo:
     return VerifiedAppStoreRenewalInfo(
         original_transaction_id='original-weekly',
@@ -130,6 +134,8 @@ def _renewal(
         is_in_billing_retry_period=billing_retry,
         expiration_intent=None,
         signed_renewal_info='signed-renewal',
+        auto_renew=auto_renew,
+        signed_date_ms=int(signed_at.timestamp() * 1000) if signed_at is not None else None,
     )
 
 
@@ -140,12 +146,13 @@ def _notification(
     subtype: str | None = None,
     transaction: VerifiedAppStoreTransaction | None = None,
     renewal_info: VerifiedAppStoreRenewalInfo | None = None,
+    signed_at: datetime = NOW,
 ) -> VerifiedAppStoreNotification:
     return VerifiedAppStoreNotification(
         notification_uuid=uuid,
         notification_type=notification_type,
         subtype=subtype,
-        signed_date_ms=int(NOW.timestamp() * 1000),
+        signed_date_ms=int(signed_at.timestamp() * 1000),
         environment=Environment.SANDBOX,
         transaction=transaction,
         renewal_info=renewal_info,
@@ -246,6 +253,141 @@ def test_renewal_grants_once_and_duplicate_sends_admin_once(notification_api) ->
     assert repository.remaining_readings('apple-client-001') == 30
     renewal_events = [event for event in notifier.events if event['event_type'] == 'renewal']
     assert len(renewal_events) == 1
+
+
+def test_newer_auto_renew_off_updates_summary_and_stale_on_does_not_revert(
+    notification_api,
+) -> None:
+    client, repository, gateway, _ = notification_api
+    token = _register_account(repository)
+    repository.apply_verified_transaction(
+        AppStoreBillingService._stored_transaction(
+            _transaction('tx-auto-renew', app_account_token=token),
+            client_id='apple-client-001',
+            app_account_token=token,
+            readings=15,
+            recurring=True,
+        )
+    )
+    billing_service = BillingService(
+        gateway=SimpleNamespace(is_configured=False),  # type: ignore[arg-type]
+        google_play_gateway=None,
+        app_store_repository=repository,
+        offer_url='https://example.com/terms',
+        support_username='@support',
+        support_max_url='https://max.example/support',
+        return_url='https://example.com/return',
+        test_mode=False,
+        notifier=SimpleNamespace(),  # type: ignore[arg-type]
+    )
+
+    unknown = asyncio.run(billing_service.get_summary('apple-client-001'))
+    assert unknown.active_subscription is not None
+    assert unknown.active_subscription.auto_renew == 1
+
+    gateway.notification = _notification(
+        'uuid-auto-renew-on',
+        'DID_CHANGE_RENEWAL_STATUS',
+        renewal_info=_renewal(auto_renew=True, signed_at=NOW),
+        signed_at=NOW,
+    )
+    assert _post(client).status_code == 200
+
+    gateway.notification = _notification(
+        'uuid-auto-renew-off',
+        'DID_CHANGE_RENEWAL_STATUS',
+        renewal_info=_renewal(auto_renew=False, signed_at=NOW + timedelta(minutes=2)),
+        signed_at=NOW + timedelta(minutes=1),
+    )
+    assert _post(client).status_code == 200
+
+    off = asyncio.run(billing_service.get_summary('apple-client-001'))
+    assert off.active_subscription is not None
+    assert off.active_subscription.remaining == 15
+    assert off.active_subscription.auto_renew == 0
+    assert repository.entitlement_snapshot('apple-client-001').auto_renew is False
+
+    gateway.notification = _notification(
+        'uuid-auto-renew-stale-on',
+        'DID_CHANGE_RENEWAL_STATUS',
+        renewal_info=_renewal(auto_renew=True, signed_at=NOW + timedelta(minutes=1)),
+        signed_at=NOW + timedelta(minutes=3),
+    )
+    assert _post(client).status_code == 200
+
+    stale = asyncio.run(billing_service.get_summary('apple-client-001'))
+    assert stale.active_subscription is not None
+    assert stale.active_subscription.remaining == 15
+    assert stale.active_subscription.auto_renew == 0
+
+    gateway.notification = _notification(
+        'uuid-auto-renew-undated-on',
+        'DID_CHANGE_RENEWAL_STATUS',
+        renewal_info=_renewal(auto_renew=True, signed_at=None),
+        signed_at=NOW + timedelta(minutes=4),
+    )
+    assert _post(client).status_code == 200
+
+    undated = asyncio.run(billing_service.get_summary('apple-client-001'))
+    assert undated.active_subscription is not None
+    assert undated.active_subscription.remaining == 15
+    assert undated.active_subscription.auto_renew == 0
+
+
+def test_pending_newer_off_survives_reopen_and_delayed_chain_creation(
+    notification_api,
+) -> None:
+    client, repository, gateway, _ = notification_api
+    gateway.notification = _notification(
+        'uuid-pending-auto-renew-off',
+        'DID_CHANGE_RENEWAL_STATUS',
+        renewal_info=_renewal(auto_renew=False, signed_at=NOW + timedelta(minutes=2)),
+        signed_at=NOW,
+    )
+    assert _post(client).status_code == 200
+
+    gateway.notification = _notification(
+        'uuid-pending-stale-auto-renew-on',
+        'DID_CHANGE_RENEWAL_STATUS',
+        renewal_info=_renewal(auto_renew=True, signed_at=NOW + timedelta(minutes=1)),
+        signed_at=NOW + timedelta(minutes=3),
+    )
+    assert _post(client).status_code == 200
+
+    with closing(connect()) as conn:
+        database_path = Path(
+            conn.execute("PRAGMA database_list").fetchone()['file']
+        )
+    init_storage(database_path)
+
+    token = _register_account(repository)
+    repository.apply_verified_transaction(
+        AppStoreBillingService._stored_transaction(
+            _transaction('tx-delayed-grant', app_account_token=token),
+            client_id='apple-client-001',
+            app_account_token=token,
+            readings=15,
+            recurring=True,
+        )
+    )
+    billing_service = BillingService(
+        gateway=SimpleNamespace(is_configured=False),  # type: ignore[arg-type]
+        google_play_gateway=None,
+        app_store_repository=repository,
+        offer_url='https://example.com/terms',
+        support_username='@support',
+        support_max_url='https://max.example/support',
+        return_url='https://example.com/return',
+        test_mode=False,
+        notifier=SimpleNamespace(),  # type: ignore[arg-type]
+    )
+
+    summary = asyncio.run(billing_service.get_summary('apple-client-001'))
+
+    assert summary.active_subscription is not None
+    assert summary.active_subscription.remaining == 15
+    assert summary.active_subscription.auto_renew == 0
+    assert repository.entitlement_snapshot('apple-client-001').auto_renew is False
 
 
 @pytest.mark.parametrize(
@@ -1258,7 +1400,18 @@ class UnusedClient:
         raise AssertionError('notifications do not use transaction lookup')
 
 
-def test_gateway_verifies_outer_and_nested_notification_jws() -> None:
+@pytest.mark.parametrize(
+    ('raw_auto_renew_status', 'expected'),
+    [
+        pytest.param(SimpleNamespace(value=0), False, id='enum-off'),
+        pytest.param(1, True, id='int-on'),
+        pytest.param(MISSING, None, id='missing'),
+    ],
+)
+def test_gateway_decodes_auto_renew_status_from_nested_renewal_info(
+    raw_auto_renew_status: object | None,
+    expected: bool | None,
+) -> None:
     transaction = SimpleNamespace(
         transactionId='tx-nested',
         originalTransactionId='original-weekly',
@@ -1271,7 +1424,7 @@ def test_gateway_verifies_outer_and_nested_notification_jws() -> None:
         revocationDate=None,
         type=None,
     )
-    renewal = SimpleNamespace(
+    renewal_values = dict(
         originalTransactionId='original-weekly',
         productId='weekly_readings',
         environment=Environment.SANDBOX,
@@ -1279,7 +1432,11 @@ def test_gateway_verifies_outer_and_nested_notification_jws() -> None:
         gracePeriodExpiresDate=None,
         isInBillingRetryPeriod=False,
         expirationIntent=None,
+        signedDate=int((NOW + timedelta(seconds=7)).timestamp() * 1000),
     )
+    if raw_auto_renew_status is not MISSING:
+        renewal_values['autoRenewStatus'] = raw_auto_renew_status
+    renewal = SimpleNamespace(**renewal_values)
     outer = SimpleNamespace(
         notificationUUID='uuid-nested',
         notificationType=SimpleNamespace(value='DID_RENEW'),
@@ -1311,6 +1468,10 @@ def test_gateway_verifies_outer_and_nested_notification_jws() -> None:
     assert verified.transaction is not None
     assert verified.transaction.transaction_id == 'tx-nested'
     assert verified.renewal_info is not None
+    assert verified.renewal_info.auto_renew is expected
+    assert verified.renewal_info.signed_date_ms == int(
+        (NOW + timedelta(seconds=7)).timestamp() * 1000
+    )
     assert sandbox.calls == [
         ('outer', 'signed-outer'),
         ('transaction', 'signed-transaction'),

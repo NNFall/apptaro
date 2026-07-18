@@ -49,6 +49,7 @@ class AppleEntitlementSnapshot:
     product_type: ProductType
     starts_at: str
     expires_at: str | None
+    auto_renew: bool | None
 
 
 @dataclass(frozen=True)
@@ -154,6 +155,8 @@ class AppStoreBillingRepository:
         transaction_id: str | None,
         grace_expires_at: datetime | str | int | None,
         lifecycle_cutoff_at: datetime | str | int | None,
+        auto_renew: bool | None,
+        renewal_signed_date_ms: int | None,
         admin_event: dict[str, object] | None,
     ) -> ProcessNotificationResult:
         normalized_uuid = notification_uuid.strip()
@@ -198,6 +201,13 @@ class AppStoreBillingRepository:
                     )
 
                 chain_id = (original_transaction_id or '').strip()
+                if chain_id and auto_renew is not None:
+                    _update_subscription_renewal_status(
+                        conn,
+                        original_transaction_id=chain_id,
+                        auto_renew=auto_renew,
+                        signed_date_ms=renewal_signed_date_ms,
+                    )
                 if lifecycle_action == 'grace':
                     if not chain_id or grace_expires_at is None:
                         raise ValueError('Apple grace period is missing subscription data')
@@ -655,24 +665,44 @@ class AppStoreBillingRepository:
                 return None
             row = conn.execute(
                 '''
-                SELECT product_id, product_type, created_at, expires_at
-                FROM entitlement_lots
-                WHERE client_id = ?
-                  AND remaining > 0
-                  AND (expires_at IS NULL OR expires_at > ?)
-                ORDER BY created_at DESC, id DESC
+                SELECT
+                    lot.product_id,
+                    lot.product_type,
+                    lot.created_at,
+                    lot.expires_at,
+                    COALESCE(renewal.auto_renew, chain.auto_renew) AS auto_renew
+                FROM entitlement_lots AS lot
+                LEFT JOIN apple_transactions AS source_transaction
+                  ON source_transaction.transaction_id = lot.source_transaction_id
+                LEFT JOIN apple_subscription_chains AS chain
+                  ON chain.original_transaction_id = lot.original_transaction_id
+                LEFT JOIN apple_subscription_renewal_states AS renewal
+                  ON renewal.original_transaction_id = lot.original_transaction_id
+                WHERE lot.client_id = ?
+                  AND lot.remaining > 0
+                  AND (lot.expires_at IS NULL OR lot.expires_at > ?)
+                ORDER BY
+                  CASE WHEN lot.product_type = 'subscription' THEN 0 ELSE 1 END,
+                  source_transaction.purchased_at DESC,
+                  lot.created_at DESC,
+                  lot.id DESC
                 LIMIT 1
                 ''',
                 (client_id, at_iso),
             ).fetchone()
         if row is None:  # pragma: no cover - same-transaction defensive case
             return None
+        product_type = str(row['product_type'])
+        auto_renew = (
+            bool(row['auto_renew']) if row['auto_renew'] is not None else None
+        ) if product_type == 'subscription' else False
         return AppleEntitlementSnapshot(
             remaining=remaining,
             product_id=str(row['product_id']),
-            product_type=str(row['product_type']),  # type: ignore[arg-type]
+            product_type=product_type,  # type: ignore[arg-type]
             starts_at=str(row['created_at']),
             expires_at=str(row['expires_at']) if row['expires_at'] is not None else None,
+            auto_renew=auto_renew,
         )
 
     def consume_reading(
@@ -1214,6 +1244,73 @@ def _ensure_subscription_chain(
         or str(row['environment']) != transaction.environment
     ):
         raise ValueError('subscription chain belongs to another app account')
+    _reconcile_subscription_renewal_status(
+        conn,
+        transaction.original_transaction_id,
+    )
+
+
+def _update_subscription_renewal_status(
+    conn: sqlite3.Connection,
+    *,
+    original_transaction_id: str,
+    auto_renew: bool,
+    signed_date_ms: int | None,
+) -> None:
+    updated_at = _now_iso()
+    if signed_date_ms is None:
+        conn.execute(
+            '''
+            INSERT OR IGNORE INTO apple_subscription_renewal_states (
+                original_transaction_id, auto_renew, signed_date_ms, updated_at
+            ) VALUES (?, ?, NULL, ?)
+            ''',
+            (original_transaction_id, int(auto_renew), updated_at),
+        )
+    else:
+        conn.execute(
+            '''
+            INSERT INTO apple_subscription_renewal_states (
+                original_transaction_id, auto_renew, signed_date_ms, updated_at
+            ) VALUES (?, ?, ?, ?)
+            ON CONFLICT(original_transaction_id) DO UPDATE SET
+                auto_renew = excluded.auto_renew,
+                signed_date_ms = excluded.signed_date_ms,
+                updated_at = excluded.updated_at
+            WHERE apple_subscription_renewal_states.signed_date_ms IS NULL
+               OR apple_subscription_renewal_states.signed_date_ms < excluded.signed_date_ms
+            ''',
+            (original_transaction_id, int(auto_renew), signed_date_ms, updated_at),
+        )
+    _reconcile_subscription_renewal_status(conn, original_transaction_id)
+
+
+def _reconcile_subscription_renewal_status(
+    conn: sqlite3.Connection,
+    original_transaction_id: str,
+) -> None:
+    state = conn.execute(
+        '''
+        SELECT auto_renew, signed_date_ms
+        FROM apple_subscription_renewal_states
+        WHERE original_transaction_id = ?
+        ''',
+        (original_transaction_id,),
+    ).fetchone()
+    if state is None:
+        return
+    conn.execute(
+        '''
+        UPDATE apple_subscription_chains
+        SET auto_renew = ?, auto_renew_signed_date_ms = ?
+        WHERE original_transaction_id = ?
+        ''',
+        (
+            int(state['auto_renew']),
+            state['signed_date_ms'],
+            original_transaction_id,
+        ),
+    )
 
 
 def _remaining_readings(

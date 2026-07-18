@@ -192,6 +192,8 @@ class AppStoreBillingService:
                 if transaction is not None and transaction.expires_date_ms is not None
                 else notification.signed_date_ms
             ),
+            auto_renew=renewal.auto_renew if renewal is not None else None,
+            renewal_signed_date_ms=renewal.signed_date_ms if renewal is not None else None,
             admin_event=admin_event,
         )
 

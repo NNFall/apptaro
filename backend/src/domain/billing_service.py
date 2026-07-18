@@ -88,7 +88,7 @@ class BillingService:
                     ends_at=apple_snapshot.expires_at or '9999-12-31T23:59:59+00:00',
                     remaining=apple_snapshot.remaining,
                     status='active',
-                    auto_renew=1 if apple_snapshot.product_type == 'subscription' else 0,
+                    auto_renew=1 if apple_snapshot.auto_renew is not False else 0,
                     payment_method_id=None,
                     provider='app_store',
                     created_at=apple_snapshot.starts_at,

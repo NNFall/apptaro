@@ -85,6 +85,8 @@ class VerifiedAppStoreRenewalInfo:
     is_in_billing_retry_period: bool
     expiration_intent: object | None
     signed_renewal_info: str
+    auto_renew: bool | None
+    signed_date_ms: int | None
 
 
 @dataclass(frozen=True)
@@ -348,6 +350,8 @@ class AppStoreGateway:
             ),
             expiration_intent=getattr(payload, 'expirationIntent', None),
             signed_renewal_info=signed_renewal_info,
+            auto_renew=_optional_auto_renew_status(payload),
+            signed_date_ms=_optional_int(payload, 'signedDate'),
         )
 
     def _verify_response(
@@ -525,6 +529,31 @@ def _optional_int(payload: object, attribute: str) -> int | None:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise AppStoreValidationError(f'Apple transaction has invalid {attribute}') from exc
+
+
+def _optional_auto_renew_status(payload: object) -> bool | None:
+    raw_value = getattr(payload, 'autoRenewStatus', None)
+    if raw_value is None:
+        return None
+
+    value = getattr(raw_value, 'value', raw_value)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in {0, 1}:
+        return bool(value)
+
+    normalized = str(value).strip().upper()
+    if normalized in {'0', 'OFF'}:
+        return False
+    if normalized in {'1', 'ON'}:
+        return True
+
+    enum_name = str(getattr(raw_value, 'name', '')).strip().upper()
+    if enum_name == 'OFF':
+        return False
+    if enum_name == 'ON':
+        return True
+    raise AppStoreValidationError('Apple renewal info has invalid autoRenewStatus')
 
 
 def _raise_verification_error(exc: VerificationException, label: str) -> None:

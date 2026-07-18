@@ -181,7 +181,19 @@ def init_storage(path: str | Path | None = None) -> Path:
                     app_account_token TEXT NOT NULL,
                     product_id TEXT NOT NULL,
                     environment TEXT NOT NULL,
+                    auto_renew INTEGER CHECK(auto_renew IN (0, 1)),
+                    auto_renew_signed_date_ms INTEGER,
                     created_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS apple_subscription_renewal_states (
+                    original_transaction_id TEXT PRIMARY KEY,
+                    auto_renew INTEGER NOT NULL CHECK(auto_renew IN (0, 1)),
+                    signed_date_ms INTEGER,
+                    updated_at TEXT NOT NULL
                 )
                 '''
             )
@@ -311,6 +323,32 @@ def init_storage(path: str | Path | None = None) -> Path:
                 table='billing_clients',
                 column='free_trial_used',
                 definition='INTEGER NOT NULL DEFAULT 0',
+            )
+            _ensure_column(
+                conn,
+                table='apple_subscription_chains',
+                column='auto_renew',
+                definition='INTEGER CHECK(auto_renew IN (0, 1))',
+            )
+            _ensure_column(
+                conn,
+                table='apple_subscription_chains',
+                column='auto_renew_signed_date_ms',
+                definition='INTEGER',
+            )
+            conn.execute(
+                '''
+                INSERT OR IGNORE INTO apple_subscription_renewal_states (
+                    original_transaction_id, auto_renew, signed_date_ms, updated_at
+                )
+                SELECT
+                    original_transaction_id,
+                    auto_renew,
+                    auto_renew_signed_date_ms,
+                    created_at
+                FROM apple_subscription_chains
+                WHERE auto_renew IS NOT NULL
+                '''
             )
             conn.commit()
 

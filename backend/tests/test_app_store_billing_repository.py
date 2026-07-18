@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -37,16 +38,18 @@ def subscription_transaction(
     client_id: str = CLIENT_ID,
     account_token: str = ACCOUNT_TOKEN,
     expires_at: datetime | None = None,
+    product_id: str = 'weekly_readings',
+    purchased_at: datetime = NOW,
 ) -> VerifiedAppStoreTransaction:
     return VerifiedAppStoreTransaction(
         transaction_id=transaction_id,
         original_transaction_id=original_transaction_id,
         client_id=client_id,
         app_account_token=account_token,
-        product_id='weekly_readings',
+        product_id=product_id,
         product_type='subscription',
         readings=15,
-        purchased_at=NOW,
+        purchased_at=purchased_at,
         expires_at=expires_at or NOW + timedelta(days=7),
         environment='Sandbox',
         signed_transaction=f'signed-{transaction_id}',
@@ -72,6 +75,29 @@ def consumable_transaction(
         expires_at=None,
         environment='Sandbox',
         signed_transaction=f'signed-{transaction_id}',
+    )
+
+
+def set_subscription_auto_renew(
+    repo: AppStoreBillingRepository,
+    auto_renew: bool,
+    *,
+    original_transaction_id: str = 'original-sub-1',
+) -> None:
+    repo.process_notification(
+        notification_uuid=f'auto-renew-{original_transaction_id}-{int(auto_renew)}',
+        notification_type='DID_CHANGE_RENEWAL_STATUS',
+        subtype=None,
+        signed_payload=f'signed-auto-renew-{original_transaction_id}-{int(auto_renew)}',
+        transaction=None,
+        lifecycle_action='none',
+        original_transaction_id=original_transaction_id,
+        transaction_id=None,
+        grace_expires_at=None,
+        lifecycle_cutoff_at=None,
+        auto_renew=auto_renew,
+        renewal_signed_date_ms=int(NOW.timestamp() * 1000),
+        admin_event=None,
     )
 
 
@@ -193,6 +219,123 @@ def test_renewal_transaction_grants_exactly_once(
     assert chain_count == 1
 
 
+def test_init_storage_migrates_existing_subscription_chain_status_columns(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / 'legacy-app-store.db'
+    with sqlite3.connect(database_path) as conn:
+        conn.execute(
+            '''
+            CREATE TABLE apple_subscription_chains (
+                original_transaction_id TEXT PRIMARY KEY,
+                client_id TEXT NOT NULL,
+                app_account_token TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                environment TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            '''
+        )
+        conn.execute(
+            '''
+            INSERT INTO apple_subscription_chains (
+                original_transaction_id, client_id, app_account_token,
+                product_id, environment, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                'legacy-chain',
+                CLIENT_ID,
+                ACCOUNT_TOKEN,
+                'weekly_readings',
+                'Sandbox',
+                NOW.isoformat(),
+            ),
+        )
+
+    init_storage(database_path)
+
+    with connect() as conn:
+        columns = {
+            row['name'] for row in conn.execute('PRAGMA table_info(apple_subscription_chains)')
+        }
+        renewal_state_table = conn.execute(
+            '''
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'apple_subscription_renewal_states'
+            '''
+        ).fetchone()
+        row = conn.execute(
+            '''
+            SELECT auto_renew, auto_renew_signed_date_ms
+            FROM apple_subscription_chains
+            WHERE original_transaction_id = 'legacy-chain'
+            '''
+        ).fetchone()
+
+    assert {'auto_renew', 'auto_renew_signed_date_ms'} <= columns
+    assert renewal_state_table is not None
+    assert row['auto_renew'] is None
+    assert row['auto_renew_signed_date_ms'] is None
+
+
+def test_init_storage_backfills_existing_chain_status_into_renewal_state(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / 'chain-status-before-pending-table.db'
+    signed_date_ms = int(NOW.timestamp() * 1000)
+    with sqlite3.connect(database_path) as conn:
+        conn.execute(
+            '''
+            CREATE TABLE apple_subscription_chains (
+                original_transaction_id TEXT PRIMARY KEY,
+                client_id TEXT NOT NULL,
+                app_account_token TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                environment TEXT NOT NULL,
+                auto_renew INTEGER CHECK(auto_renew IN (0, 1)),
+                auto_renew_signed_date_ms INTEGER,
+                created_at TEXT NOT NULL
+            )
+            '''
+        )
+        conn.execute(
+            '''
+            INSERT INTO apple_subscription_chains (
+                original_transaction_id, client_id, app_account_token,
+                product_id, environment, auto_renew,
+                auto_renew_signed_date_ms, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                'existing-status-chain',
+                CLIENT_ID,
+                ACCOUNT_TOKEN,
+                'weekly_readings',
+                'Sandbox',
+                0,
+                signed_date_ms,
+                NOW.isoformat(),
+            ),
+        )
+
+    init_storage(database_path)
+
+    with connect() as conn:
+        state = conn.execute(
+            '''
+            SELECT auto_renew, signed_date_ms
+            FROM apple_subscription_renewal_states
+            WHERE original_transaction_id = 'existing-status-chain'
+            '''
+        ).fetchone()
+
+    assert state is not None
+    assert state['auto_renew'] == 0
+    assert state['signed_date_ms'] == signed_date_ms
+
+
 def test_consumable_lots_stack_without_expiry(
     repo: AppStoreBillingRepository,
 ) -> None:
@@ -213,6 +356,68 @@ def test_consumable_lots_stack_without_expiry(
         (10, 10, None),
         (40, 40, None),
     ]
+    snapshot = repo.entitlement_snapshot(CLIENT_ID, at=NOW + timedelta(days=3650))
+    assert snapshot is not None
+    assert snapshot.product_id == 'one40_readings'
+    assert snapshot.product_type == 'consumable'
+    assert snapshot.auto_renew is False
+
+
+@pytest.mark.parametrize('subscription_first', [True, False], ids=['subscription-first', 'consumable-first'])
+@pytest.mark.parametrize('auto_renew', [False, True], ids=['off', 'on'])
+def test_snapshot_prefers_active_subscription_metadata_across_mixed_lot_orderings(
+    repo: AppStoreBillingRepository,
+    subscription_first: bool,
+    auto_renew: bool,
+) -> None:
+    subscription = subscription_transaction(expires_at=NOW + timedelta(days=7))
+    consumable = consumable_transaction('tx-mixed-pack', 10)
+    transactions = (
+        (subscription, consumable)
+        if subscription_first
+        else (consumable, subscription)
+    )
+    for transaction in transactions:
+        repo.apply_verified_transaction(transaction)
+    set_subscription_auto_renew(repo, auto_renew)
+
+    snapshot = repo.entitlement_snapshot(CLIENT_ID, at=NOW)
+
+    assert snapshot is not None
+    assert snapshot.remaining == 25
+    assert snapshot.product_id == 'weekly_readings'
+    assert snapshot.product_type == 'subscription'
+    assert snapshot.expires_at == (NOW + timedelta(days=7)).isoformat()
+    assert snapshot.auto_renew is auto_renew
+
+
+def test_snapshot_uses_latest_signed_subscription_metadata_despite_arrival_order(
+    repo: AppStoreBillingRepository,
+) -> None:
+    repo.apply_verified_transaction(
+        subscription_transaction(
+            'tx-sub-monthly',
+            expires_at=NOW + timedelta(days=30),
+            product_id='monthly_readings',
+        )
+    )
+    repo.apply_verified_transaction(
+        subscription_transaction(
+            'tx-sub-delayed-weekly',
+            expires_at=NOW + timedelta(days=7),
+            purchased_at=NOW - timedelta(days=1),
+        )
+    )
+    set_subscription_auto_renew(repo, False)
+
+    snapshot = repo.entitlement_snapshot(CLIENT_ID, at=NOW)
+
+    assert snapshot is not None
+    assert snapshot.remaining == 30
+    assert snapshot.product_id == 'monthly_readings'
+    assert snapshot.product_type == 'subscription'
+    assert snapshot.expires_at == (NOW + timedelta(days=30)).isoformat()
+    assert snapshot.auto_renew is False
 
 
 def test_account_conflict_rolls_back_entire_apply(
