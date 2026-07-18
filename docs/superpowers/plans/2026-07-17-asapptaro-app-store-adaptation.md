@@ -500,7 +500,8 @@ flutter --version
 pod --version
 ```
 
-Expected: supported macOS, Xcode 26 or newer, iOS 26 SDK, stable Flutter, and CocoaPods.
+Expected: supported macOS, Xcode 26 or newer, iOS 26 SDK, stable Flutter,
+CocoaPods, and Python 3.11 or newer.
 
 - [ ] **Step 2: Bootstrap and test the copied project on Mac**
 
@@ -508,24 +509,26 @@ Run:
 
 ```bash
 git checkout codex/apple-app-store
-flutter pub get
-cd app/ios && pod install && cd ../..
-cd app && flutter analyze && flutter test && cd ..
-cd backend && python3 -m pytest -q && cd ..
+chmod +x scripts/macos/bootstrap_ios.sh scripts/macos/build_testflight.sh
+./scripts/macos/bootstrap_ios.sh
 ```
 
-Expected: all commands PASS and `app/ios/Runner.xcworkspace` exists.
+Expected: all commands PASS, `app/ios/Runner.xcworkspace` exists, Flutter is on
+stable channel, and tracked `app/ios/Podfile.lock` is unchanged. On the first
+Mac run, commit the generated lock and rerun bootstrap.
 
 - [ ] **Step 3: Configure signing and build an IPA**
 
 Select the Apple team for `com.nexwit.tarot` in `Runner.xcworkspace`, then run:
 
 ```bash
-cd app
-flutter build ipa --release --build-name 1.0.0 --build-number 16
+export APPLE_BACKEND_BASE_URL='https://api.example.com'
+export APPLE_PRIVACY_POLICY_URL='https://example.com/privacy'
+./scripts/macos/build_testflight.sh --build-name 1.0.0 --build-number 17
 ```
 
-Expected: `build/ios/ipa/*.ipa` and a successful archive/export log.
+Expected: production URL probes PASS and exactly one signed, distribution-profile
+verified `app/build/ios/ipa/*.ipa` with version `1.0.0` and build `17`.
 
 - [ ] **Step 4: Upload and prove TestFlight purchase flows**
 

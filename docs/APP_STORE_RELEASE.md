@@ -186,29 +186,105 @@ ls -lh data/asapptaro.db backups/
 
 ## 7. Сборка на Mac и TestFlight
 
-На Mac нужен поддерживаемый Xcode, Flutter, CocoaPods и доступ к Apple Developer
-team. Apple принимает build через Xcode или Transporter; обработанный build
-появляется в App Store Connect/TestFlight:
-[официальная инструкция upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds).
+Сборка и подпись iOS выполняются только на macOS. Нужны доступ к Apple
+Developer team, установленный Xcode 26 или новее с iOS 26 SDK, stable Flutter,
+CocoaPods и Python 3.11 или новее. Это соответствует baseline backend image
+`python:3.11-slim`. Скрипты не содержат Apple ID, пароли, API keys или signing
+certificates и не загружают build автоматически.
+
+### 7.1. Первичная настройка Mac
+
+Клонируйте репозиторий и запустите bootstrap из корня:
 
 ```bash
 git clone <repository-url> ASapptaro
 cd ASapptaro
 git checkout codex/apple-app-store
-cd app
-flutter pub get
-cd ios && pod install && cd ..
-flutter analyze
-flutter test
-flutter build ipa --release \
-  --dart-define=APPLE_BACKEND_BASE_URL=https://api.example.com \
-  --dart-define=APPLE_PRIVACY_POLICY_URL=https://example.com/privacy
+chmod +x scripts/macos/bootstrap_ios.sh scripts/macos/build_testflight.sh
+./scripts/macos/bootstrap_ios.sh
 ```
 
-В Xcode откройте `app/ios/Runner.xcworkspace`, выберите правильный Team и
-проверьте Bundle ID `com.nexwit.tarot`. Для каждого нового upload увеличивайте
-build number. Архив загрузите через Xcode Organizer или `.ipa` через
-Transporter.
+Bootstrap проверяет macOS, Xcode, iPhoneOS SDK, Flutter, CocoaPods и Python,
+безопасно проверяет ветку `codex/apple-app-store`, выполняет `flutter pub get`,
+`pod install`, `flutter analyze`, `flutter test` и backend pytest. Если требуется
+переключить ветку, а рабочее дерево не чистое, скрипт остановится и ничего не
+удалит. Команды `git reset` и `git clean` не используются.
+
+Допускается только Flutter channel `stable`. Зависимости CocoaPods обязательно
+фиксируются в `app/ios/Podfile.lock`. Сейчас lock-файл создаётся только на Mac:
+если его ещё нет, bootstrap выполнит обычный `pod install`, остановится и
+потребует проверить и закоммитить получившийся `Podfile.lock`. Повторный
+bootstrap и release build используют `pod install --deployment`; изменение или
+отсутствие tracked lock-файла блокирует сборку. Не создавайте `Podfile.lock`
+вручную или на Windows.
+
+Откройте `app/ios/Runner.xcworkspace` в Xcode. В `Runner` → `Signing &
+Capabilities`:
+
+1. Выберите аккаунт и Apple Developer Team владельца приложения.
+2. Включите `Automatically manage signing` либо установите подходящие
+   distribution certificate и provisioning profile вручную.
+3. Проверьте Bundle ID `com.nexwit.tarot` для Release.
+4. Выполните один запуск или Archive из Xcode, чтобы подтвердить signing.
+
+### 7.2. Production IPA
+
+Backend URL должен быть отдельным production HTTPS origin без пути. Privacy URL
+должен открывать публичную страницу политики конфиденциальности по HTTPS. Build
+number обязан быть больше `16` из `app/pubspec.yaml` и больше любого номера, уже
+загруженного в App Store Connect:
+
+```bash
+export APPLE_BACKEND_BASE_URL='https://api.example.com'
+export APPLE_PRIVACY_POLICY_URL='https://example.com/privacy'
+./scripts/macos/build_testflight.sh --build-name 1.0.0 --build-number 17
+```
+
+Скрипт отклоняет грязные изменения внутри `app/`, проверяет HTTPS URL, версию,
+монотонный build number относительно `app/pubspec.yaml`, Bundle ID, stable
+Flutter и tracked `Podfile.lock`. Локальный скрипт проверяет только превышение
+номера из pubspec; уникальность номера среди уже загруженных build проверяет App
+Store Connect при upload.
+
+Перед сборкой отдельный `release_url_probe.py` разрешает DNS каждого URL и
+каждого HTTPS redirect, отклоняет localhost, loopback, private, link-local,
+reserved, unspecified и multicast IP. Соединение закрепляется за уже проверенным
+публичным IP с TLS hostname verification. Скрипт с ограниченным таймаутом
+проверяет `${APPLE_BACKEND_BASE_URL}/v1/health` и требует точный production
+контракт: JSON `status=ok`, `service='ASapptaro Backend'` и
+`environment='production'`, затем
+проверяет privacy URL. Privacy endpoint обязан вернуть 2xx, непустой документ и
+документный MIME-тип (`text/html`, `text/plain`, `text/markdown`,
+`application/xhtml+xml` или `application/pdf`). Пустой ответ, `204`, бинарный
+поток неизвестного типа, HTTP redirect и любой HTTPS downgrade запрещены.
+
+После `flutter pub get` и `pod install --deployment` build-скрипт повторно
+проверяет `git status --porcelain -- app`. Любые новые или изменённые tracked и
+untracked файлы внутри `app/` блокируют сборку до проверки и коммита зависимостей.
+
+После чистой сборки `flutter build ipa` скрипт распаковывает IPA и сверяет
+`CFBundleIdentifier`, `CFBundleShortVersionString` и `CFBundleVersion`, затем
+выполняет `codesign --verify --deep --strict`. Встроенный
+`embedded.mobileprovision` декодируется через `security cms`; проверяются
+distribution profile, срок действия, team/application identifier и
+`get-task-allow=false` как в профиле, так и в подписи приложения. Только после
+этих проверок выводится сообщение об успешной верификации. Готовый signed IPA
+находится в `app/build/ios/ipa/`; путь и SHA-256 печатаются в конце.
+
+### 7.3. Upload
+
+Apple принимает build через Xcode Organizer или приложение Transporter:
+[официальная инструкция](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds).
+
+- Xcode Organizer: `Product` → `Archive` → `Distribute App` → `App Store
+  Connect` → `Upload`.
+- Transporter: войдите Apple ID с доступом к App Store Connect, перетащите
+  созданный `.ipa`, нажмите `Deliver`.
+
+После upload дождитесь обработки build в App Store Connect, устраните возможные
+ошибки signing/metadata и добавьте build в TestFlight. Credential upload не
+автоматизирован намеренно: сессия Apple ID и signing credentials остаются только
+на арендованном Mac.
 
 ## 8. Обязательный Sandbox/TestFlight smoke
 
@@ -229,6 +305,27 @@ Transporter.
 Sandbox metadata может обновляться не мгновенно. Не считать релиз готовым,
 пока реальная покупка и restore из TestFlight не подтверждены серверной базой и
 логами.
+
+Сохраните доказательства для каждого сценария: номер build, Apple transaction
+ID, UTC-время, client ID, изменение баланса, backend log и соответствующее
+сообщение admin bot. Проверяемые продукты:
+
+| Product ID | Sandbox-доказательство |
+| --- | --- |
+| `weekly_readings` | Покупка и renewal дают 15 раскладов по одному разу; restore не дублирует выдачу. |
+| `monthly_readings` | Покупка и renewal дают 100 раскладов по одному разу; expiration отключает продление. |
+| `one10_readings` | Каждая новая consumable transaction добавляет 10; повтор transaction ID идемпотентен. |
+| `one40_readings` | Каждая новая consumable transaction добавляет 40; несколько покупок суммируются. |
+
+Внешние блокеры, которые нельзя закрыть локальными тестами Windows:
+
+- доступ к арендованному Mac и поддерживаемому Xcode/iOS SDK;
+- Apple Developer Team, distribution signing и provisioning;
+- production HTTPS backend/privacy URL и App Store Server Notifications V2;
+- созданные и готовые к отправке четыре IAP в App Store Connect;
+- принятый Apple signed IPA и обработанный TestFlight build;
+- фактические Sandbox purchase/restore/renewal/refund проверки из установки
+  TestFlight, подтверждённые backend и admin bot.
 
 ## 9. App Review
 
