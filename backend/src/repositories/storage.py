@@ -165,6 +165,88 @@ def init_storage(path: str | Path | None = None) -> Path:
                 '''
             )
             conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS apple_app_accounts (
+                    client_id TEXT PRIMARY KEY,
+                    app_account_token TEXT NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS apple_subscription_chains (
+                    original_transaction_id TEXT PRIMARY KEY,
+                    client_id TEXT NOT NULL,
+                    app_account_token TEXT NOT NULL,
+                    product_id TEXT NOT NULL,
+                    environment TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS apple_transactions (
+                    transaction_id TEXT PRIMARY KEY,
+                    original_transaction_id TEXT NOT NULL,
+                    client_id TEXT NOT NULL,
+                    app_account_token TEXT NOT NULL,
+                    product_id TEXT NOT NULL,
+                    product_type TEXT NOT NULL
+                        CHECK(product_type IN ('subscription', 'consumable')),
+                    readings INTEGER NOT NULL CHECK(readings > 0),
+                    purchased_at TEXT NOT NULL,
+                    expires_at TEXT,
+                    environment TEXT NOT NULL,
+                    signed_transaction TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS apple_notifications (
+                    notification_uuid TEXT PRIMARY KEY,
+                    notification_type TEXT NOT NULL,
+                    subtype TEXT,
+                    transaction_id TEXT,
+                    signed_payload TEXT NOT NULL,
+                    processed_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS entitlement_lots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id TEXT NOT NULL,
+                    source_transaction_id TEXT NOT NULL UNIQUE,
+                    original_transaction_id TEXT NOT NULL,
+                    product_id TEXT NOT NULL,
+                    product_type TEXT NOT NULL
+                        CHECK(product_type IN ('subscription', 'consumable')),
+                    granted INTEGER NOT NULL CHECK(granted > 0),
+                    remaining INTEGER NOT NULL CHECK(remaining >= 0 AND remaining <= granted),
+                    expires_at TEXT,
+                    created_at TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS admin_outbox (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type TEXT NOT NULL,
+                    dedupe_key TEXT NOT NULL UNIQUE,
+                    payload TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at TEXT NOT NULL,
+                    delivered_at TEXT
+                )
+                '''
+            )
+            conn.execute(
                 'CREATE INDEX IF NOT EXISTS idx_jobs_type_status ON jobs(job_type, status)'
             )
             conn.execute(
@@ -193,6 +275,36 @@ def init_storage(path: str | Path | None = None) -> Path:
             )
             conn.execute(
                 'CREATE INDEX IF NOT EXISTS idx_promo_uses_code ON promo_uses(code)'
+            )
+            conn.execute(
+                '''
+                CREATE INDEX IF NOT EXISTS idx_apple_transactions_client
+                ON apple_transactions(client_id, purchased_at)
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE INDEX IF NOT EXISTS idx_apple_transactions_chain
+                ON apple_transactions(original_transaction_id, purchased_at)
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE INDEX IF NOT EXISTS idx_apple_notifications_transaction
+                ON apple_notifications(transaction_id)
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE INDEX IF NOT EXISTS idx_entitlement_lots_client_expiry
+                ON entitlement_lots(client_id, expires_at)
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE INDEX IF NOT EXISTS idx_admin_outbox_status
+                ON admin_outbox(status, id)
+                '''
             )
             _ensure_column(
                 conn,
