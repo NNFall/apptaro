@@ -82,15 +82,16 @@ class AppStoreBillingService:
             if not plan.recurring:
                 raise ValueError('Consumable purchases cannot be restored')
             signed_token = (verified.app_account_token or '').strip()
-            owner_client = self._repository.client_id_for_app_account_token(signed_token)
-            if owner_client is not None:
-                stored = self._stored_transaction(
-                    verified,
-                    client_id=owner_client,
-                    app_account_token=signed_token,
-                    readings=plan.limit,
-                    recurring=True,
-                )
+            owner_client = self._repository.subscription_owner(
+                verified.original_transaction_id
+            ) or self._repository.client_id_for_app_account_token(signed_token)
+            stored = self._stored_transaction(
+                verified,
+                client_id=owner_client or client_id,
+                app_account_token=signed_token,
+                readings=plan.limit,
+                recurring=True,
+            )
             self._repository.restore_subscription_chain(
                 transaction=stored,
                 target_client_id=client_id,

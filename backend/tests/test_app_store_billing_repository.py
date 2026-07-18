@@ -508,6 +508,121 @@ def test_restore_transfers_only_active_subscription_chain(
     assert repo.remaining_readings(new_client, at=NOW) == 15
 
 
+def test_first_seen_restore_preserves_signed_apple_token(
+    repo: AppStoreBillingRepository,
+) -> None:
+    target_client = 'client_apple_first_restore'
+    target_token = repo.get_or_create_app_account_token(target_client)
+    signed_token = '10000000-0000-4000-8000-000000000099'
+    transaction = subscription_transaction(
+        client_id='client_apple_unknown_source',
+        account_token=signed_token,
+        expires_at=NOW + timedelta(days=3),
+    )
+
+    result = repo.restore_subscription_chain(
+        transaction=transaction,
+        target_client_id=target_client,
+        target_app_account_token=target_token,
+        at=NOW,
+    )
+
+    assert result.granted == 15
+    with connect() as conn:
+        stored = conn.execute(
+            '''
+            SELECT client_id, app_account_token
+            FROM apple_transactions
+            WHERE transaction_id = ?
+            ''',
+            (transaction.transaction_id,),
+        ).fetchone()
+        chain = conn.execute(
+            '''
+            SELECT client_id, app_account_token
+            FROM apple_subscription_chains
+            WHERE original_transaction_id = ?
+            ''',
+            (transaction.original_transaction_id,),
+        ).fetchone()
+
+    assert stored is not None
+    assert stored['client_id'] == target_client
+    assert stored['app_account_token'] == signed_token
+    assert chain is not None
+    assert chain['client_id'] == target_client
+    assert chain['app_account_token'] == signed_token
+    assert repo.get_or_create_app_account_token(target_client) == target_token
+
+
+def test_unseen_renewal_restore_transfers_existing_chain(
+    repo: AppStoreBillingRepository,
+) -> None:
+    old_client = 'client_apple_unseen_renewal_old'
+    old_token = repo.get_or_create_app_account_token(old_client)
+    original_transaction_id = 'original-unseen-renewal-restore'
+    initial = subscription_transaction(
+        client_id=old_client,
+        account_token=old_token,
+        expires_at=NOW + timedelta(days=7),
+    )
+    initial = VerifiedAppStoreTransaction(
+        **{
+            **initial.__dict__,
+            'transaction_id': 'tx-unseen-renewal-initial',
+            'original_transaction_id': original_transaction_id,
+        },
+    )
+    repo.apply_verified_transaction(initial)
+
+    renewal = VerifiedAppStoreTransaction(
+        **{
+            **initial.__dict__,
+            'transaction_id': 'tx-unseen-renewal-restored',
+            'purchased_at': NOW + timedelta(days=7),
+            'expires_at': NOW + timedelta(days=14),
+            'signed_transaction': 'signed-tx-unseen-renewal-restored',
+        },
+    )
+    target_client = 'client_apple_unseen_renewal_new'
+    target_token = repo.get_or_create_app_account_token(target_client)
+
+    result = repo.restore_subscription_chain(
+        transaction=renewal,
+        target_client_id=target_client,
+        target_app_account_token=target_token,
+        at=NOW,
+    )
+
+    assert result.granted == 15
+    assert repo.remaining_readings(old_client, at=NOW) == 0
+    assert repo.remaining_readings(target_client, at=NOW) == 30
+    with connect() as conn:
+        chain = conn.execute(
+            '''
+            SELECT client_id, app_account_token
+            FROM apple_subscription_chains
+            WHERE original_transaction_id = ?
+            ''',
+            (original_transaction_id,),
+        ).fetchone()
+        stored_renewal = conn.execute(
+            '''
+            SELECT client_id, app_account_token
+            FROM apple_transactions
+            WHERE transaction_id = ?
+            ''',
+            (renewal.transaction_id,),
+        ).fetchone()
+
+    assert chain is not None
+    assert chain['client_id'] == target_client
+    assert chain['app_account_token'] == old_token
+    assert stored_renewal is not None
+    assert stored_renewal['client_id'] == old_client
+    assert stored_renewal['app_account_token'] == old_token
+
+
 def test_restore_rejects_consumable_and_expired_subscription(
     repo: AppStoreBillingRepository,
 ) -> None:

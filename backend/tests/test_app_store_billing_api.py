@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import asyncio
 import tempfile
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -24,7 +25,7 @@ from src.integrations.app_store_gateway import VerifiedAppStoreTransaction  # no
 from src.integrations.app_store_gateway import AppStoreValidationError  # noqa: E402
 from src.main import create_app  # noqa: E402
 from src.repositories.app_store_billing import AppStoreBillingRepository  # noqa: E402
-from src.repositories.storage import init_storage  # noqa: E402
+from src.repositories.storage import connect, init_storage  # noqa: E402
 
 
 NOW = datetime(2026, 7, 18, 12, 0, tzinfo=UTC)
@@ -304,3 +305,59 @@ class TestAppStoreBillingApi:
         assert restored.json()['active_subscription']['remaining'] == 15
         assert self.repository.remaining_readings(old_client, at=NOW) == 0
         assert self.repository.remaining_readings(new_client, at=NOW) == 15
+
+    def test_first_seen_restore_keeps_verified_apple_token(self) -> None:
+        target_client = 'client_apple_first_seen_restore'
+        target_token = self._account_token(target_client)
+        signed_token = '20000000-0000-4000-8000-000000000099'
+        self.gateway.transaction = _transaction(
+            transaction_id='tx-first-seen-restore',
+            original_transaction_id='original-first-seen-restore',
+            product_id='weekly_readings',
+            app_account_token=signed_token,
+        )
+
+        restored = self._verify(
+            target_client,
+            transaction_id='tx-first-seen-restore',
+            product_id='weekly_readings',
+            operation='restore',
+        )
+
+        assert restored.status_code == 200, restored.text
+        with closing(connect()) as conn:
+            stored = conn.execute(
+                '''
+                SELECT client_id, app_account_token
+                FROM apple_transactions
+                WHERE transaction_id = 'tx-first-seen-restore'
+                ''',
+            ).fetchone()
+            chain = conn.execute(
+                '''
+                SELECT client_id, app_account_token
+                FROM apple_subscription_chains
+                WHERE original_transaction_id = 'original-first-seen-restore'
+                ''',
+            ).fetchone()
+
+        assert stored is not None
+        assert stored['client_id'] == target_client
+        assert stored['app_account_token'] == signed_token
+        assert chain is not None
+        assert chain['client_id'] == target_client
+        assert chain['app_account_token'] == signed_token
+        assert self.repository.get_or_create_app_account_token(target_client) == target_token
+
+        next_client = 'client_apple_second_restore'
+        self._account_token(next_client)
+        restored_again = self._verify(
+            next_client,
+            transaction_id='tx-first-seen-restore',
+            product_id='weekly_readings',
+            operation='restore',
+        )
+
+        assert restored_again.status_code == 200, restored_again.text
+        assert self.repository.remaining_readings(target_client, at=NOW) == 0
+        assert self.repository.remaining_readings(next_client, at=NOW) == 15

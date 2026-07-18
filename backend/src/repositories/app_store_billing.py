@@ -767,21 +767,6 @@ class AppStoreBillingRepository:
         if not normalized_client_id or not normalized_token:
             raise ValueError('restore target account is required')
 
-        with closing(connect()) as lookup_conn:
-            existing = lookup_conn.execute(
-                'SELECT 1 FROM apple_transactions WHERE transaction_id = ?',
-                (transaction.transaction_id,),
-            ).fetchone()
-        if existing is None:
-            return self.apply_verified_transaction(
-                replace(
-                    transaction,
-                    client_id=normalized_client_id,
-                    app_account_token=normalized_token,
-                ),
-                admin_event_type='restore',
-            )
-
         with closing(connect()) as conn:
             try:
                 conn.execute('BEGIN IMMEDIATE')
@@ -796,9 +781,6 @@ class AppStoreBillingRepository:
                     ''',
                     (transaction.transaction_id,),
                 ).fetchone()
-                if stored is None:  # pragma: no cover - concurrent defensive case
-                    raise RuntimeError('Apple transaction disappeared during restore')
-                _validate_replay(stored, transaction, values)
                 _ensure_account_pair(
                     conn,
                     normalized_client_id,
@@ -807,29 +789,65 @@ class AppStoreBillingRepository:
                 )
                 chain = conn.execute(
                     '''
-                    SELECT product_id, environment
+                    SELECT client_id, app_account_token, product_id, environment
                     FROM apple_subscription_chains
                     WHERE original_transaction_id = ?
                     ''',
                     (transaction.original_transaction_id,),
                 ).fetchone()
-                if chain is None:
-                    raise ValueError('subscription chain was not found')
+                if stored is not None:
+                    _validate_replay(
+                        stored,
+                        transaction,
+                        values,
+                        allow_transferred_client=True,
+                    )
+                    transaction_result = ApplyTransactionResult(
+                        transaction.transaction_id,
+                        0,
+                        True,
+                        _remaining_readings(conn, str(stored['client_id']), at_iso),
+                    )
+                else:
+                    transaction_result = _apply_verified_transaction(
+                        conn,
+                        replace(
+                            transaction,
+                            client_id=(
+                                str(chain['client_id'])
+                                if chain is not None
+                                else normalized_client_id
+                            ),
+                        ),
+                        enqueue_admin=False,
+                        admin_event_type='restore',
+                        allow_unmapped_subscription_identity=chain is None,
+                    )
+                    chain = conn.execute(
+                        '''
+                        SELECT client_id, app_account_token, product_id, environment
+                        FROM apple_subscription_chains
+                        WHERE original_transaction_id = ?
+                        ''',
+                        (transaction.original_transaction_id,),
+                    ).fetchone()
+                if chain is None:  # pragma: no cover - transaction apply creates it
+                    raise RuntimeError('subscription chain was not found')
                 if (
                     str(chain['product_id']) != transaction.product_id
                     or str(chain['environment']) != transaction.environment
+                    or str(chain['app_account_token']) != transaction.app_account_token
                 ):
                     raise ValueError('subscription chain payload does not match')
 
                 conn.execute(
                     '''
                     UPDATE apple_subscription_chains
-                    SET client_id = ?, app_account_token = ?
+                    SET client_id = ?
                     WHERE original_transaction_id = ?
                     ''',
                     (
                         normalized_client_id,
-                        normalized_token,
                         transaction.original_transaction_id,
                     ),
                 )
@@ -853,6 +871,7 @@ class AppStoreBillingRepository:
                         f'apple-restore:{transaction.original_transaction_id}:{normalized_client_id}',
                         json.dumps(
                             {
+                                'event_type': 'restore',
                                 'client_id': normalized_client_id,
                                 'original_transaction_id': transaction.original_transaction_id,
                                 'product_id': transaction.product_id,
@@ -871,8 +890,8 @@ class AppStoreBillingRepository:
                 raise
         return ApplyTransactionResult(
             transaction_id=transaction.transaction_id,
-            granted=0,
-            replayed=True,
+            granted=transaction_result.granted,
+            replayed=transaction_result.replayed,
             remaining=remaining,
         )
 
@@ -883,6 +902,7 @@ def _apply_verified_transaction(
     *,
     enqueue_admin: bool,
     admin_event_type: str,
+    allow_unmapped_subscription_identity: bool = False,
 ) -> ApplyTransactionResult:
     values = _validated_values(transaction)
     _ensure_terminal_event_table(conn)
@@ -898,7 +918,27 @@ def _apply_verified_transaction(
         (transaction.transaction_id,),
     ).fetchone()
     if existing is not None:
-        _validate_replay(existing, transaction, values)
+        allow_transferred_client = False
+        if transaction.product_type == 'subscription':
+            chain = conn.execute(
+                '''
+                SELECT client_id, app_account_token
+                FROM apple_subscription_chains
+                WHERE original_transaction_id = ?
+                ''',
+                (transaction.original_transaction_id,),
+            ).fetchone()
+            allow_transferred_client = bool(
+                chain is not None
+                and str(chain['client_id']) == transaction.client_id
+                and str(chain['app_account_token']) == transaction.app_account_token
+            )
+        _validate_replay(
+            existing,
+            transaction,
+            values,
+            allow_transferred_client=allow_transferred_client,
+        )
         remaining = _remaining_readings(conn, str(existing['client_id']), _now_iso())
         return ApplyTransactionResult(transaction.transaction_id, 0, True, remaining)
 
@@ -924,9 +964,20 @@ def _apply_verified_transaction(
         ),
     ).fetchone()
     terminal_before_grant = terminal_notification is not None
-    _ensure_app_account(conn, transaction, created_at)
     if transaction.product_type == 'subscription':
+        chain_exists = conn.execute(
+            '''
+            SELECT 1
+            FROM apple_subscription_chains
+            WHERE original_transaction_id = ?
+            ''',
+            (transaction.original_transaction_id,),
+        ).fetchone() is not None
+        if not chain_exists and not allow_unmapped_subscription_identity:
+            _ensure_app_account(conn, transaction, created_at)
         _ensure_subscription_chain(conn, transaction, created_at)
+    else:
+        _ensure_app_account(conn, transaction, created_at)
     conn.execute(
         '''
         INSERT INTO apple_transactions (
@@ -1178,9 +1229,10 @@ def _validate_replay(
     existing: sqlite3.Row,
     transaction: VerifiedAppStoreTransaction,
     values: _ValidatedValues,
+    *,
+    allow_transferred_client: bool = False,
 ) -> None:
-    expected = (
-        ('client', str(existing['client_id']), transaction.client_id),
+    expected = [
         (
             'app account token',
             str(existing['app_account_token']),
@@ -1197,7 +1249,9 @@ def _validate_replay(
         ('purchase timestamp', str(existing['purchased_at']), values.purchased_at),
         ('expiry', existing['expires_at'], values.expires_at),
         ('environment', str(existing['environment']), transaction.environment),
-    )
+    ]
+    if not allow_transferred_client:
+        expected.insert(0, ('client', str(existing['client_id']), transaction.client_id))
     for field_name, stored_value, replayed_value in expected:
         if stored_value != replayed_value:
             raise ValueError(f'Apple transaction replay has conflicting {field_name}')

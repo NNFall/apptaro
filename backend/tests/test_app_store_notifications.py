@@ -1334,6 +1334,128 @@ def test_first_seen_restore_enqueues_restore_event(notification_api) -> None:
     assert event.payload['event_type'] == 'restore'
 
 
+def test_renewal_after_restore_keeps_original_apple_token(notification_api) -> None:
+    client, repository, gateway, _ = notification_api
+    old_client = 'apple-restore-old-client'
+    old_token = repository.get_or_create_app_account_token(old_client)
+    original_transaction_id = 'original-restore-renewal'
+    initial = _transaction(
+        'tx-restore-initial',
+        original_transaction_id=original_transaction_id,
+        app_account_token=old_token,
+        purchased_at=NOW - timedelta(days=1),
+        expires_at=NOW + timedelta(days=6),
+    )
+    stored_initial = AppStoreBillingService._stored_transaction(
+        initial,
+        client_id=old_client,
+        app_account_token=old_token,
+        readings=15,
+        recurring=True,
+    )
+    repository.apply_verified_transaction(stored_initial)
+
+    new_client = 'apple-restore-new-client'
+    new_token = repository.get_or_create_app_account_token(new_client)
+    repository.restore_subscription_chain(
+        transaction=stored_initial,
+        target_client_id=new_client,
+        target_app_account_token=new_token,
+        at=NOW,
+    )
+
+    renewal = _transaction(
+        'tx-restore-renewal',
+        original_transaction_id=original_transaction_id,
+        app_account_token=old_token,
+        purchased_at=NOW + timedelta(days=6),
+        expires_at=NOW + timedelta(days=13),
+    )
+    gateway.notification = _notification(
+        'uuid-restore-renewal',
+        'DID_RENEW',
+        transaction=renewal,
+    )
+
+    response = _post(client)
+
+    assert response.status_code == 200, response.text
+    assert repository.remaining_readings(old_client, at=NOW) == 0
+    assert repository.remaining_readings(new_client, at=NOW) == 30
+    with closing(connect()) as conn:
+        chain = conn.execute(
+            '''
+            SELECT client_id, app_account_token
+            FROM apple_subscription_chains
+            WHERE original_transaction_id = ?
+            ''',
+            (original_transaction_id,),
+        ).fetchone()
+        renewed = conn.execute(
+            '''
+            SELECT client_id, app_account_token
+            FROM apple_transactions
+            WHERE transaction_id = 'tx-restore-renewal'
+            ''',
+        ).fetchone()
+
+    assert chain is not None
+    assert chain['client_id'] == new_client
+    assert chain['app_account_token'] == old_token
+    assert renewed is not None
+    assert renewed['client_id'] == new_client
+    assert renewed['app_account_token'] == old_token
+
+
+def test_original_transaction_redelivery_after_restore_is_idempotent(
+    notification_api,
+) -> None:
+    client, repository, gateway, _ = notification_api
+    old_client = 'apple-redelivery-old-client'
+    old_token = repository.get_or_create_app_account_token(old_client)
+    original_transaction_id = 'original-redelivery-restore'
+    initial = _transaction(
+        'tx-redelivery-restore',
+        original_transaction_id=original_transaction_id,
+        app_account_token=old_token,
+        expires_at=NOW + timedelta(days=5),
+    )
+    stored_initial = AppStoreBillingService._stored_transaction(
+        initial,
+        client_id=old_client,
+        app_account_token=old_token,
+        readings=15,
+        recurring=True,
+    )
+    repository.apply_verified_transaction(stored_initial)
+
+    new_client = 'apple-redelivery-new-client'
+    new_token = repository.get_or_create_app_account_token(new_client)
+    repository.restore_subscription_chain(
+        transaction=stored_initial,
+        target_client_id=new_client,
+        target_app_account_token=new_token,
+        at=NOW,
+    )
+    gateway.notification = _notification(
+        'uuid-redelivery-after-restore',
+        'SUBSCRIBED',
+        subtype='INITIAL_BUY',
+        transaction=initial,
+    )
+
+    response = _post(client)
+
+    assert response.status_code == 200, response.text
+    assert repository.remaining_readings(old_client, at=NOW) == 0
+    assert repository.remaining_readings(new_client, at=NOW) == 15
+    with closing(connect()) as conn:
+        assert conn.execute(
+            'SELECT COUNT(*) FROM apple_transactions WHERE transaction_id = ?',
+            (initial.transaction_id,),
+        ).fetchone()[0] == 1
+
+
 def test_unknown_verified_type_is_recorded_without_entitlement_change(notification_api) -> None:
     client, repository, gateway, notifier = notification_api
     _register_account(repository)
