@@ -45,6 +45,22 @@ class ChatTranscriptEntry {
     };
   }
 
+  ChatTranscriptEntry copyWith({
+    String? text,
+    List<List<ChatTranscriptAction>>? keyboard,
+  }) {
+    return ChatTranscriptEntry(
+      id: id,
+      sender: sender,
+      text: text ?? this.text,
+      sentAt: sentAt,
+      keyboard: keyboard ?? this.keyboard,
+      attachments: attachments,
+      templatePreviewTemplates: templatePreviewTemplates,
+      linkPreview: linkPreview,
+    );
+  }
+
   ChatTranscriptEntry withoutActionKeys(Set<String> actionKeys) {
     final sanitizedKeyboard = keyboard
         .map(
@@ -55,15 +71,8 @@ class ChatTranscriptEntry {
         .where((row) => row.isNotEmpty)
         .toList(growable: false);
 
-    return ChatTranscriptEntry(
-      id: id,
-      sender: sender,
-      text: text,
-      sentAt: sentAt,
+    return copyWith(
       keyboard: sanitizedKeyboard,
-      attachments: attachments,
-      templatePreviewTemplates: templatePreviewTemplates,
-      linkPreview: linkPreview,
     );
   }
 

@@ -24,6 +24,7 @@ import '../../domain/models/saved_file_entry.dart';
 import '../../l10n/app_language.dart';
 import '../../l10n/app_localizations.dart';
 import '../billing/apple_paywall_copy.dart';
+import '../billing/billing_chat_presentation.dart';
 import '../billing/billing_controller.dart';
 import '../presentation/presentation_controller.dart';
 
@@ -73,6 +74,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   AppLanguage get _currentLanguage => AppScope.languageOf(context).current;
   bool get _isRussian => _currentLanguage == AppLanguage.russian;
   bool get _isNativeIos => _billingPlatformPolicy.isNativeIos;
+  BillingChatPresentation get _billingChatPresentation =>
+      BillingChatPresentation.forPlatform(
+        platformPolicy: _billingPlatformPolicy,
+        isRussian: _isRussian,
+        applePrivacyPolicyUrl: AppConfig.applePrivacyPolicyUrl,
+      );
 
   Map<String, dynamic> _billingActionPayload([
     Map<String, dynamic> payload = const <String, dynamic>{},
@@ -1302,10 +1309,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         en: '**Valid until:** ${_shortDate(active.endsAt)}',
         ru: '**Действует до:** ${_shortDate(active.endsAt)}',
       ));
-      if (_isNativeIos) {
+      final legalDisclosure = _billingChatPresentation.legalDisclosure;
+      if (legalDisclosure != null) {
         buffer
           ..writeln()
-          ..writeln(_applePaywallDisclosure());
+          ..writeln(legalDisclosure);
       }
       return buffer.toString().trim();
     }
@@ -1347,9 +1355,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     }
 
-    if (_isNativeIos) {
+    final legalDisclosure = _billingChatPresentation.legalDisclosure;
+    if (legalDisclosure != null) {
       buffer.writeln();
-      buffer.writeln(_applePaywallDisclosure());
+      buffer.writeln(legalDisclosure);
     } else {
       final offerUrl = summary.offerUrl.trim();
       if (offerUrl.isNotEmpty) {
@@ -1378,7 +1387,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ]);
     }
 
-    if (_billingPlatformPolicy.restorePurchasesVisible) {
+    if (_billingChatPresentation.showsRestorePurchases) {
       rows.add([
         _action(
           _restorePurchasesLabel,
@@ -1414,7 +1423,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ),
         ],
-      if (_billingPlatformPolicy.restorePurchasesVisible)
+      if (_billingChatPresentation.showsRestorePurchases)
         [
           _action(
             _restorePurchasesLabel,
@@ -1440,8 +1449,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ru: '**Расклад почти готов!** ✅\n'
           'Выбери подписку, чтобы открыть полный разбор.',
     );
+    final legalDisclosure = _billingChatPresentation.legalDisclosure;
     _appendBotMessage(
-      _isNativeIos ? '$intro\n\n${_applePaywallDisclosure()}' : intro,
+      legalDisclosure == null ? intro : '$intro\n\n$legalDisclosure',
       keyboard: rows,
     );
   }
@@ -1452,35 +1462,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         .toList(growable: false);
   }
 
-  String? _applePrivacyPolicyUrl() {
-    try {
-      return _billingPlatformPolicy
-          .appleLegalLinks(AppConfig.applePrivacyPolicyUrl)
-          ?.privacyPolicy
-          .toString();
-    } on Object {
-      return null;
-    }
-  }
-
-  String _applePaywallDisclosure() {
-    final privacyPolicyUrl = _applePrivacyPolicyUrl();
-    if (privacyPolicyUrl == null) {
-      return ApplePaywallCopy.privacyUnavailable(isRussian: _isRussian);
-    }
-    return ApplePaywallCopy.subscriptionDisclosure(
-      isRussian: _isRussian,
-      privacyPolicyUrl: privacyPolicyUrl,
-    );
-  }
-
   bool _canPurchasePlan(BillingPlan plan) {
     if (!_isNativeIos) {
       return true;
     }
     final localizedPrice =
         _billingController?.localizedPriceForPlan(plan.key)?.trim();
-    return _applePrivacyPolicyUrl() != null &&
+    return _billingChatPresentation.applePrivacyPolicy != null &&
         localizedPrice != null &&
         localizedPrice.isNotEmpty;
   }
@@ -1606,7 +1594,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ),
         ],
-      if (_billingPlatformPolicy.restorePurchasesVisible)
+      if (_billingChatPresentation.showsRestorePurchases)
         [
           _action(
             _restorePurchasesLabel,
@@ -1630,8 +1618,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       en: '**Choose a subscription** 👇',
       ru: '**Выбери подписку** 👇',
     );
+    final legalDisclosure = _billingChatPresentation.legalDisclosure;
     _appendBotMessage(
-      _isNativeIos ? '$title\n\n${_applePaywallDisclosure()}' : title,
+      legalDisclosure == null ? title : '$title\n\n$legalDisclosure',
       keyboard: rows,
     );
   }
@@ -1663,7 +1652,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _restorePurchases() async {
     final controller = _billingController;
-    if (controller == null || !_billingPlatformPolicy.restorePurchasesVisible) {
+    if (controller == null || !_billingChatPresentation.showsRestorePurchases) {
       return;
     }
 

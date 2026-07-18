@@ -34,6 +34,10 @@ class BillingPlatformPolicy {
     'show_plan_options',
     'start_billing_payment',
   };
+  static const String _migrationCopyEn =
+      'Purchase options were updated. Open Balance to view current App Store offers.';
+  static const String _migrationCopyRu =
+      'Варианты покупки обновлены. Откройте Баланс, чтобы посмотреть актуальные предложения App Store.';
 
   final bool isWeb;
   final TargetPlatform targetPlatform;
@@ -114,16 +118,18 @@ class BillingPlatformPolicy {
               action.actionKey,
       };
       if (deniedKeys.isNotEmpty) {
-        final withoutDeniedActions = entry.withoutActionKeys(deniedKeys);
-        if (!_isExactLegacyBotProcessCopy(entry.text) &&
-            withoutDeniedActions.keyboard.isNotEmpty) {
-          sanitized.add(withoutDeniedActions);
-        }
+        sanitized.add(
+          entry.withoutActionKeys(deniedKeys).copyWith(
+                text: _migrationCopyFor(entry.text),
+              ),
+        );
         continue;
       }
-      if (!_isExactLegacyBotProcessCopy(entry.text)) {
-        sanitized.add(entry);
-      }
+      sanitized.add(
+        _isExactLegacyBotProcessCopy(entry.text)
+            ? entry.copyWith(text: _migrationCopyFor(entry.text))
+            : entry,
+      );
     }
     return sanitized;
   }
@@ -156,5 +162,11 @@ class BillingPlatformPolicy {
       r'^payment is handled securely by (google play|yookassa|юkassa)\. '
       r'by continuing, you agree to the \[terms\]\([^)]+\)\.$',
     ).hasMatch(normalized);
+  }
+
+  String _migrationCopyFor(String text) {
+    return RegExp(r'[А-Яа-яЁё]').hasMatch(text)
+        ? _migrationCopyRu
+        : _migrationCopyEn;
   }
 }
