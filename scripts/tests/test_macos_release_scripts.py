@@ -16,6 +16,7 @@ XCODE_PROJECT = REPO_ROOT / 'app' / 'ios' / 'Runner.xcodeproj' / 'project.pbxpro
 IOS_INFO_PLIST = REPO_ROOT / 'app' / 'ios' / 'Runner' / 'Info.plist'
 EXPORT_OPTIONS_PLIST = REPO_ROOT / 'app' / 'ios' / 'ExportOptions.plist'
 LAUNCH_SCREEN = REPO_ROOT / 'app' / 'ios' / 'Runner' / 'Base.lproj' / 'LaunchScreen.storyboard'
+PUBSPEC = REPO_ROOT / 'app' / 'pubspec.yaml'
 DEFAULT_LAUNCH_IMAGE_SET = (
     REPO_ROOT
     / 'app'
@@ -168,6 +169,10 @@ def test_ios_launch_screen_uses_tarot_branding_not_flutter_placeholder() -> None
     assert 'Insight in every card' in content
     assert 'image="LaunchImage"' not in content
     assert not DEFAULT_LAUNCH_IMAGE_SET.exists()
+
+
+def test_ios_does_not_bundle_unused_sensitive_file_picker_plugin() -> None:
+    assert 'file_picker:' not in _read(PUBSPEC)
 
 
 def test_runbook_documents_exact_mac_and_testflight_flow() -> None:
