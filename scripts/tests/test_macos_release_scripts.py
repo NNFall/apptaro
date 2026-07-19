@@ -74,6 +74,8 @@ def test_build_validates_release_inputs_and_artifact() -> None:
 
     assert 'APPLE_BACKEND_BASE_URL' in content
     assert 'APPLE_PRIVACY_POLICY_URL' in content
+    assert 'export LANG="${LANG:-en_US.UTF-8}"' in content
+    assert 'export LC_ALL="${LC_ALL:-en_US.UTF-8}"' in content
     assert 'https://' in content
     assert '--build-name' in content
     assert '--build-number' in content

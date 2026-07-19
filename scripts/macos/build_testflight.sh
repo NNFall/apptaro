@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# CocoaPods can inherit ASCII-8BIT in non-interactive SSH sessions and fail
+# while normalizing the project path. Keep release tooling explicitly UTF-8.
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 readonly EXPECTED_BRANCH="codex/apple-app-store"
 readonly EXPECTED_BUNDLE_ID="com.nexwit.tarotreaderai"
 readonly DEFAULT_PROBE_TIMEOUT_SECONDS=8
