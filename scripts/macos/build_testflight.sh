@@ -13,6 +13,7 @@ readonly DEFAULT_PROBE_TIMEOUT_SECONDS=8
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "$script_dir/../.." && pwd -P)"
 app_dir="$repo_root/app"
+export_options_plist="$app_dir/ios/ExportOptions.plist"
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -71,6 +72,7 @@ for command_name in git flutter pod python3 xcodebuild unzip find shasum codesig
 done
 python3 "$script_dir/release_runtime_check.py"
 [[ -x /usr/libexec/PlistBuddy ]] || fail "/usr/libexec/PlistBuddy is required to verify the IPA metadata."
+[[ -f "$export_options_plist" ]] || fail "Missing iOS export options: $export_options_plist"
 
 verify_flutter_stable() {
   local version_json channel
@@ -151,6 +153,7 @@ printf 'Building signed App Store IPA for team %s...\n' "$development_team"
   flutter build ipa --release \
     --build-name "$build_name" \
     --build-number "$build_number" \
+    --export-options-plist "$export_options_plist" \
     --dart-define=APPLE_BACKEND_BASE_URL="$APPLE_BACKEND_BASE_URL" \
     --dart-define=APPLE_PRIVACY_POLICY_URL="$APPLE_PRIVACY_POLICY_URL"
 )

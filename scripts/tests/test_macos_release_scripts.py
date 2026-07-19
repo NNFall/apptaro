@@ -14,6 +14,7 @@ BUILD = REPO_ROOT / 'scripts' / 'macos' / 'build_testflight.sh'
 RUNBOOK = REPO_ROOT / 'docs' / 'APP_STORE_RELEASE.md'
 XCODE_PROJECT = REPO_ROOT / 'app' / 'ios' / 'Runner.xcodeproj' / 'project.pbxproj'
 IOS_INFO_PLIST = REPO_ROOT / 'app' / 'ios' / 'Runner' / 'Info.plist'
+EXPORT_OPTIONS_PLIST = REPO_ROOT / 'app' / 'ios' / 'ExportOptions.plist'
 
 
 def _read(path: Path) -> str:
@@ -84,6 +85,7 @@ def test_build_validates_release_inputs_and_artifact() -> None:
     assert content.count('status --porcelain -- app') >= 2
     assert 'flutter clean' in content
     assert 'flutter build ipa --release' in content
+    assert '--export-options-plist "$export_options_plist"' in content
     assert '--dart-define=APPLE_BACKEND_BASE_URL=' in content
     assert '--dart-define=APPLE_PRIVACY_POLICY_URL=' in content
     assert 'Payload' in content
@@ -106,6 +108,20 @@ def test_build_validates_release_inputs_and_artifact() -> None:
     assert 'pod install --deployment' in content
     assert "channel != 'stable'" in content
     assert 'Dependency resolution changed files inside app/' in content
+
+
+def test_app_store_export_options_pin_manual_distribution_profile() -> None:
+    content = _read(EXPORT_OPTIONS_PLIST)
+
+    for expected in (
+        '<string>app-store-connect</string>',
+        '<key>com.nexwit.tarotreaderai</key>',
+        '<string>Tarot Reader AI App Store 2026</string>',
+        '<string>Apple Distribution</string>',
+        '<string>manual</string>',
+        '<string>WH73RJDJXC</string>',
+    ):
+        assert expected in content
 
 
 def test_xcode_project_pins_nexwit_development_team() -> None:
