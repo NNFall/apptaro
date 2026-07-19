@@ -24,6 +24,7 @@ DEFAULT_COMMAND_TIMEOUT_SECONDS = 600.0
 BACKEND_SERVICE_NAME = 'asapptaro_backend'
 ADMIN_BOT_SERVICE_NAME = 'asapptaro_admin_bot'
 EXPECTED_HEALTH_SERVICE = 'ASapptaro Backend'
+DEFAULT_REQUIRED_SERVICES = (BACKEND_SERVICE_NAME, ADMIN_BOT_SERVICE_NAME)
 
 PRIVATE_KEY_REMOTE_PATH = '/root/ASapptaro/secrets/apple/AuthKey.p8'
 ROOT_CERTIFICATES_REMOTE_DIR = '/root/ASapptaro/secrets/apple/root-certificates'
@@ -444,13 +445,31 @@ def build_database_backup_command(
     return f'mkdir -p {shlex.quote(backup_dir)} && python3 -c {shlex.quote(python_code)}'
 
 
-def build_compose_up_command(remote_dir: str) -> str:
+def build_compose_up_command(
+    remote_dir: str,
+    *,
+    required_services: tuple[str, ...] = DEFAULT_REQUIRED_SERVICES,
+) -> str:
     root = validate_deployment_root(remote_dir)
-    return (
+    command = (
         f'cd {shlex.quote(root)} && '
         'docker compose --project-name asapptaro --file docker-compose.yml '
         'up -d --build --remove-orphans --force-recreate'
     )
+    if required_services == (BACKEND_SERVICE_NAME,):
+        compose = (
+            'docker compose --project-name asapptaro --file docker-compose.yml'
+        )
+        return (
+            f'cd {shlex.quote(root)} && '
+            f'{compose} stop {ADMIN_BOT_SERVICE_NAME} >/dev/null 2>&1 || true; '
+            f'{compose} rm -f {ADMIN_BOT_SERVICE_NAME} >/dev/null 2>&1 || true; '
+            f'{compose} up -d --build --remove-orphans --force-recreate '
+            f'{BACKEND_SERVICE_NAME}'
+        )
+    if required_services != DEFAULT_REQUIRED_SERVICES:
+        raise ValueError(f'Unsupported ASapptaro service selection: {required_services!r}')
+    return command
 
 
 def build_compose_ps_command(remote_dir: str) -> str:
@@ -462,7 +481,11 @@ def build_compose_ps_command(remote_dir: str) -> str:
     )
 
 
-def validate_compose_status(raw: str) -> None:
+def validate_compose_status(
+    raw: str,
+    *,
+    required_services: tuple[str, ...] = DEFAULT_REQUIRED_SERVICES,
+) -> None:
     stripped = raw.strip()
     if not stripped:
         raise RuntimeError('Docker Compose returned no service status.')
@@ -479,7 +502,7 @@ def validate_compose_status(raw: str) -> None:
         for item in payload
         if isinstance(item, dict)
     }
-    for service_name in (BACKEND_SERVICE_NAME, ADMIN_BOT_SERVICE_NAME):
+    for service_name in required_services:
         item = services.get(service_name)
         if item is None:
             raise RuntimeError(f'{service_name} is missing from Docker Compose status.')
@@ -496,6 +519,8 @@ def wait_for_compose_health(
     remote,
     remote_dir: str,
     timeout_seconds: int = 240,
+    *,
+    required_services: tuple[str, ...] = DEFAULT_REQUIRED_SERVICES,
 ) -> str:
     deadline = time.monotonic() + timeout_seconds
     last_error = 'no status'
@@ -504,7 +529,7 @@ def wait_for_compose_health(
         exit_code, out, err = remote.run(command, check=False)
         if exit_code == 0:
             try:
-                validate_compose_status(out)
+                validate_compose_status(out, required_services=required_services)
                 return out
             except RuntimeError as error:
                 last_error = str(error)
@@ -519,9 +544,15 @@ def restart_stack(
     remote_dir: str,
     *,
     timestamp: datetime | None = None,
+    required_services: tuple[str, ...] = DEFAULT_REQUIRED_SERVICES,
 ) -> None:
     remote.run(build_database_backup_command(remote_dir, timestamp=timestamp))
-    remote.run(build_compose_up_command(remote_dir))
+    remote.run(
+        build_compose_up_command(
+            remote_dir,
+            required_services=required_services,
+        )
+    )
 
 
 def rollback_deployment(
@@ -529,10 +560,22 @@ def rollback_deployment(
     remote_dir: str,
     transaction: DeploymentTransaction,
     health_timeout_seconds: int,
+    *,
+    required_services: tuple[str, ...] = DEFAULT_REQUIRED_SERVICES,
 ) -> None:
     transaction.rollback()
-    remote.run(build_compose_up_command(remote_dir))
-    wait_for_compose_health(remote, remote_dir, health_timeout_seconds)
+    remote.run(
+        build_compose_up_command(
+            remote_dir,
+            required_services=required_services,
+        )
+    )
+    wait_for_compose_health(
+        remote,
+        remote_dir,
+        health_timeout_seconds,
+        required_services=required_services,
+    )
 
 
 @contextmanager
@@ -540,6 +583,8 @@ def transactional_deployment(
     remote,
     remote_dir: str,
     health_timeout_seconds: int,
+    *,
+    required_services: tuple[str, ...] = DEFAULT_REQUIRED_SERVICES,
 ):
     transaction = DeploymentTransaction(remote)
     try:
@@ -552,6 +597,7 @@ def transactional_deployment(
                     remote_dir,
                     transaction,
                     health_timeout_seconds,
+                    required_services=required_services,
                 )
             except Exception as rollback_error:
                 raise RuntimeError(
@@ -862,11 +908,11 @@ def ensure_remote_prerequisites(remote: RemoteHost, host_port: int) -> None:
 
 def prepare_remote_directories(remote: RemoteHost, remote_dir: str) -> None:
     root = validate_deployment_root(remote_dir)
-    remote.ensure_dir(root, mode=700)
+    remote.ensure_dir(root, mode=0o700)
     for relative in ('data', 'backups', 'temp', 'logs', 'templates', 'tarot'):
-        remote.ensure_dir(safe_remote_child(root, relative), mode=700)
-    remote.ensure_dir(safe_remote_child(root, 'secrets/apple'), mode=700)
-    remote.ensure_dir(ROOT_CERTIFICATES_REMOTE_DIR, mode=700)
+        remote.ensure_dir(safe_remote_child(root, relative), mode=0o700)
+    remote.ensure_dir(safe_remote_child(root, 'secrets/apple'), mode=0o700)
+    remote.ensure_dir(ROOT_CERTIFICATES_REMOTE_DIR, mode=0o700)
 
 
 def validate_persistent_paths(remote: RemoteHost, remote_dir: str) -> None:
@@ -894,7 +940,7 @@ def upload_artifacts(
         remote_path = safe_remote_child(root, artifact.remote_relative)
         if artifact.is_tree:
             staging = validate_remote_dir(f'{remote_path}.staging-{uuid4().hex}')
-            remote.ensure_dir(staging, mode=700)
+            remote.ensure_dir(staging, mode=0o700)
             try:
                 remote.upload_tree(local_path, staging, artifact)
                 transaction.replace_tree(staging, remote_path)
@@ -905,7 +951,7 @@ def upload_artifacts(
             remote.upload_file(
                 local_path,
                 remote_path,
-                mode=600,
+                mode=0o600,
                 transaction=transaction,
             )
 
@@ -919,19 +965,19 @@ def upload_apple_credentials(
     remote.upload_file(
         private_key_file,
         PRIVATE_KEY_REMOTE_PATH,
-        mode=600,
+        mode=0o600,
         transaction=transaction,
     )
     staging = validate_remote_dir(
         f'{ROOT_CERTIFICATES_REMOTE_DIR}.staging-{uuid4().hex}'
     )
-    remote.ensure_dir(staging, mode=700)
+    remote.ensure_dir(staging, mode=0o700)
     try:
         for certificate in certificate_files:
             destination = validate_remote_dir(
                 posixpath.join(staging, certificate.name)
             )
-            remote.upload_file(certificate, destination, mode=600)
+            remote.upload_file(certificate, destination, mode=0o600)
         transaction.replace_tree(staging, ROOT_CERTIFICATES_REMOTE_DIR)
     except Exception:
         remote.remove_tree(staging)
@@ -949,13 +995,13 @@ def upload_runtime_envs(
     remote.upload_text(
         backend_env,
         safe_remote_child(root, '.env.backend'),
-        mode=600,
+        mode=0o600,
         transaction=transaction,
     )
     remote.upload_text(
         admin_env,
         safe_remote_child(root, '.env.admin'),
-        mode=600,
+        mode=0o600,
         transaction=transaction,
     )
 
@@ -1030,6 +1076,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument('--health-url', default=os.getenv('ASAPPTARO_HEALTH_URL', ''))
     parser.add_argument('--health-timeout', type=int, default=180)
     parser.add_argument(
+        '--backend-only',
+        action='store_true',
+        help=(
+            'Deploy only the backend service. Use this when the shared Telegram '
+            'admin token is already polled by another stack.'
+        ),
+    )
+    parser.add_argument(
         '--command-timeout',
         type=float,
         default=float(
@@ -1063,6 +1117,11 @@ def main() -> int:
     health_url = validate_health_url(args.health_url, production=True)
     remote_env = build_remote_env(env_values, args.host_port)
     remote_admin_env = build_remote_admin_env(env_values)
+    required_services = (
+        (BACKEND_SERVICE_NAME,)
+        if args.backend_only
+        else DEFAULT_REQUIRED_SERVICES
+    )
 
     if args.dry_run:
         print(
@@ -1073,6 +1132,7 @@ def main() -> int:
                     'health_url': health_url,
                     'private_key': 'configured',
                     'root_certificates': len(certificate_files),
+                    'active_services': list(required_services),
                     'network_actions': False,
                 },
                 ensure_ascii=False,
@@ -1097,6 +1157,7 @@ def main() -> int:
             remote,
             args.remote_dir,
             args.health_timeout,
+            required_services=required_services,
         ) as transaction:
             remote_dir = resolve_remote_dir(remote, args.remote_dir)
             ensure_remote_prerequisites(remote, args.host_port)
@@ -1117,8 +1178,17 @@ def main() -> int:
                 remote_admin_env,
                 transaction,
             )
-            restart_stack(remote, remote_dir)
-            status = wait_for_compose_health(remote, remote_dir, args.health_timeout)
+            restart_stack(
+                remote,
+                remote_dir,
+                required_services=required_services,
+            )
+            status = wait_for_compose_health(
+                remote,
+                remote_dir,
+                args.health_timeout,
+                required_services=required_services,
+            )
             health_payload = wait_for_external_health(health_url, args.health_timeout)
         print('HTTPS health check passed.')
         print(health_payload)

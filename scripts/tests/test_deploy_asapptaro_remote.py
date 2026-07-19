@@ -316,6 +316,7 @@ def test_all_final_mutable_file_uploads_join_release_transaction(tmp_path: Path)
     class RecordingRemote:
         def __init__(self) -> None:
             self.transactional_files: list[str] = []
+            self.modes: list[int | None] = []
 
         def ensure_dir(self, *_args, **_kwargs) -> None:
             return None
@@ -333,6 +334,7 @@ def test_all_final_mutable_file_uploads_join_release_transaction(tmp_path: Path)
             mode=None,
             transaction=None,
         ) -> None:
+            self.modes.append(mode)
             if transaction is not None:
                 self.transactional_files.append(remote_path)
 
@@ -343,6 +345,7 @@ def test_all_final_mutable_file_uploads_join_release_transaction(tmp_path: Path)
             mode=None,
             transaction=None,
         ) -> None:
+            self.modes.append(mode)
             if transaction is not None:
                 self.transactional_files.append(remote_path)
 
@@ -374,6 +377,8 @@ def test_all_final_mutable_file_uploads_join_release_transaction(tmp_path: Path)
         '/root/ASapptaro/.env.backend',
         '/root/ASapptaro/.env.admin',
     }
+    assert remote.modes
+    assert all(mode == 0o600 for mode in remote.modes)
 
 
 def test_tree_replacements_keep_backups_until_commit_and_restore_on_rollback(
@@ -784,6 +789,31 @@ def test_compose_status_requires_both_services_running_and_healthy() -> None:
     )
     with pytest.raises(RuntimeError, match='asapptaro_admin_bot'):
         module.validate_compose_status(unhealthy)
+
+
+def test_compose_status_can_validate_backend_only_mode() -> None:
+    module = _load_deploy_module()
+    backend_only = (
+        '{"Service":"asapptaro_backend","State":"running","Health":"healthy"}'
+    )
+
+    module.validate_compose_status(
+        backend_only,
+        required_services=(module.BACKEND_SERVICE_NAME,),
+    )
+
+
+def test_backend_only_compose_up_targets_only_backend_service() -> None:
+    module = _load_deploy_module()
+
+    command = module.build_compose_up_command(
+        '/root/ASapptaro',
+        required_services=(module.BACKEND_SERVICE_NAME,),
+    )
+
+    assert 'stop asapptaro_admin_bot' in command
+    assert 'rm -f asapptaro_admin_bot' in command
+    assert command.endswith('--force-recreate asapptaro_backend')
 
 
 def test_forward_and_rollback_compose_up_force_container_recreation() -> None:

@@ -12,6 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 BOOTSTRAP = REPO_ROOT / 'scripts' / 'macos' / 'bootstrap_ios.sh'
 BUILD = REPO_ROOT / 'scripts' / 'macos' / 'build_testflight.sh'
 RUNBOOK = REPO_ROOT / 'docs' / 'APP_STORE_RELEASE.md'
+XCODE_PROJECT = REPO_ROOT / 'app' / 'ios' / 'Runner.xcodeproj' / 'project.pbxproj'
+IOS_INFO_PLIST = REPO_ROOT / 'app' / 'ios' / 'Runner' / 'Info.plist'
 
 
 def _read(path: Path) -> str:
@@ -102,6 +104,21 @@ def test_build_validates_release_inputs_and_artifact() -> None:
     assert 'pod install --deployment' in content
     assert "channel != 'stable'" in content
     assert 'Dependency resolution changed files inside app/' in content
+
+
+def test_xcode_project_pins_nexwit_development_team() -> None:
+    content = _read(XCODE_PROJECT)
+
+    assert content.count('DEVELOPMENT_TEAM = WH73RJDJXC;') >= 3
+    assert 'DevelopmentTeam = WH73RJDJXC;' in content
+    assert 'ProvisioningStyle = Automatic;' in content
+
+
+def test_ios_declares_no_nonexempt_encryption() -> None:
+    content = _read(IOS_INFO_PLIST)
+
+    assert '<key>ITSAppUsesNonExemptEncryption</key>' in content
+    assert '<false/>' in content
 
 
 def test_runbook_documents_exact_mac_and_testflight_flow() -> None:
