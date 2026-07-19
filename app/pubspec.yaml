@@ -12,7 +12,6 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  file_picker: ^11.0.2
   flutter_markdown: ^0.7.7+1
   http: ^1.6.0
   intl: ^0.20.2
