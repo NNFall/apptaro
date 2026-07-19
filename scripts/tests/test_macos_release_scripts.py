@@ -75,7 +75,7 @@ def test_build_validates_release_inputs_and_artifact() -> None:
     assert 'https://' in content
     assert '--build-name' in content
     assert '--build-number' in content
-    assert 'com.nexwit.tarot' in content
+    assert 'com.nexwit.tarotreaderai' in content
     assert 'status --porcelain -- app' in content
     assert content.count('status --porcelain -- app') >= 2
     assert 'flutter clean' in content

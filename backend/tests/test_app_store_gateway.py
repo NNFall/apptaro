@@ -78,7 +78,7 @@ class AppStoreGatewayTests(unittest.TestCase):
 
         self.assertEqual(result.transaction_id, 'tx-production-weekly')
         self.assertEqual(result.original_transaction_id, 'original-production-weekly')
-        self.assertEqual(result.bundle_id, 'com.nexwit.tarot')
+        self.assertEqual(result.bundle_id, 'com.nexwit.tarotreaderai')
         self.assertEqual(result.product_id, 'weekly_readings')
         self.assertEqual(result.environment, Environment.PRODUCTION)
         self.assertEqual(result.signed_transaction, 'signed-production-weekly')
@@ -211,7 +211,7 @@ class AppStoreGatewayTests(unittest.TestCase):
                     private_key_path=key_path,
                     key_id='KEY123',
                     issuer_id='issuer-123',
-                    bundle_id='com.nexwit.tarot',
+                    bundle_id='com.nexwit.tarotreaderai',
                     app_apple_id=1234567890,
                     root_certificates_dir=roots_dir,
                     enable_online_checks=True,
@@ -224,15 +224,15 @@ class AppStoreGatewayTests(unittest.TestCase):
         self.assertEqual(
             client_calls,
             [
-                (b'private-key', 'KEY123', 'issuer-123', 'com.nexwit.tarot', Environment.PRODUCTION),
-                (b'private-key', 'KEY123', 'issuer-123', 'com.nexwit.tarot', Environment.SANDBOX),
+                (b'private-key', 'KEY123', 'issuer-123', 'com.nexwit.tarotreaderai', Environment.PRODUCTION),
+                (b'private-key', 'KEY123', 'issuer-123', 'com.nexwit.tarotreaderai', Environment.SANDBOX),
             ],
         )
         self.assertEqual(
             verifier_calls,
             [
-                ([b'root-g2', b'root-g3'], True, Environment.PRODUCTION, 'com.nexwit.tarot', 1234567890),
-                ([b'root-g2', b'root-g3'], True, Environment.SANDBOX, 'com.nexwit.tarot', None),
+                ([b'root-g2', b'root-g3'], True, Environment.PRODUCTION, 'com.nexwit.tarotreaderai', 1234567890),
+                ([b'root-g2', b'root-g3'], True, Environment.SANDBOX, 'com.nexwit.tarotreaderai', None),
             ],
         )
 
@@ -249,7 +249,7 @@ class AppStoreGatewayTests(unittest.TestCase):
             get_settings.cache_clear()
             settings = get_settings()
 
-        self.assertEqual(settings.app_store_bundle_id, 'com.nexwit.tarot')
+        self.assertEqual(settings.app_store_bundle_id, 'com.nexwit.tarotreaderai')
         self.assertEqual(settings.app_store_app_apple_id, 1234567890)
         self.assertEqual(settings.app_store_key_id, 'KEY123')
         self.assertEqual(settings.app_store_issuer_id, 'issuer-123')
@@ -265,7 +265,7 @@ class AppStoreGatewayTests(unittest.TestCase):
             app_store_app_apple_id=1234567890,
             app_store_private_key_path=Path(__file__),
             app_store_root_certificates_dir=Path(__file__).parent,
-            app_store_bundle_id='com.nexwit.tarot',
+            app_store_bundle_id='com.nexwit.tarotreaderai',
             app_store_enable_online_checks=False,
         )
         dependencies.get_app_store_gateway.cache_clear()
@@ -284,7 +284,7 @@ class AppStoreGatewayTests(unittest.TestCase):
     def test_rejects_an_expanded_product_allowlist(self) -> None:
         with self.assertRaisesRegex(ValueError, 'four App Store product ids'):
             AppStoreGateway.from_dependencies(
-                bundle_id='com.nexwit.tarot',
+                bundle_id='com.nexwit.tarotreaderai',
                 app_apple_id=1234567890,
                 allowed_product_ids=ALLOWED_PRODUCTS | {'unreviewed_product'},
                 production_client=FakeClient('unused'),
@@ -308,7 +308,7 @@ class AppStoreGatewayTests(unittest.TestCase):
         }
         payloads.update(extra_payloads or {})
         gateway = AppStoreGateway.from_dependencies(
-            bundle_id='com.nexwit.tarot',
+            bundle_id='com.nexwit.tarotreaderai',
             app_apple_id=1234567890,
             allowed_product_ids=ALLOWED_PRODUCTS,
             production_client=production_client,

@@ -48,14 +48,14 @@
 test('iOS distribution accepts only an explicitly supplied HTTPS backend', () {
   expect(AppConfig.validateAppleBackendUrl('https://apple-api.example.test'), isTrue);
   expect(AppConfig.validateAppleBackendUrl('http://185.171.83.116:8022'), isFalse);
-  expect(AppConfig.iosBundleId, 'com.nexwit.tarot');
+  expect(AppConfig.iosBundleId, 'com.nexwit.tarotreaderai');
 });
 ```
 
 ```python
 def test_ios_project_has_apple_identity_and_no_broad_ats_exception(tmp_path):
     findings = inspect_ios_project(PROJECT_ROOT)
-    assert findings.bundle_ids == {"com.nexwit.tarot", "com.nexwit.tarot.RunnerTests"}
+    assert findings.bundle_ids == {"com.nexwit.tarotreaderai", "com.nexwit.tarotreaderai.RunnerTests"}
     assert findings.has_broad_ats_exception is False
     assert findings.has_podfile is True
 ```
@@ -76,7 +76,7 @@ Use platform-aware immutable config:
 
 ```dart
 static const appleBackendBaseUrl = String.fromEnvironment('APPLE_BACKEND_BASE_URL');
-static const iosBundleId = 'com.nexwit.tarot';
+static const iosBundleId = 'com.nexwit.tarotreaderai';
 ```
 
 Create `Podfile` with `platform :ios, '13.0'`, `flutter_ios_podfile_setup`, the Runner target, and `flutter_install_all_ios_pods`. Update all Runner and RunnerTests bundle IDs. Increment `app/pubspec.yaml` build number above `15`. Preserve the existing Android endpoint; require the final owned HTTPS endpoint through `--dart-define=APPLE_BACKEND_BASE_URL=...` for iOS release builds rather than inventing a domain.
@@ -311,7 +311,7 @@ git commit -m "feat: persist Apple entitlements atomically"
 ```python
 def test_verifies_matching_bundle_product_and_transaction(gateway, apple_fixture):
     result = gateway.get_verified_transaction(apple_fixture.transaction_id)
-    assert result.bundle_id == "com.nexwit.tarot"
+    assert result.bundle_id == "com.nexwit.tarotreaderai"
     assert result.product_id == "weekly_readings"
 
 def test_rejects_wrong_bundle_id(gateway, wrong_bundle_fixture):
@@ -519,7 +519,7 @@ Mac run, commit the generated lock and rerun bootstrap.
 
 - [ ] **Step 3: Configure signing and build an IPA**
 
-Select the Apple team for `com.nexwit.tarot` in `Runner.xcworkspace`, then run:
+Select the Apple team for `com.nexwit.tarotreaderai` in `Runner.xcworkspace`, then run:
 
 ```bash
 export APPLE_BACKEND_BASE_URL='https://api.example.com'

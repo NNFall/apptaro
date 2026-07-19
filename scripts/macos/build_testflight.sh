@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly EXPECTED_BRANCH="codex/apple-app-store"
-readonly EXPECTED_BUNDLE_ID="com.nexwit.tarot"
+readonly EXPECTED_BUNDLE_ID="com.nexwit.tarotreaderai"
 readonly DEFAULT_PROBE_TIMEOUT_SECONDS=8
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"

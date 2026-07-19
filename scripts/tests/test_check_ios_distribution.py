@@ -16,7 +16,7 @@ def _write_distribution_fixture(
     root: Path,
     *,
     build_number: int = 16,
-    runner_bundle: str = 'com.nexwit.tarot',
+    runner_bundle: str = 'com.nexwit.tarotreaderai',
     extra_bundle: str | None = None,
     allows_arbitrary_loads: bool = False,
 ) -> None:
@@ -37,7 +37,7 @@ def _write_distribution_fixture(
     )
     project = (
         f'PRODUCT_BUNDLE_IDENTIFIER = {runner_bundle};\n'
-        'PRODUCT_BUNDLE_IDENTIFIER = com.nexwit.tarot.RunnerTests;\n'
+        'PRODUCT_BUNDLE_IDENTIFIER = com.nexwit.tarotreaderai.RunnerTests;\n'
     )
     if extra_bundle is not None:
         project += f'PRODUCT_BUNDLE_IDENTIFIER = {extra_bundle};\n'
@@ -212,7 +212,7 @@ def test_checker_rejects_wrong_bundle_identifier(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 1
-    assert 'com.nexwit.tarot' in result.stdout
+    assert 'com.nexwit.tarotreaderai' in result.stdout
 
 
 def test_checker_rejects_bad_extra_bundle_configuration(tmp_path: Path) -> None:

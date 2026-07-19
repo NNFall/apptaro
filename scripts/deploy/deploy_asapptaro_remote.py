@@ -316,7 +316,7 @@ def build_remote_env(local_values: dict[str, str], host_port: int) -> str:
             'TAROT_CARDS_DIR': '/app/runtime/tarot/cards',
             'TAROT_BACKGROUND_PATH': '/app/runtime/tarot/backgrounds/main.png',
             'TAROT_LAYOUT_PATH': '/app/runtime/tarot/layout.json',
-            'APP_STORE_BUNDLE_ID': 'com.nexwit.tarot',
+            'APP_STORE_BUNDLE_ID': 'com.nexwit.tarotreaderai',
             'APP_STORE_PRIVATE_KEY_PATH': '/run/secrets/apple/AuthKey.p8',
             'APP_STORE_ROOT_CERTIFICATES_DIR': '/run/secrets/apple/root-certificates',
             'APP_STORE_ENABLE_ONLINE_CHECKS': '1',

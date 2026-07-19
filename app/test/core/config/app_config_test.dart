@@ -9,7 +9,7 @@ void main() {
       '/v1/billing/apple/account-token',
     );
     expect(AppConfig.billingAppleVerifyPath, '/v1/billing/apple/verify');
-    expect(AppConfig.appleBundleId, 'com.nexwit.tarot');
+    expect(AppConfig.appleBundleId, 'com.nexwit.tarotreaderai');
     expect(
       AppConfig.appleTermsOfUseUrl,
       'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',

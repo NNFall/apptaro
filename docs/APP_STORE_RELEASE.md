@@ -26,7 +26,7 @@
 1. Активное членство Apple Developer Program.
 2. Принятый Paid Applications Agreement, заполненные банковские и налоговые
    данные в App Store Connect.
-3. App record с Bundle ID `com.nexwit.tarot`.
+3. App record с Bundle ID `com.nexwit.tarotreaderai`.
 4. In-App Purchase key с `Issuer ID`, `Key ID` и единожды скачанным `.p8`.
 5. Числовой Apple ID приложения из App Store Connect. Это не Team ID.
 6. Одна subscription group и четыре продукта:
@@ -224,7 +224,7 @@ Capabilities`:
 1. Выберите аккаунт и Apple Developer Team владельца приложения.
 2. Включите `Automatically manage signing` либо установите подходящие
    distribution certificate и provisioning profile вручную.
-3. Проверьте Bundle ID `com.nexwit.tarot` для Release.
+3. Проверьте Bundle ID `com.nexwit.tarotreaderai` для Release.
 4. Выполните один запуск или Archive из Xcode, чтобы подтвердить signing.
 
 ### 7.2. Production IPA

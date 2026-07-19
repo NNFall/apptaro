@@ -28,7 +28,7 @@ a signed IPA for TestFlight and App Review on the rented Mac.
 ## App Identity
 
 - Product name: `Tarot Reader AI`.
-- iOS bundle identifier: `com.nexwit.tarot`.
+- iOS bundle identifier: `com.nexwit.tarotreaderai`.
 - Flutter version remains the source for iOS marketing and build versions.
 - Every uploaded App Store build gets a strictly increasing build number.
 - The iOS app displays Apple/App Store terminology only. Google Play,
@@ -88,7 +88,7 @@ the client without verifying the signed transaction.
 Verification enforces:
 
 - valid Apple certificate chain and JWS signature;
-- bundle ID `com.nexwit.tarot`;
+- bundle ID `com.nexwit.tarotreaderai`;
 - expected product ID and product type;
 - Sandbox or Production environment according to configuration;
 - no revocation and an active subscription expiration date where applicable;
@@ -167,7 +167,7 @@ The release sequence is:
 2. install the matching stable Flutter SDK and CocoaPods;
 3. run Flutter and backend test suites;
 4. open `app/ios/Runner.xcworkspace` and select the Apple team;
-5. register or select `com.nexwit.tarot` and enable automatic signing;
+5. select `com.nexwit.tarotreaderai` and enable automatic signing;
 6. create the App Store Connect app and IAP catalog;
 7. build with `flutter build ipa --release`;
 8. validate and upload the IPA through Xcode or Transporter;

@@ -12,7 +12,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR_PATH = REPO_ROOT / 'scripts' / 'macos' / 'release_profile_validator.py'
 TEAM = 'TEAM123456'
-BUNDLE = 'com.nexwit.tarot'
+BUNDLE = 'com.nexwit.tarotreaderai'
 APPLICATION_IDENTIFIER = f'PREFIX123.{BUNDLE}'
 
 

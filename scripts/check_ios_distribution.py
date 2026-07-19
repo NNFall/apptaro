@@ -8,8 +8,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-EXPECTED_APP_BUNDLE_ID = 'com.nexwit.tarot'
-EXPECTED_TEST_BUNDLE_ID = 'com.nexwit.tarot.RunnerTests'
+EXPECTED_APP_BUNDLE_ID = 'com.nexwit.tarotreaderai'
+EXPECTED_TEST_BUNDLE_ID = 'com.nexwit.tarotreaderai.RunnerTests'
 
 
 def _parse_args() -> argparse.Namespace:

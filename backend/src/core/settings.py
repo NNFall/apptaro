@@ -221,7 +221,10 @@ def load_settings() -> Settings:
         google_play_service_account_file=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_FILE', '').strip(),
         google_play_service_account_json=os.getenv('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', '').strip(),
         google_play_test_mode=os.getenv('GOOGLE_PLAY_TEST_MODE', '0') == '1',
-        app_store_bundle_id=os.getenv('APP_STORE_BUNDLE_ID', 'com.nexwit.tarot').strip(),
+        app_store_bundle_id=os.getenv(
+            'APP_STORE_BUNDLE_ID',
+            'com.nexwit.tarotreaderai',
+        ).strip(),
         app_store_app_apple_id=int(os.getenv('APP_STORE_APPLE_ID', '0') or 0),
         app_store_key_id=os.getenv('APP_STORE_KEY_ID', '').strip(),
         app_store_issuer_id=os.getenv('APP_STORE_ISSUER_ID', '').strip(),

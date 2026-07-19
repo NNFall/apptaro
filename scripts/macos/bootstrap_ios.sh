@@ -131,4 +131,4 @@ printf '\n== Backend tests ==\n'
   python3 -m pytest backend/tests -q
 )
 
-printf '\nBootstrap complete. Open app/ios/Runner.xcworkspace in Xcode, select the Apple Developer Team for Runner, and confirm Bundle ID com.nexwit.tarot.\n'
+printf '\nBootstrap complete. Open app/ios/Runner.xcworkspace in Xcode, select the Apple Developer Team for Runner, and confirm Bundle ID com.nexwit.tarotreaderai.\n'

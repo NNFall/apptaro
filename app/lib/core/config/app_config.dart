@@ -26,7 +26,7 @@ class AppConfig {
   static const String billingAppleVerifyPath = '/v1/billing/apple/verify';
   static const String billingPromoRedeemPath = '/v1/billing/promo/redeem';
   static const String androidPackageName = 'com.nexwit.tarot';
-  static const String appleBundleId = 'com.nexwit.tarot';
+  static const String appleBundleId = 'com.nexwit.tarotreaderai';
 
   static String presentationJobPath(String jobId) =>
       '$presentationJobsPath/$jobId';
