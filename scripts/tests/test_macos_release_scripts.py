@@ -114,6 +114,19 @@ def test_xcode_project_pins_nexwit_development_team() -> None:
     assert 'ProvisioningStyle = Automatic;' in content
 
 
+def test_xcode_release_uses_tarot_app_store_profile() -> None:
+    content = _read(XCODE_PROJECT)
+
+    assert content.count('CODE_SIGN_IDENTITY = "Apple Distribution";') >= 2
+    assert content.count('CODE_SIGN_STYLE = Manual;') >= 2
+    assert (
+        content.count(
+            'PROVISIONING_PROFILE_SPECIFIER = "Tarot Reader AI App Store 2026";'
+        )
+        >= 2
+    )
+
+
 def test_ios_declares_no_nonexempt_encryption() -> None:
     content = _read(IOS_INFO_PLIST)
 
