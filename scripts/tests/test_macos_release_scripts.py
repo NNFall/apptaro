@@ -15,6 +15,7 @@ RUNBOOK = REPO_ROOT / 'docs' / 'APP_STORE_RELEASE.md'
 XCODE_PROJECT = REPO_ROOT / 'app' / 'ios' / 'Runner.xcodeproj' / 'project.pbxproj'
 IOS_INFO_PLIST = REPO_ROOT / 'app' / 'ios' / 'Runner' / 'Info.plist'
 EXPORT_OPTIONS_PLIST = REPO_ROOT / 'app' / 'ios' / 'ExportOptions.plist'
+LAUNCH_SCREEN = REPO_ROOT / 'app' / 'ios' / 'Runner' / 'Base.lproj' / 'LaunchScreen.storyboard'
 
 
 def _read(path: Path) -> str:
@@ -150,6 +151,14 @@ def test_ios_declares_no_nonexempt_encryption() -> None:
 
     assert '<key>ITSAppUsesNonExemptEncryption</key>' in content
     assert '<false/>' in content
+
+
+def test_ios_launch_screen_uses_tarot_branding_not_flutter_placeholder() -> None:
+    content = _read(LAUNCH_SCREEN)
+
+    assert 'Tarot Reader AI' in content
+    assert 'Insight in every card' in content
+    assert 'image="LaunchImage"' not in content
 
 
 def test_runbook_documents_exact_mac_and_testflight_flow() -> None:
