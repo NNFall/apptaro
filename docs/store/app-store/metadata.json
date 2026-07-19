@@ -5,6 +5,37 @@
     "sku": "tarot-reader-ai-2026",
     "version": "1.0"
   },
+  "liveResources": {
+    "appStoreVersionId": "22197f02-91ee-4a02-82c6-0a7e1891d9e8",
+    "appInfoId": "a6b76091-2611-4344-92c6-9185249ec4b8",
+    "appAvailabilityId": "6790324291",
+    "subscriptionGroupId": "22248579",
+    "products": {
+      "weekly_readings": {
+        "id": "6792515473",
+        "state": "READY_TO_SUBMIT",
+        "territorialPrices": 175
+      },
+      "monthly_readings": {
+        "id": "6792515499",
+        "state": "READY_TO_SUBMIT",
+        "territorialPrices": 175
+      },
+      "one10_readings": {
+        "id": "6792515555",
+        "state": "READY_TO_SUBMIT"
+      },
+      "one40_readings": {
+        "id": "6792515718",
+        "state": "READY_TO_SUBMIT"
+      }
+    },
+    "screenshotSets": {
+      "APP_IPHONE_67": "17e0c1a1-63be-4fcb-8663-476bc1f89c8b",
+      "APP_IPHONE_55": "27dd74e8-e0ad-4454-a4ad-bb5c74c9d2e9",
+      "APP_IPAD_PRO_3GEN_129": "77ec6a7f-72d8-41d3-99d8-1d38cbe462d0"
+    }
+  },
   "urls": {
     "privacyPolicy": "https://nnfall.github.io/apptaro/privacy.html",
     "support": "https://nnfall.github.io/apptaro/support.html",

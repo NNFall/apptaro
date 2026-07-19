@@ -1,5 +1,27 @@
 # ASapptaro: выпуск в App Store
 
+## Текущее состояние App Store Connect
+
+На 19 июля 2026 года через App Store Connect API заполнены пять
+локализаций (`en-US`, `ru`, `pt-BR`, `fr-FR`, `zh-Hans`), URL политики
+конфиденциальности, support/marketing URL, категории, availability во всех
+175 странах, review information продуктов и три набора скриншотов:
+
+- `APP_IPHONE_67`: 4 изображения `1320x2868`;
+- `APP_IPHONE_55`: 4 изображения `1242x2208`;
+- `APP_IPAD_PRO_3GEN_129`: 4 изображения `2064x2752`.
+
+Продукты `weekly_readings`, `monthly_readings`, `one10_readings` и
+`one40_readings` находятся в `READY_TO_SUBMIT`. Для каждой подписки
+созданы 175 территориальных цен по рекомендованным Apple equalizations.
+Первые подписки и первые consumable-покупки нужно добавить в ту же
+подачу, что и первая сборка приложения.
+
+Не автоматизируются публичным API Apple: App Privacy (privacy nutrition
+labels), выбор первых In-App Purchases вместе с первой сборкой и
+финальная отправка на App Review. App Review Contact нельзя создавать без
+реального контактного телефона.
+
 Этот runbook относится только к Apple-ветке `codex/apple-app-store`. Он не
 изменяет и не использует данные Google Play проекта `/root/PMapptaro`.
 
