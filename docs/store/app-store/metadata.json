@@ -39,7 +39,8 @@
   "urls": {
     "privacyPolicy": "https://nnfall.github.io/apptaro/privacy.html",
     "support": "https://nnfall.github.io/apptaro/support.html",
-    "marketing": "https://nnfall.github.io/apptaro/"
+    "marketing": "https://nnfall.github.io/apptaro/",
+    "termsOfUse": "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
   },
   "subscriptionGroupLocalizations": {
     "en-US": "Tarot Reading Plans",
@@ -54,35 +55,35 @@
       "subtitle": "AI 3-card insights, 24/7",
       "promotionalText": "Ask about love, career, money or your next step and receive a structured three-card AI tarot reading in moments.",
       "keywords": "tarot,AI,card reading,fortune,love,career,spiritual,horoscope,divination,reflection",
-      "description": "Tarot Reader AI is an AI-assisted tarot experience for reflection and entertainment. Ask about relationships, work, money, future possibilities or an important life situation. The app selects three cards and gives you a clear, structured interpretation of the current situation, the main obstacle, and a possible direction.\n\nExplore love and relationships, career and finances, personal goals, everyday decisions, and the meanings of major and minor arcana. You do not need prior tarot knowledge: every reading explains the cards in simple language.\n\nTarot readings are symbolic interpretations, not guaranteed predictions. This app is intended for entertainment and personal reflection only. AI-generated content may be inaccurate and does not replace medical, legal, financial or psychological advice. For important decisions, consult a qualified professional."
+      "description": "Tarot Reader AI is an AI-assisted tarot experience for reflection and entertainment. Ask about relationships, work, money, future possibilities or an important life situation. The app selects three cards and gives you a clear, structured interpretation of the current situation, the main obstacle, and a possible direction.\n\nExplore love and relationships, career and finances, personal goals, everyday decisions, and the meanings of major and minor arcana. You do not need prior tarot knowledge: every reading explains the cards in simple language.\n\nTarot readings are symbolic interpretations, not guaranteed predictions. This app is intended for entertainment and personal reflection only. AI-generated content may be inaccurate and does not replace medical, legal, financial or psychological advice. For important decisions, consult a qualified professional.\n\nTerms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
     },
     "ru": {
       "name": "ИИ Таро: расклады и гадание",
       "subtitle": "ИИ-расклады на 3 карты",
       "promotionalText": "Задайте вопрос о любви, работе, деньгах или будущем и получите подробный ИИ-расклад Таро на три карты.",
       "keywords": "таро,ИИ,гадание,расклад,карты,любовь,будущее,отношения,работа,деньги",
-      "description": "ИИ Таро — приложение для символических раскладов, развлечения и личной рефлексии. Задавайте вопросы об отношениях, работе, деньгах, возможном будущем или важной жизненной ситуации. Приложение выбирает три карты и дает понятное толкование текущей ситуации, главного препятствия и возможного направления.\n\nМожно исследовать любовь и отношения, карьеру и финансы, личные цели, повседневные решения, а также значения старших и младших арканов. Знать Таро заранее не нужно: приложение объясняет карты простыми словами.\n\nРасклады являются символическими интерпретациями и не гарантируют события или результаты. Приложение предназначено только для развлечения и личной рефлексии. Материалы ИИ могут содержать неточности и не заменяют медицинскую, юридическую, финансовую или психологическую консультацию."
+      "description": "ИИ Таро — приложение для символических раскладов, развлечения и личной рефлексии. Задавайте вопросы об отношениях, работе, деньгах, возможном будущем или важной жизненной ситуации. Приложение выбирает три карты и дает понятное толкование текущей ситуации, главного препятствия и возможного направления.\n\nМожно исследовать любовь и отношения, карьеру и финансы, личные цели, повседневные решения, а также значения старших и младших арканов. Знать Таро заранее не нужно: приложение объясняет карты простыми словами.\n\nРасклады являются символическими интерпретациями и не гарантируют события или результаты. Приложение предназначено только для развлечения и личной рефлексии. Материалы ИИ могут содержать неточности и не заменяют медицинскую, юридическую, финансовую или психологическую консультацию.\n\nУсловия использования (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
     },
     "pt-BR": {
       "name": "Tarô IA: Leitura de Cartas",
       "subtitle": "Leituras de 3 cartas com IA",
       "promotionalText": "Pergunte sobre amor, carreira, dinheiro ou próximos passos e receba uma leitura de Tarô com três cartas e IA.",
       "keywords": "tarô,IA,cartas,leitura,amor,futuro,carreira,dinheiro,espiritual,reflexão",
-      "description": "Tarô IA é uma experiência de tarô assistida por inteligência artificial para entretenimento e reflexão pessoal. Pergunte sobre relacionamentos, trabalho, dinheiro, possibilidades futuras ou uma situação importante. O aplicativo seleciona três cartas e apresenta uma interpretação clara da situação atual, do principal obstáculo e de uma possível direção.\n\nExplore amor e relacionamentos, carreira e finanças, objetivos pessoais, decisões do dia a dia e os significados dos arcanos maiores e menores. Você não precisa conhecer tarô: cada leitura explica as cartas em linguagem simples.\n\nAs leituras são interpretações simbólicas e não garantem eventos ou resultados. O aplicativo é destinado somente a entretenimento e reflexão pessoal. O conteúdo gerado por IA pode conter imprecisões e não substitui aconselhamento médico, jurídico, financeiro ou psicológico."
+      "description": "Tarô IA é uma experiência de tarô assistida por inteligência artificial para entretenimento e reflexão pessoal. Pergunte sobre relacionamentos, trabalho, dinheiro, possibilidades futuras ou uma situação importante. O aplicativo seleciona três cartas e apresenta uma interpretação clara da situação atual, do principal obstáculo e de uma possível direção.\n\nExplore amor e relacionamentos, carreira e finanças, objetivos pessoais, decisões do dia a dia e os significados dos arcanos maiores e menores. Você não precisa conhecer tarô: cada leitura explica as cartas em linguagem simples.\n\nAs leituras são interpretações simbólicas e não garantem eventos ou resultados. O aplicativo é destinado somente a entretenimento e reflexão pessoal. O conteúdo gerado por IA pode conter imprecisões e não substitui aconselhamento médico, jurídico, financeiro ou psicológico.\n\nTermos de Uso (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
     },
     "fr-FR": {
       "name": "Tarot IA : Tirage de Cartes",
       "subtitle": "Tirages IA en 3 cartes",
       "promotionalText": "Posez une question sur l’amour, le travail, l’argent ou l’avenir et recevez un tirage de tarot IA en trois cartes.",
       "keywords": "tarot,IA,cartes,tirage,amour,avenir,carrière,argent,spirituel,réflexion",
-      "description": "Tarot IA est une expérience de tarot assistée par intelligence artificielle, conçue pour le divertissement et la réflexion personnelle. Posez vos questions sur les relations, le travail, l’argent, les possibilités futures ou une situation importante. L’application sélectionne trois cartes et propose une interprétation claire de la situation actuelle, du principal obstacle et d’une direction possible.\n\nExplorez l’amour et les relations, la carrière et les finances, les objectifs personnels, les décisions quotidiennes et la signification des arcanes majeurs et mineurs. Aucune connaissance préalable du tarot n’est nécessaire.\n\nLes tirages sont des interprétations symboliques et ne garantissent aucun événement ni résultat. Le contenu généré par IA peut comporter des inexactitudes et ne remplace pas un avis médical, juridique, financier ou psychologique."
+      "description": "Tarot IA est une expérience de tarot assistée par intelligence artificielle, conçue pour le divertissement et la réflexion personnelle. Posez vos questions sur les relations, le travail, l’argent, les possibilités futures ou une situation importante. L’application sélectionne trois cartes et propose une interprétation claire de la situation actuelle, du principal obstacle et d’une direction possible.\n\nExplorez l’amour et les relations, la carrière et les finances, les objectifs personnels, les décisions quotidiennes et la signification des arcanes majeurs et mineurs. Aucune connaissance préalable du tarot n’est nécessaire.\n\nLes tirages sont des interprétations symboliques et ne garantissent aucun événement ni résultat. Le contenu généré par IA peut comporter des inexactitudes et ne remplace pas un avis médical, juridique, financier ou psychologique.\n\nConditions d’utilisation (EULA) : https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
     },
     "zh-Hans": {
       "name": "AI塔罗：在线占卜与解读",
       "subtitle": "AI三张牌解读与指引",
       "promotionalText": "询问爱情、事业、金钱或未来方向，快速获得结构清晰的AI三张塔罗牌解读。",
       "keywords": "塔罗,AI,占卜,塔罗牌,爱情,未来,事业,金钱,心灵,解读",
-      "description": "AI塔罗是一款用于娱乐和自我反思的人工智能辅助塔罗应用。你可以询问感情、工作、金钱、未来可能性或重要生活情境。应用会抽取三张牌，并清晰解读当前状况、主要阻碍和可能的方向。\n\n你可以探索爱情与关系、事业与财务、个人目标、日常决定，以及大阿卡纳和小阿卡纳的含义。无需了解塔罗知识，每次解读都会用简单语言说明牌意。\n\n塔罗解读属于象征性解释，不保证任何事件或结果。本应用仅用于娱乐和个人反思。AI生成内容可能存在不准确之处，不能替代医疗、法律、财务或心理方面的专业建议。"
+      "description": "AI塔罗是一款用于娱乐和自我反思的人工智能辅助塔罗应用。你可以询问感情、工作、金钱、未来可能性或重要生活情境。应用会抽取三张牌，并清晰解读当前状况、主要阻碍和可能的方向。\n\n你可以探索爱情与关系、事业与财务、个人目标、日常决定，以及大阿卡纳和小阿卡纳的含义。无需了解塔罗知识，每次解读都会用简单语言说明牌意。\n\n塔罗解读属于象征性解释，不保证任何事件或结果。本应用仅用于娱乐和个人反思。AI生成内容可能存在不准确之处，不能替代医疗、法律、财务或心理方面的专业建议。\n\n使用条款 (EULA)：https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
     }
   },
   "products": {
