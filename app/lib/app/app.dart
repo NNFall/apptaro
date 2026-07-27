@@ -12,24 +12,46 @@ import 'shell.dart';
 import 'theme.dart';
 
 class AppSlidesApp extends StatefulWidget {
-  const AppSlidesApp({super.key});
+  const AppSlidesApp({
+    super.key,
+    this.languageRepository,
+  });
+
+  final LanguageRepository? languageRepository;
 
   @override
   State<AppSlidesApp> createState() => _AppSlidesAppState();
 }
 
 class _AppSlidesAppState extends State<AppSlidesApp> {
-  late final LanguageRepository _languageRepository = LanguageRepository();
+  late final LanguageRepository _languageRepository =
+      widget.languageRepository ?? LanguageRepository();
+  late final bool _ownsLanguageRepository = widget.languageRepository == null;
+  bool _languageRestored = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_languageRepository.restore());
+    unawaited(_restoreLanguage());
+  }
+
+  Future<void> _restoreLanguage() async {
+    try {
+      await _languageRepository.restore();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _languageRestored = true;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
-    _languageRepository.dispose();
+    if (_ownsLanguageRepository) {
+      _languageRepository.dispose();
+    }
     super.dispose();
   }
 
@@ -51,10 +73,16 @@ class _AppSlidesAppState extends State<AppSlidesApp> {
           supportedLocales:
               AppLanguage.values.map((item) => item.locale).toList(),
           theme: buildAppTheme(),
-          home: AppScope(
-            languageRepository: _languageRepository,
-            child: const AppShell(),
-          ),
+          home: _languageRestored
+              ? AppScope(
+                  languageRepository: _languageRepository,
+                  child: const AppShell(),
+                )
+              : const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
         );
       },
     );

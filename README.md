@@ -16,7 +16,7 @@ Google Play версия мобильного AI-приложения для р�
 
 - Google Play app: `Tarot Reader AI`.
 - Android package: `com.nexwit.tarot`.
-- Current release version: `0.1.0+15`.
+- Current release version: `0.1.0+16`.
 - Backend: `http://185.171.83.116:8022`.
 - User-facing UI по умолчанию на английском.
 - Русский язык сохранен как ручная локализация.

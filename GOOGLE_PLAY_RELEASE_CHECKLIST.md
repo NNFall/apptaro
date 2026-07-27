@@ -6,7 +6,7 @@ This checklist is for the Google Play version of PMapptaro.
 
 - Android package: `com.nexwit.tarot`
 - Flutter version source: `app/pubspec.yaml`
-- Current version: `0.1.0+15`
+- Current version: `0.1.0+16`
 - Increase the build number after every new Google Play upload.
 
 Google Play rejects builds with a `versionCode` that was already uploaded.
@@ -143,7 +143,7 @@ the complete checkout flow.
 Suggested release notes:
 
 ```text
-Google Play build with English UI, localized tarot readings, Google Play Billing, and server-side purchase verification.
+Fixed mixed-language chat content during app startup and improved localization consistency.
 ```
 
 ## Billing Smoke Test
