@@ -1,7 +1,7 @@
 name: apptaro
 description: AI Tarot Reading mobile client.
 publish_to: none
-version: 0.1.0+16
+version: 0.1.0+17
 
 environment:
   sdk: ^3.0.0
