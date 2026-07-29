@@ -29,6 +29,7 @@ import '../billing/apple_paywall_copy.dart';
 import '../billing/billing_chat_presentation.dart';
 import '../billing/billing_controller.dart';
 import '../presentation/presentation_controller.dart';
+import 'local_image_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -3271,6 +3272,10 @@ class _ChatMessageCard extends StatelessWidget {
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _ImageAttachmentPreview(
                                 attachment: attachment,
+                                savedEntry:
+                                    savedFilesRepository.findByArtifactId(
+                                  attachment.artifactId,
+                                ),
                                 onTap: () => onAttachmentTap(attachment),
                               ),
                             ),
@@ -3528,19 +3533,91 @@ class _AttachmentTile extends StatelessWidget {
   }
 }
 
-class _ImageAttachmentPreview extends StatelessWidget {
+class _ImageAttachmentPreview extends StatefulWidget {
   const _ImageAttachmentPreview({
     required this.attachment,
+    required this.savedEntry,
     required this.onTap,
   });
 
   final _ChatAttachment attachment;
+  final SavedFileEntry? savedEntry;
   final Future<void> Function() onTap;
 
   @override
+  State<_ImageAttachmentPreview> createState() =>
+      _ImageAttachmentPreviewState();
+}
+
+class _ImageAttachmentPreviewState extends State<_ImageAttachmentPreview> {
+  static const int _maxImageLoadAttempts = 3;
+
+  Timer? _retryTimer;
+  int _networkLoadAttempt = 0;
+  bool _localImageFailed = false;
+
+  @override
+  void didUpdateWidget(covariant _ImageAttachmentPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment.remoteUri != widget.attachment.remoteUri ||
+        oldWidget.savedEntry?.localPath != widget.savedEntry?.localPath) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _networkLoadAttempt = 0;
+      _localImageFailed = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleRetry() {
+    if (_retryTimer != null ||
+        _networkLoadAttempt >= _maxImageLoadAttempts - 1) {
+      return;
+    }
+
+    final delay = Duration(milliseconds: 500 * (_networkLoadAttempt + 1));
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        NetworkImage(widget.attachment.remoteUri.toString()).evict(),
+      );
+      setState(() {
+        _networkLoadAttempt += 1;
+      });
+    });
+  }
+
+  void _fallbackFromLocalImage() {
+    if (_localImageFailed) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_localImageFailed) {
+        setState(() {
+          _localImageFailed = true;
+        });
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final savedEntry = widget.savedEntry;
+    final localProvider =
+        _localImageFailed ? null : localImageProvider(savedEntry?.localPath);
+    final imageProvider =
+        localProvider ?? NetworkImage(widget.attachment.remoteUri.toString());
+
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       borderRadius: BorderRadius.circular(12),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -3549,8 +3626,12 @@ class _ImageAttachmentPreview extends StatelessWidget {
             minHeight: 180,
             maxHeight: 420,
           ),
-          child: Image.network(
-            attachment.remoteUri.toString(),
+          child: Image(
+            key: ValueKey<String>(
+              '${widget.attachment.remoteUri}|'
+              '${widget.savedEntry?.localPath}|$_networkLoadAttempt',
+            ),
+            image: imageProvider,
             fit: BoxFit.contain,
             alignment: Alignment.topCenter,
             loadingBuilder: (context, child, progress) {
@@ -3568,6 +3649,23 @@ class _ImageAttachmentPreview extends StatelessWidget {
               );
             },
             errorBuilder: (context, error, stackTrace) {
+              if (localProvider != null) {
+                _fallbackFromLocalImage();
+              } else {
+                _scheduleRetry();
+              }
+              if (localProvider == null &&
+                  _networkLoadAttempt < _maxImageLoadAttempts - 1) {
+                return const ColoredBox(
+                  color: Color(0xFFF0F4EC),
+                  child: Center(
+                    child: SizedBox.square(
+                      dimension: 26,
+                      child: CircularProgressIndicator(strokeWidth: 2.1),
+                    ),
+                  ),
+                );
+              }
               return const ColoredBox(
                 color: Color(0xFFF0F4EC),
                 child: Center(
