@@ -1148,3 +1148,19 @@ backend/
 5. После mobile MVP отдельно решать web-specific UX и cloud sync.
 
 Это уже правильный следующий шаг, потому что backend-контур генерации и конвертации собран, имеет download routes, покрыт базовым smoke-набором, а `app/` уже имеет DI, presentation flow, converter flow, локальную persistent-history, локальный файловый индекс, рабочий Flutter runtime и подготовленный Android toolchain.
+
+## 2026-08-06: server-side free teaser access guard
+
+- [x] Production evidence confirmed that a returning unpaid client could call
+  `POST /v1/presentations/outline` repeatedly and receive three-card outlines.
+- [x] Root cause: `teaser_mode=false` was treated as paid mode without a
+  separate active-balance check.
+- [x] Matched the Telegram bot rule: one one-card teaser in the client's
+  lifetime; every later outline requires an active reading balance.
+- [x] Protected both `/outline` and `/outline/revise` with HTTP `402` before
+  card selection or external AI work.
+- [x] Added focused regression coverage for new unpaid, returning unpaid, and
+  paid clients.
+- [x] Deployed only `pmapptaro_backend`; production health is OK and an
+  unpaid returning-client probe now returns HTTP `402`. No Flutter/APK/AAB
+  rebuild is required.

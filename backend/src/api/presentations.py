@@ -105,6 +105,11 @@ async def generate_outline(
     notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> OutlineResponse:
     teaser_mode = await billing_service.should_show_trial_teaser(client_id)
+    if not teaser_mode and not await billing_service.can_start_generation(client_id):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=_reading_limit_error(language),
+        )
     cards_count = 1 if teaser_mode else 3
     try:
         result = await service.generate(
@@ -167,8 +172,13 @@ async def revise_outline(
     language: str = Depends(get_request_language),
     notifier: AdminNotifier = Depends(get_admin_notifier),
 ) -> OutlineResponse:
-    teaser_mode = len(payload.outline) <= 1 and not await billing_service.can_start_generation(client_id)
-    cards_count = 1 if teaser_mode else 3
+    if not await billing_service.can_start_generation(client_id):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=_reading_limit_error(language),
+        )
+    teaser_mode = False
+    cards_count = 3
     try:
         result = await service.revise(
             topic=payload.topic,
