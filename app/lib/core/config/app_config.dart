@@ -78,6 +78,7 @@ class AppConfig {
         !uri.isAbsolute ||
         uri.scheme != 'https' ||
         uri.host.isEmpty ||
+        _isIpDerivedHostname(uri.host) ||
         uri.userInfo.isNotEmpty ||
         (uri.path.isNotEmpty && uri.path != '/') ||
         uri.hasQuery ||
@@ -87,6 +88,17 @@ class AppConfig {
     }
 
     return uri.replace(path: '').toString();
+  }
+
+  static bool _isIpDerivedHostname(String hostname) {
+    final normalized = hostname.toLowerCase().replaceFirst(RegExp(r'\.$'), '');
+    if (normalized.endsWith('.sslip.io') ||
+        normalized.endsWith('.nip.io') ||
+        normalized.contains(':')) {
+      return true;
+    }
+
+    return RegExp(r'^\d{1,3}(?:\.\d{1,3}){3}$').hasMatch(normalized);
   }
 
   static ArgumentError _invalidAppleBackendUrl(String value) {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
 import plistlib
 import re
@@ -64,6 +65,29 @@ def _validate_backend_url(value: str, errors: list[str]) -> None:
         errors.append(
             'APPLE_BACKEND_BASE_URL must be exactly one HTTPS origin.',
         )
+        return
+
+    hostname = parsed.hostname or ''
+    if _is_ip_derived_hostname(hostname):
+        errors.append(
+            'APPLE_BACKEND_BASE_URL must use an owned production hostname, '
+            'not an IP address or wildcard IP DNS service.',
+        )
+
+
+def _is_ip_derived_hostname(hostname: str) -> bool:
+    normalized = hostname.rstrip('.').lower()
+    try:
+        ipaddress.ip_address(normalized)
+    except ValueError:
+        pass
+    else:
+        return True
+
+    for suffix in ('.sslip.io', '.nip.io'):
+        if normalized.endswith(suffix):
+            return True
+    return False
 
 
 def _validate_privacy_policy_url(value: str, errors: list[str]) -> None:

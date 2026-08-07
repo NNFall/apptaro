@@ -157,6 +157,31 @@ def test_checker_rejects_non_https_apple_backend_url(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     'origin',
     [
+        'https://185-171-83-116.sslip.io:8443',
+        'https://185.171.83.116:8443',
+    ],
+)
+def test_checker_rejects_ip_derived_apple_backend_hosts(
+    tmp_path: Path,
+    origin: str,
+) -> None:
+    _write_distribution_fixture(tmp_path)
+
+    result = _run_checker(
+        tmp_path,
+        '--apple-backend-base-url',
+        origin,
+        '--apple-privacy-policy-url',
+        'https://example.test/privacy',
+    )
+
+    assert result.returncode == 1
+    assert 'owned production hostname' in result.stdout
+
+
+@pytest.mark.parametrize(
+    'origin',
+    [
         ' https://api.example.test',
         'https://api.example.test ',
         'https://api .example.test',

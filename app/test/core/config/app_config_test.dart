@@ -154,6 +154,25 @@ void main() {
       );
     });
 
+    const ipDerivedOrigins = <String>[
+      'https://185.171.83.116:8443',
+      'https://185-171-83-116.sslip.io:8443',
+      'https://185-171-83-116.nip.io:8443',
+      'https://[2001:db8::1]:8443',
+    ];
+
+    for (final origin in ipDerivedOrigins) {
+      test('rejects an IP-derived Apple backend origin: $origin', () {
+        expect(
+          () => AppConfig.resolveBackendBaseUrl(
+            isApplePlatform: true,
+            appleBackendBaseUrl: origin,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+    }
+
     const invalidOrigins = <String>[
       ' https://api.example.test',
       'https://api.example.test ',

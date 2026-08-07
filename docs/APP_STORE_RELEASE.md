@@ -257,9 +257,9 @@ number обязан быть больше `16` из `app/pubspec.yaml` и бол
 загруженного в App Store Connect:
 
 ```bash
-export APPLE_BACKEND_BASE_URL='https://api.example.com'
-export APPLE_PRIVACY_POLICY_URL='https://example.com/privacy'
-./scripts/macos/build_testflight.sh --build-name 1.0.0 --build-number 17
+export APPLE_BACKEND_BASE_URL='https://slide-maker-ai.com:8443'
+export APPLE_PRIVACY_POLICY_URL='https://nnfall.github.io/apptaro/privacy.html'
+./scripts/macos/build_testflight.sh --build-name 1.0.0 --build-number 22
 ```
 
 Скрипт отклоняет грязные изменения внутри `app/`, проверяет HTTPS URL, версию,

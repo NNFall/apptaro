@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -19,18 +20,27 @@ class AppSlidesApiClient {
     ClientSessionRepository? clientSession,
     LanguageRepository? languageRepository,
     Future<String> Function()? clientIdProvider,
+    Duration requestTimeout = const Duration(seconds: 15),
+    Duration retryDelay = const Duration(milliseconds: 350),
+    int getRetryAttempts = 3,
   })  : _client = client ?? http.Client(),
         _backendConfig = backendConfig ?? BackendConfigRepository(),
         _clientSession = clientSession ??
             (clientIdProvider == null ? ClientSessionRepository() : null),
         _languageRepository = languageRepository ?? LanguageRepository(),
-        _clientIdProvider = clientIdProvider;
+        _clientIdProvider = clientIdProvider,
+        _requestTimeout = requestTimeout,
+        _retryDelay = retryDelay,
+        _getRetryAttempts = getRetryAttempts;
 
   final http.Client _client;
   final BackendConfigRepository _backendConfig;
   final ClientSessionRepository? _clientSession;
   final LanguageRepository _languageRepository;
   final Future<String> Function()? _clientIdProvider;
+  final Duration _requestTimeout;
+  final Duration _retryDelay;
+  final int _getRetryAttempts;
 
   Future<bool> healthcheck() async {
     final payload = await _getJsonMap(AppConfig.healthPath);
@@ -247,7 +257,7 @@ class AppSlidesApiClient {
   }
 
   Future<Map<String, dynamic>> _getJsonMap(String path) async {
-    final response = await _client.get(
+    final response = await _getWithRetry(
       _resolve(path),
       headers: await _jsonHeaders(),
     );
@@ -255,6 +265,45 @@ class AppSlidesApiClient {
     _ensureSuccess(response, payload);
     return payload;
   }
+
+  Future<http.Response> _getWithRetry(
+    Uri uri, {
+    required Map<String, String> headers,
+  }) async {
+    final attempts = _getRetryAttempts < 1 ? 1 : _getRetryAttempts;
+    for (var attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        final response =
+            await _client.get(uri, headers: headers).timeout(_requestTimeout);
+        if (!_isRetryableStatus(response.statusCode) || attempt == attempts) {
+          return response;
+        }
+      } on TimeoutException catch (_) {
+        if (attempt == attempts) {
+          rethrow;
+        }
+      } on http.ClientException catch (_) {
+        if (attempt == attempts) {
+          rethrow;
+        }
+      }
+
+      if (_retryDelay > Duration.zero) {
+        await Future<void>.delayed(_retryDelay * attempt);
+      }
+    }
+
+    throw StateError('GET retry loop completed without a response.');
+  }
+
+  bool _isRetryableStatus(int statusCode) =>
+      statusCode == 408 ||
+      statusCode == 425 ||
+      statusCode == 429 ||
+      statusCode == 500 ||
+      statusCode == 502 ||
+      statusCode == 503 ||
+      statusCode == 504;
 
   Future<Map<String, dynamic>> _postJson({
     required String path,

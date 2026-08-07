@@ -180,7 +180,7 @@ def test_runbook_documents_exact_mac_and_testflight_flow() -> None:
 
     for expected in (
         './scripts/macos/bootstrap_ios.sh',
-        './scripts/macos/build_testflight.sh --build-name 1.0.0 --build-number 17',
+        './scripts/macos/build_testflight.sh --build-name 1.0.0 --build-number 22',
         'APPLE_BACKEND_BASE_URL',
         'APPLE_PRIVACY_POLICY_URL',
         'Runner.xcworkspace',

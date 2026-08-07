@@ -504,12 +504,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     await controller.refreshSummary();
     final summary = controller.summary;
     if (summary == null) {
-      final message = controller.error?.trim().isNotEmpty == true
-          ? controller.error!.trim()
-          : _copy(
-              en: 'Could not load subscription data.',
-              ru: 'Не удалось загрузить данные по подписке.',
-            );
+      final message = _copy(
+        en: 'Subscription data is temporarily unavailable. '
+            'Check your internet connection and tap Retry.',
+        ru: 'Данные подписки временно недоступны. '
+            'Проверьте подключение к интернету и нажмите «Повторить».',
+      );
       _appendBotMessage(
         '❌ $message',
         keyboard: [

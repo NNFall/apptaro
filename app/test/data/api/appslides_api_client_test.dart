@@ -117,6 +117,26 @@ void main() {
       'client_signed_data': 'header.payload.signature',
     });
   });
+
+  test('retries a transient billing summary connection failure', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final flakyClient = _FlakyClient(
+      failuresBeforeSuccess: 1,
+      responseBody: jsonEncode(_billingSummaryJson('retry-client')),
+    );
+    final client = AppSlidesApiClient(
+      client: flakyClient,
+      backendConfig: BackendConfigRepository(),
+      languageRepository: LanguageRepository(),
+      clientIdProvider: () async => 'at_test1234',
+      retryDelay: Duration.zero,
+    );
+
+    final summary = await client.fetchBillingSummary();
+
+    expect(summary.clientId, 'retry-client');
+    expect(flakyClient.requestCount, 2);
+  });
 }
 
 class _RecordingClient extends http.BaseClient {
@@ -135,6 +155,32 @@ class _RecordingClient extends http.BaseClient {
     final bytes = utf8.encode(responseBody);
     return http.StreamedResponse(
       Stream<List<int>>.value(bytes),
+      200,
+      headers: const <String, String>{
+        'content-type': 'application/json; charset=utf-8',
+      },
+    );
+  }
+}
+
+class _FlakyClient extends http.BaseClient {
+  _FlakyClient({
+    required this.failuresBeforeSuccess,
+    required this.responseBody,
+  });
+
+  final int failuresBeforeSuccess;
+  final String responseBody;
+  int requestCount = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requestCount += 1;
+    if (requestCount <= failuresBeforeSuccess) {
+      throw http.ClientException('Temporary connection failure', request.url);
+    }
+    return http.StreamedResponse(
+      Stream<List<int>>.value(utf8.encode(responseBody)),
       200,
       headers: const <String, String>{
         'content-type': 'application/json; charset=utf-8',
