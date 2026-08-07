@@ -46,6 +46,29 @@ https://185-171-83-116.sslip.io:8443
 iPad, открыть чистое приложение и проверить кнопку `Balance` минимум два раза:
 при первом запуске и после повторного запуска приложения.
 
+### Результат сборки и загрузки 22
+
+- Git commit: `0893de6`.
+- Среда сборки: Flutter `3.44.1 stable`, Xcode `26.6`, CocoaPods `1.16.2`.
+- Bundle ID: `com.nexwit.tarotreaderai`.
+- IPA version/build: `1.0.0 (22)`.
+- IPA SHA-256:
+  `571882b68375bfce6ac5a022513e8e8cf4e4ccb84654248052f06b4ef38e0fdb`.
+- В бинарном `App.framework/App` подтверждён
+  `https://slide-maker-ai.com:8443`; старый `sslip.io` отсутствует.
+- Apple delivery UUID: `e8e22911-f6a4-4bcf-a36e-bc3c9dea2bc7`.
+- App Store Connect build ID: `e8e22911-f6a4-4bcf-a36e-bc3c9dea2bc7`.
+- Processing state: `VALID`.
+- Версия App Store `1.0` переведена с build 21 на build 22 через API и сейчас
+  находится в `PREPARE_FOR_SUBMISSION`.
+
+Apple приняла IPA без ошибок. Получено только предупреждение, что с весны 2027
+новые загрузки должны иметь minimum deployment target iOS 15 или выше. Для
+текущей отправки target iOS 13 не является блокирующей ошибкой.
+
+Повторная отправка намеренно не выполнена: сначала требуется закрыть отдельный
+продуктовый отказ `4.3(b)`.
+
 ### Ответ ревьюеру по 2.1(a)
 
 ```text
